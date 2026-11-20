@@ -30,14 +30,23 @@ export function capText(text: string): string {
   return `${safeHead(text, MAX_CHARS / 2)}\n[...]\n${endOf(text, MAX_CHARS / 2)}`;
 }
 
+/** `text` with every mention of the folder `home` as `~`: with either slash, in any case, and never inside a longer folder name. */
+export function withoutHome(text: string, home: string): string {
+  const parts = home.replace(/[\\/]+$/, '').split(/[\\/]+/);
+  if (!parts.some(part => /\w/.test(part))) return text;
+  const pattern = parts.map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\\\/]+');
+  return text.replace(new RegExp(`${pattern}(?![\\w.-])`, 'gi'), '~');
+}
+
 type Part = { type?: unknown; text?: unknown };
 type Entry = { type?: unknown; content?: unknown };
 /**
  * The end of the chat's latest reply, from `session.context`: the text the model wrote over all of that reply's requests, joined, at most its
  * last MAX_REPLY_CHARS characters. Never its reasoning, tool calls or tool output, and never an earlier reply: a latest reply with no text
- * gives null. The person's new message may already be listed after the reply.
+ * gives null. The person's new message may already be listed after the reply. `home` is hidden as `~` before the cut, so a cut can never
+ * leave part of it.
  */
-export function lastReply(messages: unknown): string | null {
+export function lastReply(messages: unknown, home: string | null = null): string | null {
   const all: Entry[] = Array.isArray(messages) ? messages.filter((item): item is Entry => item !== null && typeof item === 'object') : [];
   let newest = all.length - 1;
   while (newest >= 0 && all[newest].type !== 'assistant') newest--;
@@ -45,7 +54,8 @@ export function lastReply(messages: unknown): string | null {
   let start = newest;
   while (start > 0 && all[start - 1].type !== 'user') start--;
   const parts = all.slice(start, newest + 1).filter(entry => entry.type === 'assistant').flatMap(entry => (Array.isArray(entry.content) ? entry.content : []) as Part[]);
-  const text = parts.flatMap(part => part !== null && typeof part === 'object' && part.type === 'text' && typeof part.text === 'string' ? [part.text] : []).join('\n').trim();
+  const joined = parts.flatMap(part => part !== null && typeof part === 'object' && part.type === 'text' && typeof part.text === 'string' ? [part.text] : []).join('\n').trim();
+  const text = home ? withoutHome(joined, home) : joined;
   return text ? endOf(text, MAX_REPLY_CHARS) : null;
 }
 /** Whether a reply goes to the decider: only for a chat message, and only when there is text. */

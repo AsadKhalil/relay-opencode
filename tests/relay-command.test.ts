@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { relayCommand, isPicture, fileSize, localPath } from '../src/relay-command.js';
@@ -203,6 +203,21 @@ test('in a mode with several models the line the decider chose picks the model',
   assert.deepEqual(input(f, 'switchModel').model, { providerID: 'p', id: 'usual' });
   const record = await last(f);
   assert.deepEqual([record.mode, record.model, record.fit, record.note], ['execute', 'p/usual', 0.8, null]);
+});
+
+test("the decider is told the end of the chat's last reply, with the home folder as ~", async () => {
+  const messages = [{ type: 'user', id: 'm1', text: 'plan it' }, { type: 'assistant', content: [{ type: 'reasoning', text: 'thinking aloud' }, { type: 'text', text: `Plan: change ${homedir()}\\relay-bench\\wordy.py only.` }] }];
+  const f = fakeRelay({ messages }); await run(f);
+  const text = input(f, 'decisions').input[0].text as string;
+  assert.ok(text.includes('The end of the chat\'s last reply: "Plan: change ~\\relay-bench\\wordy.py only."'), text);
+  assert.equal(text.toLowerCase().includes(homedir().toLowerCase()), false);
+  assert.equal(text.includes('thinking aloud'), false);
+});
+
+test('when the chat cannot be read in time, the decider is asked without the reply, and the message still goes once', async () => {
+  const f = fakeRelay({ messages: 'never' }); await run(f);
+  assert.equal((input(f, 'decisions').input[0].text as string).includes('last reply'), false);
+  assert.deepEqual(prompts(f), sent);
 });
 
 test('when no line fits, the first model of the list is used, whatever model the chat is on', async () => {

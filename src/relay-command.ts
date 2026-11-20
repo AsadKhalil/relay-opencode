@@ -1,9 +1,10 @@
 import { stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Plugin } from '@opencode/plugin';
 import type { PromptInput } from '@opencode/schema/prompt-input';
 import type { Session } from '@opencode/schema/session';
-import { LATE, within, type DecideInput } from './decider.js';
+import { LATE, lastReply, within, type DecideInput } from './decider.js';
 import type { ListedModel } from './inventory.js';
 import { chatFacts } from './chat-facts.js';
 import { getRelaySettings, hostVariant, modelName, recentDecisions, recordDecision, setChatSwitch, type Decision, type RelayStore } from './relay-store.js';
@@ -106,7 +107,9 @@ export async function placeMessage(deps: RelayDeps, timing: Timing, input: { rea
     // shortcut: four bytes to a token. Dense text takes more, so a file close to a model's size can still be too big for it.
     const attachment = { needsImage: pictures > 0, tokens: Math.ceil(facts.reduce((sum, file) => sum + (file.bytes ?? 0), 0) / 4), chat: messages === null ? null : chatFacts(messages, Date.now()), past: past ?? [] };
     const current = chat.model ? { providerID: chat.model.providerID, id: chat.model.id, variant: hostVariant(chat.model.variant) } : null;
-    const answer = await deps.decide(settings.decider, { kind: 'chat', text: prompt.text, agent: chat.agent ?? null, files: facts, images: pictures, lines: linesFor(settings, models, attachment, current) });
+    // The end of the last reply lets the decider place a short follow-up ("Implement it.") by the plan or review before it; the home folder is hidden.
+    const reply = messages === null ? null : lastReply(messages, homedir());
+    const answer = await deps.decide(settings.decider, { kind: 'chat', text: prompt.text, agent: chat.agent ?? null, files: facts, images: pictures, lines: linesFor(settings, models, attachment, current), reply });
     const result = route(answer, settings, models, attachment, current, input.unsure);
     Object.assign(outcome, { mode: result.mode, ms: answer.ms }, answer.kind === 'answer' ? { confidence: answer.confidence, costUsd: answer.costUsd } : {});
     if (result.note !== null) notes.push(result.note);

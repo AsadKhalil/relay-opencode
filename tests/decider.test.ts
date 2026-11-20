@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDecisionRequest, capText, decide, lastReply, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS, TIMEOUT_MS, type DecideInput, type FileFact } from '../src/decider.js';
+import { buildDecisionRequest, capText, decide, lastReply, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS, TIMEOUT_MS, withoutHome, type DecideInput, type FileFact } from '../src/decider.js';
 
 const judge = { providerID: 'd', id: 'judge', variant: null };
 const chat: DecideInput = { kind: 'chat', text: 'fix the login test', agent: 'plan', files: [{ name: 'a.txt', bytes: 2048 }], images: 0, lines: {} };
@@ -110,6 +110,22 @@ test('a long reply keeps its last 1,500 characters, and never half a character',
   const end = (text: string) => lastReply([user('1'), said({ type: 'text', text })]);
   assert.equal(end('a'.repeat(2000) + '😀' + 'b'.repeat(1498)), '😀' + 'b'.repeat(1498));
   assert.equal(end('a'.repeat(2000) + '😀' + 'b'.repeat(1499)), 'b'.repeat(1499), 'the cut would fall inside the emoji');
+});
+
+test('the home folder is replaced with either slash and in any case, and not inside a longer folder name', () => {
+  assert.equal(withoutHome('C:/USERS/me/x and c:\\users\\me\\y', 'C:\\Users\\me'), '~/x and ~\\y');
+  assert.equal(withoutHome('C:\\Users\\me2\\x and C:\\Users\\me.old', 'C:\\Users\\me'), 'C:\\Users\\me2\\x and C:\\Users\\me.old');
+  assert.equal(withoutHome('/home/me/src, /home/me', '/home/me/'), '~/src, ~');
+  assert.equal(withoutHome('a/b', '/'), 'a/b', 'a home with no name is left alone');
+});
+
+test('the home folder is hidden before the reply is cut, so no part of it is left', () => {
+  const home = 'C:\\Users\\someone', path = `${home}\\relay-bench\\wordy.py`;
+  // Cut after the home folder is named, the last 1,500 characters would start inside "someone".
+  const text = 'x'.repeat(2000) + path + 'y'.repeat(2012 + MAX_REPLY_CHARS - 2000 - path.length);
+  const end = lastReply([user('1'), said({ type: 'text', text })], home) ?? '';
+  assert.equal(end.includes('eone'), false, end.slice(0, 40));
+  assert.ok(end.includes('~\\relay-bench\\wordy.py'));
 });
 
 test('a readable answer becomes the mode, the confidence, the cost and the lines', async () => {
