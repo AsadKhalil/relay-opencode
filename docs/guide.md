@@ -47,7 +47,8 @@ Add models to **Plan**, **Execute** and **Review**: press **+ Add a model** unde
 - Each chosen model has a menu for its effort (low, high and so on) when the model offers them.
 - The prices come from OpenCode's own model catalog, which OpenCode fills from [models.dev](https://models.dev); Relay asks nothing of its own. "not listed" means OpenCode has no price for that model (on 17 Nov 2026 every model of the `claude-agent` provider), and "$0 or not listed" means the catalog says 0, which can be either.
 - The index is the Artificial Analysis Intelligence Index, taken from OpenRouter's public model list. For a model with efforts, it is the score at its highest effort, and a lower effort scores less (GPT-6.2 Sol: 57 at max, 41 at low). The price per token is the same at every effort, but a higher effort writes more tokens, so each reply costs more. "—" means Relay could not match the model. Hover over a number to see which model it came from. See [data sources](data-sources.md).
-- When a mode has more than one model, write a short "use it for" line for each, for example "hard design and architecture" or "small, quick edits". The decision model matches your message to these lines. It never sees model names or prices.
+- When a mode has more than one model, write a short "use it for" line for each, for example "hard design and architecture" or "small, quick edits". The decision model matches your message to these lines. It also reads the end of the chat's last reply, so a short follow-up such as "Implement it." is matched by the plan before it. It never sees model names or prices.
+- When no line fits clearly, Relay uses the first model in the mode's list, so put your everyday model first. A move to a cheaper model is still made only when it pays (see [When Relay saves money](saving-money.md)).
 
 ### The decider
 

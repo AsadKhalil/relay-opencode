@@ -16,7 +16,7 @@ It does not save when a long chat moves to a model that is only about twice chea
 
 Since 18 Nov 2026:
 
-- **A step down happens only when it pays.** When your line picks a cheaper model of the same mode, Relay works out what reading the chat again would cost, and what the cheaper model would save over the next requests. It moves the chat only if the saving is at least one and a half times that cost. Otherwise the chat's model stays for that message, the mode still sets the agent, and Recent choices says why. A step up to a dearer model is always made: your line asked for it.
+- **A step down happens only when it pays.** When your line picks a cheaper model of the same mode, or no line fits and the mode's first model is the cheaper one, Relay works out what reading the chat again would cost, and what the cheaper model would save over the next requests. It moves the chat only if the saving is at least one and a half times that cost. Otherwise the chat's model stays for that message, the mode still sets the agent, and Recent choices says why. A step up to a dearer model is always made: your line, or the order of your list, asked for it.
 - **The whole chat must fit.** A chat is moved to a model only when the chat so far, with the attached files, fits that model with the room OpenCode keeps free before it compacts a chat.
 - **Recent choices shows what each reply took**, so you can see what a switch cost.
 
