@@ -34,7 +34,7 @@ export function reviewHelperHook(deps: Pick<RelayDeps, 'store' | 'chatModels' | 
       if (answer.mode !== 'review') return await record(event.sessionID, { ...decided, note: 'not a check' });
       if (answer.confidence < UNSURE_BELOW) return await record(event.sessionID, { ...decided, note: 'not sure it is a check' });
       // A helper has no model of its own to keep, so with no clear line the first usable Review model is used.
-      const picked = pickModel(candidates('review', settings.modes.review, models, nothingAttached).usable, answer.lines.review, null), model = modelName(picked.model);
+      const picked = pickModel(candidates('review', settings.modes.review, models, nothingAttached).usable, answer.lines.review), model = modelName(picked.model);
       event.input = { ...input, model, prompt: `${input.prompt}\n\n${reviewRules}` };
       const asked = typeof input.model === 'string' && input.model.trim() !== model ? `its caller asked for ${input.model.trim()}` : null;
       const notes = [asked, picked.note].filter(Boolean);

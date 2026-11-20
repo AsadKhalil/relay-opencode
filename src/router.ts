@@ -88,15 +88,18 @@ export function linesFor(settings: Pick<RelaySettings, 'modes'>, models: readonl
   return lines;
 }
 
-/** One model out of a mode's usable ones (never empty). `current` is the model the chat is on, when that is known. */
-export function pickModel(usable: readonly ModeChoice[], line: LineAnswer | undefined, current: ModelChoice | null): { model: ModelChoice; fit: number | null; note: string | null } {
+/**
+ * One model out of a mode's usable ones (never empty). When no line fits clearly, the first model of the list is used, whatever the chat is
+ * on: the person's order is the default (the owner, 19 Nov). A short follow-up such as "Implement it." fits no line, and keeping the chat's
+ * model kept the plan's dearer model for all the work (docs/compatibility.md, 19 Nov). The cost check after this can still keep the chat's model.
+ */
+export function pickModel(usable: readonly ModeChoice[], line: LineAnswer | undefined): { model: ModelChoice; fit: number | null; note: string | null } {
   const asked = described(usable);
   if (usable.length === 1 || !asked.length) return { model: plain(usable[0]), fit: null, note: null };
   const chosen = line && line.index !== null ? asked[line.index] : undefined;
   if (line && chosen && line.confidence >= LINE_UNSURE_BELOW) return { model: plain(chosen), fit: line.confidence, note: null };
   const reason = line && (line.index === null || chosen) ? 'no line fits clearly' : 'no answer about the lines';
-  const kept = current && usable.find(choice => same(choice, current));
-  return kept ? { model: plain(kept), fit: null, note: `${reason}, so the chat's model stays` } : { model: plain(usable[0]), fit: null, note: `${reason}, so the first model is used` };
+  return { model: plain(usable[0]), fit: null, note: `${reason}, so the first model is used` };
 }
 
 // Stay or go: a step down to a cheaper model is made only when it pays. Arithmetic only, on whole numbers; no model is asked. The method
@@ -153,7 +156,7 @@ export function route(answer: DeciderAnswer, settings: Pick<RelaySettings, 'mode
   const mode: Mode = doubtful ? 'plan' : answer.mode, notes = doubtful ? ['not sure, so Plan'] : [];
   const { usable, note } = candidates(mode, settings.modes[mode], models, attachment, current);
   if (note !== null) return { switch: false, mode, note: [...notes, note].join('; ') };
-  const chosen = pickModel(usable, answer.lines[mode], current), weighed = stayOrGo(mode, chosen.model, current, usable, models, attachment);
+  const chosen = pickModel(usable, answer.lines[mode]), weighed = stayOrGo(mode, chosen.model, current, usable, models, attachment);
   for (const said of [chosen.note, weighed.note]) if (said !== null) notes.push(said);
   // Whichever model is used, the mode still sets the agent and the review rules.
   const kept = weighed.stay && current !== null;

@@ -205,17 +205,17 @@ test('in a mode with several models the line the decider chose picks the model',
   assert.deepEqual([record.mode, record.model, record.fit, record.note], ['execute', 'p/usual', 0.8, null]);
 });
 
-test('when no line fits, the chat keeps its model if the mode lists it, and else the first is used', async () => {
+test('when no line fits, the first model of the list is used, whatever model the chat is on', async () => {
   const settings = execute(entry('exec', 'high', 'small, clear changes'), entry('usual', null, 'large changes across many files'));
   const decision = { choice: 'execute', confidence: 0.9, lines: { execute: { choice: 'none', confidence: 0.9 } } };
-  const stays = fakeRelay({ settings, decision }); await run(stays);          // the chat is on p/usual
-  assert.deepEqual(switches(stays), ['switchAgent', 'remove']);
-  assert.deepEqual([(await last(stays)).model, (await last(stays)).note], ['p/usual', 'no line fits clearly, so the chat\'s model stays']);
+  const listed = fakeRelay({ settings, decision }); await run(listed);          // the chat is on p/usual, the list's second model
+  assert.deepEqual(input(listed, 'switchModel').model, { providerID: 'p', id: 'exec', variant: 'high' });
+  assert.deepEqual([(await last(listed)).model, (await last(listed)).note], ['p/exec#high', 'no line fits clearly, so the first model is used']);
   const moves = fakeRelay({ settings, decision, chat: { model: { providerID: 'p', id: 'plan' } } }); await run(moves);
   assert.deepEqual(input(moves, 'switchModel').model, { providerID: 'p', id: 'exec', variant: 'high' });
   assert.equal((await last(moves)).note, 'no line fits clearly, so the first model is used');
   const silent = fakeRelay({ settings, decision: { choice: 'execute', confidence: 0.9 } }); await run(silent);
-  assert.equal((await last(silent)).note, 'no answer about the lines, so the chat\'s model stays');
+  assert.equal((await last(silent)).note, 'no answer about the lines, so the first model is used');
 });
 
 test('files that do not fit leave a model out; a size that cannot be read counts as nothing, and reading gives up after its limit', async () => {

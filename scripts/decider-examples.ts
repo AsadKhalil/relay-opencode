@@ -47,7 +47,7 @@ function sample(set: ExampleSet) {
 /** The line is read from the question about the expected mode's lines, so a wrong mode does not hide how well the lines are told apart. */
 export function judge(set: ExampleSet, example: Example, answer: DeciderAnswer): Outcome {
   const { settings, models } = sample(set), answered = answer.kind === 'answer', lineSaid = answered ? answer.lines[example.expect] ?? null : null;
-  const picked = pickModel(candidates(example.expect, settings.modes[example.expect], models, nothing).usable, lineSaid ?? undefined, null);
+  const picked = pickModel(candidates(example.expect, settings.modes[example.expect], models, nothing).usable, lineSaid ?? undefined);
   return {
     mode: route(answer, settings, models, nothing, null).mode, said: answered ? answer.mode : null, confidence: answered ? answer.confidence : null,
     line: picked.fit === null ? null : Number(picked.model.id.split('-')[1]), fit: picked.fit, lineSaid,

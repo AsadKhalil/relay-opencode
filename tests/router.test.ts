@@ -72,19 +72,18 @@ test('the line the decider chose picks the model, from a confidence of 0.5', () 
   assert.deepEqual((route(sure('plan', 0.9, { plan: { index: 2, confidence: 0.49 } }), three, models, nothing, null) as { model: unknown }).model, pick('plan'));
 });
 
-test('when no line fits, the chat keeps its model if the mode can use it, and else the first is used', () => {
+test('when no line fits, the first model of the list is used, whatever model the chat is on', () => {
   const noLine = sure('plan', 0.9, { plan: { index: null, confidence: 0.95 } });
-  assert.deepEqual(route(noLine, three, models, nothing, pick('eyes')), { switch: true, mode: 'plan', agent: 'plan', model: pick('eyes'), fit: null, note: 'no line fits clearly, so the chat\'s model stays' });
-  for (const current of [null, pick('other'), pick('eyes', 'high')])
+  for (const current of [null, pick('eyes'), pick('other'), pick('eyes', 'high')])
     assert.deepEqual(route(noLine, three, models, nothing, current), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no line fits clearly, so the first model is used' });
   const weak = sure('plan', 0.9, { plan: { index: 1, confidence: 0.3 } });
-  assert.equal((route(weak, three, models, nothing, pick('eyes')) as { note: string }).note, 'no line fits clearly, so the chat\'s model stays');
+  assert.equal((route(weak, three, models, nothing, pick('eyes')) as { note: string }).note, 'no line fits clearly, so the first model is used');
 });
 
 test('a missing line answer, or one that names a line that is not there, falls back the same way', () => {
   for (const lines of [{}, { plan: { index: 3, confidence: 0.9 } }, { plan: { index: -1, confidence: 0.9 } }, { execute: { index: 1, confidence: 0.9 } }]) {
-    assert.deepEqual(route(sure('plan', 0.9, lines), three, models, nothing, pick('deep')), { switch: true, mode: 'plan', agent: 'plan', model: pick('deep'), fit: null, note: 'no answer about the lines, so the chat\'s model stays' });
-    assert.deepEqual(route(sure('plan', 0.9, lines), three, models, nothing, null), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no answer about the lines, so the first model is used' });
+    for (const current of [pick('deep'), null])
+      assert.deepEqual(route(sure('plan', 0.9, lines), three, models, nothing, current), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no answer about the lines, so the first model is used' });
   }
 });
 
