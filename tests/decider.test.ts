@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDecisionRequest, capText, decide, MAX_CHARS, MAX_FILE_NAMES, TIMEOUT_MS, type DecideInput, type FileFact } from '../src/decider.js';
+import { buildDecisionRequest, capText, decide, lastReply, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS, TIMEOUT_MS, type DecideInput, type FileFact } from '../src/decider.js';
 
 const judge = { providerID: 'd', id: 'judge', variant: null };
 const chat: DecideInput = { kind: 'chat', text: 'fix the login test', agent: 'plan', files: [{ name: 'a.txt', bytes: 2048 }], images: 0, lines: {} };
@@ -65,6 +65,51 @@ test('text over 4,000 characters keeps the first 2,000 and the last 2,000, and n
   assert.ok(emoji.length <= 4000 + '\n[...]\n'.length);
   const sent = buildDecisionRequest(judge, { ...chat, text: 'a'.repeat(3000) + 'b'.repeat(3000) }).input[0].text;
   assert.equal(sent.split('"')[1], 'a'.repeat(2000) + '\n[...]\n' + 'b'.repeat(2000), 'the cut text is what is sent');
+});
+
+test('the end of the last reply is told to the decider, after the message, and never for a helper', () => {
+  const text = (input: DecideInput) => buildDecisionRequest(judge, input).input[0].text;
+  assert.deepEqual(text({ ...chat, reply: 'Plan: change wordy.py only.' }).split('\n').slice(0, 2), ['The person\'s message: "fix the login test"', 'The end of the chat\'s last reply: "Plan: change wordy.py only."']);
+  const helper: DecideInput = { kind: 'helper', text: 'Review the diff', agent: null, files: [], images: 0, lines: {}, reply: 'Plan: change wordy.py only.' };
+  for (const input of [{ ...chat, reply: null }, { ...chat, reply: '' }, chat, helper]) assert.doesNotMatch(text(input), /last reply/);
+});
+
+test('with a reply, the mode is judged by the message and the line by both; without one, the questions are as before', () => {
+  const lines = { execute: ['small edits in one or two files', 'bigger changes across several files'] };
+  const told = buildDecisionRequest(judge, { ...chat, lines, reply: 'Plan: change wordy.py only.' }).questions;
+  assert.match(told[0].instructions, /^Which mode fits the person's message\?/);
+  assert.match(told[0].instructions, /last reply/);
+  assert.match(told[1].instructions, /last reply/);
+  assert.match(told[1].instructions, /Choose none when no description fits clearly/);
+  const plain = buildDecisionRequest(judge, { ...chat, lines }).questions;
+  assert.match(plain[0].instructions, /^Which mode fits the text\?/);
+  assert.equal(plain[1].instructions, 'Which description of work fits the text best? Choose none when no description fits clearly.');
+});
+
+const user = (id: string) => ({ type: 'user', id, text: 'a message' });
+const said = (...content: unknown[]) => ({ type: 'assistant', content });
+
+test('the last reply is the text of the latest answer, without reasoning or tools', () => {
+  const tool = { type: 'tool', name: 'read', content: [{ type: 'text', text: 'the file read' }] };
+  const messages = [user('1'), said({ type: 'reasoning', text: 'think' }, { type: 'text', text: 'old' }), user('2'), said({ type: 'reasoning', text: 'r' }, tool), { type: 'idle' }, said({ type: 'text', text: 'Step 1' }, { type: 'text', text: 'Step 2' })];
+  assert.equal(lastReply(messages), 'Step 1\nStep 2');
+  assert.equal(lastReply([...messages, user('3')]), 'Step 1\nStep 2', 'the new message may already be listed');
+  assert.equal(lastReply(messages.slice(-3)), 'Step 1\nStep 2');
+});
+
+test('a reply that is only tool calls, or no reply at all, gives nothing', () => {
+  assert.equal(lastReply([]), null);
+  assert.equal(lastReply(null), null);
+  assert.equal(lastReply([user('1')]), null);
+  assert.equal(lastReply([user('1'), said({ type: 'text', text: 'old' }), user('2'), said({ type: 'tool', name: 'edit' })]), null, 'never an earlier reply');
+  assert.equal(lastReply([user('1'), said({ type: 'text', text: '  \n ' })]), null);
+});
+
+test('a long reply keeps its last 1,500 characters, and never half a character', () => {
+  assert.equal(MAX_REPLY_CHARS, 1500);
+  const end = (text: string) => lastReply([user('1'), said({ type: 'text', text })]);
+  assert.equal(end('a'.repeat(2000) + '😀' + 'b'.repeat(1498)), '😀' + 'b'.repeat(1498));
+  assert.equal(end('a'.repeat(2000) + '😀' + 'b'.repeat(1499)), 'b'.repeat(1499), 'the cut would fall inside the emoji');
 });
 
 test('a readable answer becomes the mode, the confidence, the cost and the lines', async () => {

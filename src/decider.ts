@@ -4,27 +4,52 @@ import { brief, safeHead, MAX_LINES, type DeciderAnswer, type LineAnswer } from 
 import type { ModelChoice } from './settings.js';
 
 // One request to a decision model: which mode fits the text, and, for each mode that has a choice to make, which "use it for" line fits it.
-// The decider is given the text, the names and sizes of attached files and the lines. Never file contents, pictures, earlier messages, model names or prices.
+// The decider is given the text, the names and sizes of attached files and the lines, and for a chat message the end of the chat's last reply
+// (its text only; the owner chose this on 19 Nov, so that "Implement it." can be placed by the plan before it). Never file contents, pictures,
+// other earlier messages, the model's reasoning or tools, model names or prices.
 // Its requests are not reserved in the budget ledger (the owner, 2026-11-14); what is sent is capped instead. Nothing here may import from `node:`.
 
 export const MAX_CHARS = 4000;
+export const MAX_REPLY_CHARS = 1500;
 export const TIMEOUT_MS = 5000;
 export const MAX_FILE_NAMES = 10;
 const MAX_NAME = 80;
 
 export type FileFact = { name: string; bytes: number | null };
-export type DecideInput = { kind: 'chat' | 'helper'; text: string; agent: string | null; files: readonly FileFact[]; images: number; lines: Partial<Record<Mode, readonly string[]>> };
+/** `reply` is the end of the chat's last reply, for a chat message (see `lastReply`). */
+export type DecideInput = { kind: 'chat' | 'helper'; text: string; agent: string | null; files: readonly FileFact[]; images: number; lines: Partial<Record<Mode, readonly string[]>>; reply?: string | null };
 export type DecisionsRequest = { model: { providerID: string; id: string; variant?: string }; input: { type: 'text'; text: string }[]; questions: { type: 'choice'; name: string; instructions: string; choices: { value: string; description: string }[] }[] };
 export type DecisionsHost = { decisions(request: DecisionsRequest): Promise<unknown> };
+
+/** The last `max` characters of `text`, never starting with half a two-unit character. */
+const endOf = (text: string, max: number) => { const tail = text.slice(-max); return /^[\uDC00-\uDFFF]/.test(tail) ? tail.slice(1) : tail; };
 
 /** Text over the limit keeps its first and last half, and is never cut inside a two-unit character. */
 export function capText(text: string): string {
   if (text.length <= MAX_CHARS) return text;
-  const head = safeHead(text, MAX_CHARS / 2);
-  let tail = text.slice(-MAX_CHARS / 2);
-  if (/^[\uDC00-\uDFFF]/.test(tail)) tail = tail.slice(1);
-  return `${head}\n[...]\n${tail}`;
+  return `${safeHead(text, MAX_CHARS / 2)}\n[...]\n${endOf(text, MAX_CHARS / 2)}`;
 }
+
+type Part = { type?: unknown; text?: unknown };
+type Entry = { type?: unknown; content?: unknown };
+/**
+ * The end of the chat's latest reply, from `session.context`: the text the model wrote over all of that reply's requests, joined, at most its
+ * last MAX_REPLY_CHARS characters. Never its reasoning, tool calls or tool output, and never an earlier reply: a latest reply with no text
+ * gives null. The person's new message may already be listed after the reply.
+ */
+export function lastReply(messages: unknown): string | null {
+  const all: Entry[] = Array.isArray(messages) ? messages.filter((item): item is Entry => item !== null && typeof item === 'object') : [];
+  let newest = all.length - 1;
+  while (newest >= 0 && all[newest].type !== 'assistant') newest--;
+  if (newest < 0) return null;
+  let start = newest;
+  while (start > 0 && all[start - 1].type !== 'user') start--;
+  const parts = all.slice(start, newest + 1).filter(entry => entry.type === 'assistant').flatMap(entry => (Array.isArray(entry.content) ? entry.content : []) as Part[]);
+  const text = parts.flatMap(part => part !== null && typeof part === 'object' && part.type === 'text' && typeof part.text === 'string' ? [part.text] : []).join('\n').trim();
+  return text ? endOf(text, MAX_REPLY_CHARS) : null;
+}
+/** Whether a reply goes to the decider: only for a chat message, and only when there is text. */
+const replied = (input: DecideInput): input is DecideInput & { reply: string } => input.kind === 'chat' && typeof input.reply === 'string' && input.reply.trim() !== '';
 
 const flat = (text: string, max: number) => safeHead(text.replace(/[\s\x00-\x1f\x7f]+/g, ' ').trim(), max);
 /** Only the last part of a path is sent, so the name of a home folder never leaves the machine. */
@@ -41,29 +66,37 @@ function describe(input: DecideInput): string {
   if (input.kind === 'helper') return `A task that a model is handing to a helper: "${text}"`;
   const shown = input.files.slice(0, MAX_FILE_NAMES).map(file => `${fileName(file.name)} (${size(file.bytes)})`).join(', '), more = input.files.length - MAX_FILE_NAMES;
   const files = input.files.length ? `${shown}${more > 0 ? ` and ${more} more` : ''}` : 'none';
-  return `The person's message: "${text}"\n${agentLine(input.agent)}Attached files: ${files}. Attached pictures: ${input.images}.`;
+  const reply = replied(input) ? `The end of the chat's last reply: "${endOf(input.reply.trim(), MAX_REPLY_CHARS)}"\n` : '';
+  return `The person's message: "${text}"\n${reply}${agentLine(input.agent)}Attached files: ${files}. Attached pictures: ${input.images}.`;
 }
 
-const modeQuestion = {
+// With a reply in the input, the questions say which text to judge, so the reply cannot pull the mode (a plan that says "I will change"
+// is not a request to change). Without one, they are word for word what the decider was measured with before (14 to 19 Nov).
+const modeQuestion = (reply: boolean) => ({
   type: 'choice' as const, name: 'mode',
-  instructions: 'Which mode fits the text? Choose execute only when it clearly asks to change, create, fix or run something now. Choose review when it asks to check existing work and report, with nothing to change. Otherwise choose plan.',
+  instructions: reply
+    ? "Which mode fits the person's message? The end of the chat's last reply only shows what the message refers to. Choose execute only when the message clearly asks to change, create, fix or run something now. Choose review when it asks to check existing work and report, with nothing to change. Otherwise choose plan."
+    : 'Which mode fits the text? Choose execute only when it clearly asks to change, create, fix or run something now. Choose review when it asks to check existing work and report, with nothing to change. Otherwise choose plan.',
   choices: [
     { value: 'plan', description: 'Think, explain, investigate, design or plan. Nothing is changed.' },
     { value: 'execute', description: 'Write, change, create, fix or run something now.' },
     { value: 'review', description: 'Check existing work for mistakes and risks, and report them.' },
   ],
-};
-const lineQuestion = (mode: Mode, lines: readonly string[]) => ({
+});
+const lineQuestion = (mode: Mode, lines: readonly string[], reply: boolean) => ({
   type: 'choice' as const, name: `${mode}_line`,
-  instructions: 'Which description of work fits the text best? Choose none when no description fits clearly.',
+  instructions: reply
+    ? "Which description of work fits best? Judge the kind and size of the work by the person's message and the end of the chat's last reply. Choose none when no description fits clearly."
+    : 'Which description of work fits the text best? Choose none when no description fits clearly.',
   choices: [...lines.slice(0, MAX_LINES).map((line, index) => ({ value: String(index + 1), description: line })), { value: 'none', description: 'None of these fits clearly.' }],
 });
 
 export function buildDecisionRequest(decider: ModelChoice, input: DecideInput): DecisionsRequest {
+  const reply = replied(input);
   return {
     model: { providerID: decider.providerID, id: decider.id, ...(decider.variant === null ? {} : { variant: decider.variant }) },
     input: [{ type: 'text', text: describe(input) }],
-    questions: [{ ...modeQuestion, choices: [...modeQuestion.choices] }, ...modes.flatMap(mode => input.lines[mode]?.length ? [lineQuestion(mode, input.lines[mode])] : [])],
+    questions: [modeQuestion(reply), ...modes.flatMap(mode => input.lines[mode]?.length ? [lineQuestion(mode, input.lines[mode], reply)] : [])],
   };
 }
 
