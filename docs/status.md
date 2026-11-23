@@ -23,7 +23,12 @@ Details are in the [compatibility findings](compatibility.md) and the [change lo
 - **Relay's own choice inside a mode (23 Nov 2026):** with two or more models in a mode and no lines, Relay asks only how big the work is and picks the highest index or the cheapest.
   - Its question was asked of `opencode/jev-1.13-free` with 30 made-up cases (`scripts/decider-size.ts`): 27 right, every small case right, and no failed try called small. Its weak spot is risky work that looks small (money, security).
   - The ranking, the pick and the panel's parts are covered by unit tests. The isolated real-host check covers the fallback (no index, so the first model) and the panel's call.
-  - Not yet run: real chats choosing between two models by size, and Desktop's panel showing the parts.
+  - Real chats on Go, in the owner's own OpenCode (23 Nov, six exercises, one run each). Execute held GLM-5.3 Flash and Kimi K3.1 Pro with no lines.
+    - Of the 12 build turns, Relay judged 7 small (Flash) and 2 big (Kimi). In the other 3 it was not sure, so the first model (Flash) was used.
+    - It passed 4 of 6 at $1.20 list price: 28.1% less than Relay off (also 4 of 6), and about the same as one model a mode ($1.17, 6 of 6).
+    - The other two Relay setups passed all six, so this setup did not meet its success line, though it cost less than two for Execute ($1.41, 6 of 6).
+    - One failure came with the same choices that passed elsewhere. The other followed a step up to Kimi, which also failed that exercise on its own.
+  - Not yet run: Desktop's panel showing the parts, helpers on a real host, and more than one run of each exercise.
 - **Renamed on 17 Nov 2026:** the package, the plugin id and the GitHub repository are now `relay-opencode` (they were `feature-pilot` and `orchestrator-plugin`; the old repository address forwards to the new one). Settings saved under the old name are not carried over. The renamed package passed the isolated real-host check on Windows.
 - **Removed on 17 Nov 2026:** the older feature pipeline in the side panel (the Run, Spend and More tabs). Anything it saved is left in place and ignored.
 

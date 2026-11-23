@@ -1250,3 +1250,62 @@ Built from `docs/superpowers/plans/2026-11-23-relay-own-choice-by-index-and-pric
 - A ranked list on a real host: the mock models have no index. The ranking, the size question and the pick are covered by unit tests.
 - The size question in real chats; helpers on a real host; Artificial Analysis's real Coding index.
 - Desktop's panel showing the parts.
+
+## 2026-11-23 (late) — Relay's own choice in the owner's own OpenCode, on Go (Windows 11; Desktop's service 2.3.2; the owner's Relay copy, 0.1.0 built from `dbbab5e`)
+
+After pushing, the owner said: "test on relay with Go allowance". For the update of their copy they answered "Close and reopen now". That yes covers this update and this run.
+
+**The update.**
+- At 17:42 UTC, Desktop's window was closed and its service ended.
+- The packed build of `dbbab5e` was installed into the fixed copy with `npm install` ("changed 1 package"). The `dd2a17a` tarball stays beside it. The installed `dist` files match this build (compared by hash).
+- At 17:43 Desktop was started again through Explorer. Its service answered at 17:44, loaded Relay from the copy with no warning or error, and booted the test folder by itself.
+- At 17:45 Desktop replaced that service once (`reason: 'missing'`), right after unpacking an update of its own that waits for the next restart. That update's version was not read. The new service answered from 17:47.
+
+**The run.** `scripts/bench/run.ts --plan go --sides on-own --budget 70`, all six exercises, 17:47 to 18:15 UTC.
+- The models and decider were the same as in the earlier runs.
+- The new side, "On, Relay chooses" (`9f37071`), puts GLM-5.3 Flash and then Kimi K3.1 Pro in Execute, with no lines. Plan and Review hold Kimi alone.
+- Before each chat the runner asked Relay how it ranks Execute (`getOwnChoice`). It would have stopped without sending anything unless big work went to Kimi and small work to Flash, and it went that way.
+- The index came from OpenRouter's public list, loaded at the run's start: Kimi K3.1 Pro 46.5, GLM-5.3 Flash 27.8. No Artificial Analysis key was used.
+
+| Exercise | "Implement it." | "Fix what the review found." | Tests | Cost at list price |
+|---|---|---|---|---:|
+| `affine-cipher` | small: Flash | small: Flash | passed | $0.1016 |
+| `variable-length-quantity` | small: Flash | small: Flash | passed | $0.1212 |
+| `wordy` | not sure: the first model, Flash | small: Flash | 24 of 25 | $0.1519 |
+| `book-store` | not sure: Flash | small: Flash | passed | $0.2594 |
+| `bowling` | big: Kimi | not sure: Flash | passed | $0.3214 |
+| `forth` | big: Kimi | small: Flash | 52 of 54 | $0.2462 |
+
+`npx tsx scripts/bench/report.ts` over the files behind the morning's table, plus this run's:
+
+| | Off | On, one model a mode | On, two for Execute | On, Relay chooses | Cheap only |
+|---|---:|---:|---:|---:|---:|
+| Tasks passed | 4 of 6 | 6 of 6 | 6 of 6 | 4 of 6 | 3 of 6 |
+| Cost at list price | $1.6718 | $1.1738 | $1.4115 | $1.2017 | $0.0994 |
+| 5-hour limit used (estimated) | 55.7% | 35.9% | 43.6% | 37.7% | 0.8% |
+| Weekly limit used (estimated) | 22.3% | 14.4% | 17.4% | 15.1% | 0.3% |
+| Saved, against Off | - | 29.8% | 15.6% | 28.1% | 94.1% (passed fewer) |
+
+- **Relay chose by itself in all 12 build turns.**
+  - It judged 7 small, which went to Flash, and 2 big, which went to Kimi: the first build of `bowling` and of `forth`.
+  - In the other 3 it was not sure of the size, so the first model (Flash) was used.
+  - No fix turn went to Kimi.
+- **Cost.** It cost 28.1% less than Off and 14.9% less than "two for Execute", and about the same as one model a mode (2.4% more).
+  - Kimi's two builds cost $0.2048 together.
+  - After each one, Flash re-read the chat for the fix (18,814 and 27,556 tokens new), for $0.0040 and $0.0119.
+- **Passes: 4 of 6, against 6 of 6 for the other two Relay setups.** So the design's success line, "no dearer than two for Execute, with no fewer passed", is met on cost but not on passes.
+  - `wordy` failed with the same choices that passed it in the other two setups: Kimi planned and reviewed, and Flash built both turns. The code said "syntax error" where the test wants "unknown operation". Off failed it too.
+  - `forth` failed after its first build went to Kimi: negative numbers were taken for unknown words. Kimi alone (Off) also failed `forth`, while Flash's builds passed it in both other setups.
+  - With one run of each exercise, this does not show that the size question costs passes, or that it saves them.
+- **Seen on the way.**
+  - `book-store`'s Kimi review re-read Flash's long build: 66,292 tokens new.
+  - During `forth`, Claude Code ended the shell the runner ran in, because the PC was low on memory (393 MB free of 32 GB, mostly held by other programs). The runner kept going, finished, and put Relay's settings back: "Relay's settings are back as they were (checked, revision 37)".
+  - The record keeps no test output for `forth`. The same test command, run again by hand on the folder the models left, gave 52 of 54 passed.
+- **This run's use of Go:** an estimated 37.7% of a 5-hour window and 15.1% of the weekly limit.
+
+**Not tested.**
+- More than one run of each exercise.
+- Desktop's panel showing Relay's parts for a list.
+- Helpers that check work, on a real host.
+- Artificial Analysis's Coding index, and big or risky work outside these six exercises.
+- Claude and Ollama.
