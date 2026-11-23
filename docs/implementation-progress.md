@@ -176,3 +176,6 @@ Plan: docs/opencode-feature-pilot-plan.md
   - the note reads "picked";
   - the reply goes only when a line is chosen.
   200 tests.
+- 2026-11-23 (owner: "Close and reopen"): the decider fix (`dd2a17a`) is in the owner's Relay copy, and "On, two for Execute" ran again on Go's six exercises.
+  - 6 of 6 passed, at $1.41 list price: 15.6% less than Relay off. One model a mode was 29.8% less; the gap between the two is noise between runs.
+  - Every build went to Flash. The decider chose the "small edits" line in 4 of 12, and the first model was used in the other 8.

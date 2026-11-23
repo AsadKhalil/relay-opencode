@@ -1157,3 +1157,48 @@ GitHub's checks run the same smoke on 2.3.0 on Linux, macOS and Windows after th
 - A real reply priced from Artificial Analysis: no key was saved in a running OpenCode.
 - Artificial Analysis's index in the model tables.
 - Whether OpenCode's `output` already includes reasoning tokens: Relay prices reasoning on top of output.
+
+## 2026-11-23 — The decider fix in the owner's own OpenCode: "two models for Execute" again, on Go (Windows 11; Desktop's service 2.3.2; the owner's Relay copy, 0.1.0 built from `dd2a17a`)
+
+The owner chose the fix on 19 Nov ("Both"). On 20 Nov they said: "build the plan first and then do this: Then let me update your Relay copy, and open the test folder in Desktop. I'll re-run the two-models setup on Go". On 23 Nov they answered "Close and reopen" for the update.
+
+**The update.**
+- Desktop's window was closed, its service ended, and the packed build of `dd2a17a` installed into the fixed copy with `npm install` ("changed 1 package"). The tarball now sits in the copy's own folder.
+- Desktop was started again through Explorer. Its new service answered at 08:31:55 UTC and loaded Relay from the copy with no error. Desktop booted the test folder by itself at 08:31:57.
+- The copy also holds the usage-by-model work that was on main.
+
+**The run.** `scripts/bench/run.ts --plan go --sides on-two --budget 50`, all six exercises, with the same models, decider and lines as on 19 Nov:
+- strong: `opencode-go/kimi-k3.1-pro`;
+- cheap: `opencode-go/glm-5.3-flash`;
+- Execute lists the cheap model first ("small edits in one or two files") and the strong one second ("bigger changes across several files").
+
+| | Off | On, one model a mode | On, two for Execute | Cheap only |
+|---|---:|---:|---:|---:|
+| Tasks passed | 4 of 6 | 6 of 6 | 6 of 6 | 3 of 6 |
+| Cost at list price | $1.6718 | $1.1738 | $1.4115 | $0.0994 |
+| 5-hour limit used (estimated) | 55.7% | 35.9% | 43.6% | 0.8% |
+| Weekly limit used (estimated) | 22.3% | 14.4% | 17.4% | 0.3% |
+| Saved, against Off | - | 29.8% | 15.6% | 94.1% (passed fewer) |
+
+The table comes from `npx tsx scripts/bench/report.ts` over the morning and afternoon files of 19 Nov and this run's. The 19 Nov file that held the before-fix "two for Execute" chats was given without them, so each exercise counts once a side.
+
+- **The fix works.** Every build turn ("Implement it.", "Fix what the review found.") went to Flash, and all six exercises passed.
+  - In 4 of the 12 the decider chose the "small edits" line itself: both turns of `variable-length-quantity`, the second of `wordy`, and the first of `book-store`.
+  - In the other 8 it fitted no line, and the list's first model was used ("no line fits clearly, so the first model is picked").
+  - Before the fix, all 8 such turns stayed on Kimi. The "bigger changes" line was never chosen.
+- **The same four exercises, before and after.** The setup cost $1.0659 before the fix and $0.8331 now, with 4 of 4 passed both times.
+- **The two Relay setups now route the same way, so the gap between them is noise.**
+  - Every build of both went to Flash. The difference is in Kimi's plan and review turns, which are set up the same on both.
+  - Kimi's share was $0.35 on `wordy` in this run against $0.20 on 19 Nov, and $0.19 against $0.11 on `bowling`. `variable-length-quantity` went the other way: $0.27 against $0.33.
+  - With one run of each exercise, that spread is as large as the gap.
+- **The reply was there for the decider.**
+  - In the first exercise's chat, `session.context` took 82 ms (Relay waits at most 1,000 ms), and `lastReply` gave 1,500 characters at each follow-up: mostly the end of a test checklist or a review's verdict.
+  - Relay keeps no copy of what it sends, so this was not seen on the wire.
+- **One request in `bowling` failed, and the reply went on.** The runner's stop rule of 19 Nov let the chat continue, and the exercise passed.
+- **This run's use of Go:** an estimated 43.5% of a 5-hour window and 17.4% of the weekly limit.
+
+**Not tested.**
+- Follow-ups other than the test's four messages, for example a question or a "thanks" after a plan, under the new wording. That wording goes only to setups with a line to choose.
+- The panel's new texts on screen.
+- More than one run of each exercise.
+- Claude, and Ollama's two-model side.
