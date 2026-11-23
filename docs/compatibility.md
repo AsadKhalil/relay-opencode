@@ -1209,7 +1209,7 @@ After the re-run above, the owner chose to test the decider alone before the des
 
 **The run.**
 - 30 made-up cases (`scripts/decider-size-cases.json`), written by Claude before the run and labelled by the design's rule: 15 small, 15 big (4 failed tries, 4 risky, 2 unclear). 15 carry the end of a reply; 15 are first messages.
-- Each request was Relay's own, built by `buildDecisionRequest`, so the message, the end of the reply and the agent line are as Relay sends them. The line question was swapped for the design's size question, word for word.
+- Each request was Relay's own, built by `buildDecisionRequest`, so the message, the end of the reply and the agent line are as Relay sends them. The line question was swapped for the design's size question, word for word. The 15 cases with a reply were asked "How big is the work? Judge by the person's message and the end of the chat's last reply."; the 15 first messages were asked "How big is the work the text asks for?".
 - The decider: `opencode/jev-1.13-free`, the one the proof test uses, listed at $0. One request a case, 300 ms apart, each cut at Relay's 5-second limit.
 - The host: the CLI that comes with Desktop (2.3.2), with a throwaway password and no login or plugin. Its XDG, home, app-data and temp folders were all in a scratch root outside the profile (`C:\relay-size-…`), removed afterwards.
 - One `--version` read of that CLI ran earlier without the scratch folders, and may have left a "cli starting" line in the real profile's log.

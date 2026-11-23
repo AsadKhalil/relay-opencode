@@ -110,8 +110,9 @@ const lineQuestion = (mode: Mode, lines: readonly string[], reply: boolean) => (
     : 'Which description of work fits the text best? Choose none when no description fits clearly.',
   choices: [...lines.slice(0, MAX_LINES).map((line, index) => ({ value: String(index + 1), description: line })), { value: 'none', description: 'None of these fits clearly.' }],
 });
-// Word for word as measured on 23 Nov (27 of 30 made-up cases right, docs/compatibility.md). A change is measured again with
-// scripts/decider-size-cases.json before it ships. The decider is asked about the work, never about models, prices or scores.
+// Both instructions word for word as measured on 23 Nov: the first for the 15 cases with the end of a reply, the second for the 15 first
+// messages (27 of 30 right in all, docs/compatibility.md). A change is measured again with scripts/decider-size.ts before it ships.
+// The decider is asked about the work, never about models, prices or scores.
 const sizeQuestion = (mode: Mode, reply: boolean) => ({
   type: 'choice' as const, name: `${mode}_size`,
   instructions: reply ? "How big is the work? Judge by the person's message and the end of the chat's last reply." : 'How big is the work the text asks for?',

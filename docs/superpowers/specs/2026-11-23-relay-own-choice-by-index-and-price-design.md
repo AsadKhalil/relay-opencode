@@ -49,7 +49,7 @@ Within C, Relay writing its own lines into empty boxes was weighed against a siz
 ## The design
 
 1. **When Relay chooses by itself** (`src/router.ts`). A mode qualifies when, after today's checks (offered, pictures, size), it has two or more usable models, no model in its list has a line, and Relay can rank every usable one (an index and a price, steps 3 and 4). Otherwise everything is as today, and the note says what was missing, for example "no index for X, so the first model is picked".
-2. **The size question** (`src/decider.ts`). For such a mode the request carries `<mode>_size` instead of a line question: "How big is the work? Judge by the person's message and the end of the chat's last reply." Two choices:
+2. **The size question** (`src/decider.ts`). For such a mode the request carries `<mode>_size` instead of a line question: "How big is the work? Judge by the person's message and the end of the chat's last reply." With no reply to send (a first message, a helper's task), it asks "How big is the work the text asks for?". Both were measured on 23 Nov. Two choices:
    - `small`: small and clear. One or two files, a quick question, a simple edit.
    - `big`: big, unclear or risky. Several files, a new feature, a hard bug, data, money or security, or the last reply shows a failed try.
    - The end of the last reply goes with a size question, as it does with a line question.
