@@ -7,8 +7,9 @@ import type { Session } from '@opencode/schema/session';
 import { LATE, lastReply, within, type DecideInput } from './decider.js';
 import type { ListedModel } from './inventory.js';
 import { chatFacts } from './chat-facts.js';
-import { getRelaySettings, hostVariant, modelName, recentDecisions, recordDecision, setChatSwitch, type Decision, type RelayStore } from './relay-store.js';
-import { brief, linesFor, REVIEW_RULES_KEY, reviewRules, route, type DeciderAnswer } from './router.js';
+import { getRelaySettings, hostVariant, modelName, modes, recentDecisions, recordDecision, setChatSwitch, type Decision, type RelayStore } from './relay-store.js';
+import { brief, linesFor, REVIEW_RULES_KEY, reviewRules, route, sizesFor, type DeciderAnswer } from './router.js';
+import { readStored, standingsOf } from './standings.js';
 import type { ModelChoice } from './settings.js';
 
 // `/relay <message>` in a normal chat: ask the decider which mode, and which of that mode's models, fit the message; put the chat on that agent and model; send the message.
@@ -94,10 +95,10 @@ export async function placeMessage(deps: RelayDeps, timing: Timing, input: { rea
   const place = async (): Promise<void> => {
     const read = await within(() => Promise.all([
       reading('the settings', () => getRelaySettings(deps.store)), reading('the chat', () => deps.session.get({ sessionID })), reading('the model list', deps.chatModels),
-      spare(() => deps.session.context({ sessionID })), spare(() => recentDecisions(deps.store)),
+      spare(() => deps.session.context({ sessionID })), spare(() => recentDecisions(deps.store)), spare(() => readStored(deps.store)),
     ]), readMs);
     if (read === LATE) { notes.push(`Relay's settings, the chat or the model list did not answer within ${readMs / 1000} seconds`); return; }
-    const [settings, chat, models, messages, past] = read;
+    const [settings, chat, models, messages, past, stored] = read;
     const files: readonly AttachedFile[] = prompt.files ?? [], uploads = input.uploads ?? [];
     const pictures = files.filter(isPicture).length + uploads.filter(isImage).length;
     const facts = await Promise.all([
@@ -109,8 +110,10 @@ export async function placeMessage(deps: RelayDeps, timing: Timing, input: { rea
     const current = chat.model ? { providerID: chat.model.providerID, id: chat.model.id, variant: hostVariant(chat.model.variant) } : null;
     // The end of the last reply lets the decider place a short follow-up ("Implement it.") by the plan or review before it; the home folder is hidden.
     const reply = messages === null ? null : lastReply(messages, homedir());
-    const answer = await deps.decide(settings.decider, { kind: 'chat', text: prompt.text, agent: chat.agent ?? null, files: facts, images: pictures, lines: linesFor(settings, models, attachment, current), reply });
-    const result = route(answer, settings, models, attachment, current, input.unsure);
+    // Relay's own choice in a mode with no lines reads only stored copies; when they are late, the mode gets its first model and a note.
+    const standings = stored === null ? null : standingsOf(stored, models, [...modes.flatMap(mode => settings.modes[mode]), ...(current ? [current] : [])]);
+    const answer = await deps.decide(settings.decider, { kind: 'chat', text: prompt.text, agent: chat.agent ?? null, files: facts, images: pictures, lines: linesFor(settings, models, attachment, current), reply, sizes: sizesFor(settings, models, attachment, current, standings) });
+    const result = route(answer, settings, models, attachment, current, input.unsure, standings);
     Object.assign(outcome, { mode: result.mode, ms: answer.ms }, answer.kind === 'answer' ? { confidence: answer.confidence, costUsd: answer.costUsd } : {});
     if (result.note !== null) notes.push(result.note);
     if (!result.switch) return;

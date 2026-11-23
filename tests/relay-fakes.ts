@@ -8,7 +8,7 @@ import type { Mode, RelaySettings } from '../src/relay-store.js';
 // and a send gives back the new message's entry, whose id is the message's id in the chat (seen on 2.3.0, 18 Nov).
 
 type Picked = { choice: string; confidence: number };
-export type FakeReply = Picked & { lines?: Partial<Record<Mode, Picked>> };
+export type FakeReply = Picked & { lines?: Partial<Record<Mode, Picked>>; sizes?: Partial<Record<Mode, Picked>> };
 type Step = 'get' | 'wait' | 'switchAgent' | 'switchModel' | 'put' | 'remove' | 'prompt' | 'context' | 'models' | 'storageGet' | 'storageSet';
 export type FakeOptions = {
   /** Default: plan [p/plan], execute [p/exec#high], review [p/review], no lines, decider d/judge. */
@@ -27,6 +27,8 @@ export type FakeOptions = {
   models?: typeof fakeModels;
   /** The chat's messages as `session.context` gives them; default none. `never` does not answer. */
   messages?: unknown[] | 'never';
+  /** Storage keys to preload; `never` makes reading that key hang. */
+  stored?: Record<string, unknown>;
 };
 
 const sleep = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
@@ -39,6 +41,7 @@ export function fakeRelay(options: FakeOptions = {}) {
   const calls: { name: string; input: unknown }[] = [], data = new Map<string, unknown>();
   const settings: RelaySettings = { revision: 1, modes: { plan: [entry('plan')], execute: [entry('exec', 'high')], review: [entry('review')] }, decider: { providerID: 'd', id: 'judge', variant: null }, ...options.settings };
   data.set('relay/settings', settings);
+  for (const [key, value] of Object.entries(options.stored ?? {})) if (value !== 'never') data.set(key, value);
   const chat: { agent: string; model: { providerID: string; id: string; variant?: string } } = { agent: options.chat?.agent ?? 'plan', model: options.chat?.model ?? { providerID: 'p', id: 'usual', variant: 'default' } };
   const idleAt = Date.now() + (options.busyMs ?? 0);
   /** Every call is listed, a failing one included. */
@@ -50,7 +53,7 @@ export function fakeRelay(options: FakeOptions = {}) {
     if (decision === 'never') return new Promise(() => undefined);
     const reply = typeof decision === 'function' ? decision(request) : decision;
     const choice = (name: string, picked: Picked) => ({ type: 'choice', name, choice: picked.choice, probabilities: [], confidence: picked.confidence });
-    return { answers: [choice('mode', reply), ...Object.entries(reply.lines ?? {}).map(([mode, picked]) => choice(`${mode}_line`, picked))], cost: 0, tokens: { input: 418, output: 38 } };
+    return { answers: [choice('mode', reply), ...Object.entries(reply.lines ?? {}).map(([mode, picked]) => choice(`${mode}_line`, picked)), ...Object.entries(reply.sizes ?? {}).map(([mode, picked]) => choice(`${mode}_size`, picked))], cost: 0, tokens: { input: 418, output: 38 } };
   };
   const deps: RelayDeps = {
     session: {
@@ -63,7 +66,7 @@ export function fakeRelay(options: FakeOptions = {}) {
       instructions: { entry: { async put(input: unknown) { step('put', input, () => undefined); }, async remove(input: unknown) { step('remove', input, () => undefined); } } },
     } as never,
     store: {
-      async get(key: string) { return step('storageGet', key, () => structuredClone(data.get(key))); },
+      async get(key: string) { return step('storageGet', key, () => options.stored?.[key] === 'never' ? new Promise(() => undefined) : structuredClone(data.get(key))); },
       async set(key: string, value: unknown) { step('storageSet', key, () => { data.set(key, structuredClone(value)); }); },
     },
     chatModels: async () => step('models', undefined, () => options.models ?? fakeModels),

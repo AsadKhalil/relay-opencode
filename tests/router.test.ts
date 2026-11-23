@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { route, candidates, described, linesFor, checksStatus, modeLabel, reviewRules, REVIEW_RULES_KEY, UNSURE_BELOW, LINE_UNSURE_BELOW, MAX_LINES, brief, safeHead, type LineAnswer } from '../src/router.js';
+import { route, sizesFor, candidates, described, linesFor, checksStatus, modeLabel, reviewRules, REVIEW_RULES_KEY, UNSURE_BELOW, LINE_UNSURE_BELOW, MAX_LINES, brief, safeHead, type LineAnswer } from '../src/router.js';
 import type { Mode } from '../src/relay-store.js';
 
 const m = (id: string, input = ['text'], extra = {}) => ({ providerID: 'p', id, enabled: true, status: 'active', variants: ['high'], capabilities: { input }, limit: { context: 1000 }, ...extra });
@@ -253,4 +253,38 @@ test('another effort of the same model is not a step down', () => {
   const lists = { modes: { ...settings.modes, execute: [entry('opus', 'the usual work'), entry('opus', 'hard problems', 'high')] } };
   const result = route(sure('execute', 0.9, { execute: { index: 1, confidence: 0.8 } }), lists, priced as never, { needsImage: false, tokens: 0, chat: { tokens: 60_000, answered: [{ providerID: 'p', id: 'opus', tokens: 60_000, agoMs: 1000 }] } }, pick('opus'));
   assert.deepEqual(result, { switch: true, mode: 'execute', agent: 'build', model: pick('opus', 'high'), fit: 0.8, note: null });
+});
+
+const standing = (index: number | null, input: string | null, output: string | null) => ({ index, coding: null, inputPerMillion: input, outputPerMillion: output, outPerRequest: null });
+const twoPlan = withPlan(entry('plan'), entry('deep'));
+const ranks = new Map([['p/plan', standing(30, '0.15', '0.5')], ['p/deep', standing(60, '2', '10')]]);
+const sizedAs = (size: string, confidence = 0.9) => ({ ...sure('plan'), sizes: { plan: { size, confidence } } }) as never;
+
+test('big takes the strongest, small the cheapest, unsure the first usable model, each with its note', () => {
+  assert.deepEqual(route(sizedAs('big'), twoPlan, models, nothing, null, 'plan', ranks), { switch: true, mode: 'plan', agent: 'plan', model: pick('deep'), fit: 0.9, note: 'big work, so the highest index' });
+  assert.deepEqual(route(sizedAs('small', 0.8), twoPlan, models, nothing, null, 'plan', ranks), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: 0.8, note: 'small work, so the cheapest' });
+  const unsure = { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'not sure how big the work is, so the first model is picked' };
+  assert.deepEqual(route(sizedAs('big', 0.49), twoPlan, models, nothing, null, 'plan', ranks), unsure);
+  assert.deepEqual(route(sure('plan'), twoPlan, models, nothing, null, 'plan', ranks), unsure, 'no size answer');
+});
+
+test('with no standings given a mode keeps today’s rule; with unread standings, the first model and a note', () => {
+  assert.deepEqual(route(sizedAs('big'), twoPlan, models, nothing, null), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: null });
+  assert.deepEqual(route(sizedAs('big'), twoPlan, models, nothing, null, 'plan', null), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'the index and prices could not be read in time, so the first model is picked' });
+  assert.deepEqual(route(sizedAs('big'), three, models, nothing, null, 'plan', null), route(sizedAs('big'), three, models, nothing, null), 'a mode with lines never looks at the standings');
+});
+
+test('the first model is the first usable one', () => {
+  const gone = withPlan(entry('gone'), entry('plan'), entry('deep'));
+  assert.deepEqual(route(sizedAs('big'), gone, models, nothing, null, 'plan', new Map([['p/plan', standing(30, '1', '1')]])), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no index for deep, so the first model is picked' });
+});
+
+test('sizesFor asks only where Relay can rank and the strongest is not the cheapest', () => {
+  const dominant = new Map([['p/plan', standing(30, '2', '10')], ['p/deep', standing(60, '0.15', '0.5')]]);
+  assert.deepEqual(sizesFor(twoPlan, models, nothing, null, ranks), ['plan']);
+  assert.deepEqual(sizesFor(twoPlan, models, nothing, null, dominant), [], 'the strongest is also the cheapest');
+  assert.deepEqual(sizesFor(twoPlan, models, nothing, null, null), [], 'unread');
+  assert.deepEqual(sizesFor(twoPlan, models, nothing, null, new Map()), [], 'unranked');
+  assert.deepEqual(sizesFor(three, models, nothing, null, ranks), [], 'lines are asked instead');
+  assert.deepEqual(route(sure('plan'), twoPlan, models, nothing, null, 'plan', dominant), { switch: true, mode: 'plan', agent: 'plan', model: pick('deep'), fit: null, note: null }, 'it takes all the work');
 });

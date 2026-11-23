@@ -312,3 +312,26 @@ test("when the chat's messages cannot be read, or take too long, the line is fol
     assert.deepEqual(prompts(f), sent, label);
   }
 });
+
+const priced = (id: string, input: string, output: string) => { const base = fakeModels.find(model => model.id === 'exec')!; return { ...base, id, name: id, cost: { ...base.cost, inputPerMillion: input, outputPerMillion: output } }; };
+const twoForExecute = { settings: { modes: { plan: [entry('plan')], execute: [entry('flash', 'high'), entry('kimi', 'high')], review: [entry('review')] } }, models: [...fakeModels, priced('flash', '0.15', '0.5'), priced('kimi', '2', '10')] };
+const bigWork = { choice: 'execute', confidence: 0.98, sizes: { execute: { choice: 'big', confidence: 0.9 } } };
+
+test('a mode with no lines is asked its size, and big work moves the chat to the strongest', async () => {
+  const f = fakeRelay({ ...twoForExecute, stored: { 'relay/intelligence': { fetchedAt: '2020-01-01T00:00:00.000Z', rows: [['kimi', 'moonshot/kimi', 60], ['flash', 'z-ai/flash', 30]] } }, decision: bigWork });
+  await run(f);
+  assert.ok(input(f, 'decisions').questions.some((question: { name: string }) => question.name === 'execute_size'));
+  assert.deepEqual(f.calls.filter(call => call.name === 'switchModel').at(-1)?.input, { sessionID: 'ses-1', model: { providerID: 'p', id: 'kimi', variant: 'high' } });
+  assert.equal(names(f).filter(name => name === 'prompt').length, 1);
+  assert.equal((await last(f)).note, 'big work, so the highest index');
+});
+
+test('late stored copies leave the message to the first model, with the note', async () => {
+  const f = fakeRelay({ ...twoForExecute, stored: { 'relay/intelligence': 'never' }, readMs: 400, decision: bigWork });
+  await run(f);
+  assert.ok(!input(f, 'decisions').questions.some((question: { name: string }) => question.name === 'execute_size'), 'nothing to rank, so no size is asked');
+  const record = await last(f);
+  assert.match(record.note ?? '', /the index and prices could not be read in time, so the first model is picked/);
+  assert.equal(record.model, 'p/flash#high');
+  assert.equal(names(f).filter(name => name === 'prompt').length, 1);
+});

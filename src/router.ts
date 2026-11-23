@@ -2,7 +2,7 @@ import { offered, type ModelChoice, type OfferedModel } from './settings.js';
 import { modelName, modes, type Decision, type Mode, type ModeChoice, type RelaySettings } from './relay-store.js';
 import { aboutUsd, parseUsd, pricesAt } from './costs.js';
 import type { ModelCostView } from './inventory.js';
-import type { SizeAnswer } from './ranking.js';
+import { rank, type SizeAnswer, type Standings } from './ranking.js';
 
 // Pure rules: which of a mode's models can be used now, which "use it for" lines the decider is asked about, and what its answer means for the chat.
 // Nothing here calls the host, and nothing here may import from `node:` (the panel bundles this file).
@@ -104,6 +104,37 @@ export function pickModel(usable: readonly ModeChoice[], line: LineAnswer | unde
   return { model: plain(usable[0]), fit: null, note: `${reason}, so the first model is picked` };
 }
 
+/**
+ * One model out of a mode's usable ones. With no line in the mode's list and two or more usable models, Relay chooses by itself
+ * (src/ranking.ts): big work goes to the highest index, small work to the cheapest, and the first model is used when Relay can't rank the
+ * list or the size is unsure (the owner's 19 Nov rule). Otherwise the decider's line decides, as `pickModel` says.
+ * `standings` undefined keeps that older rule for every mode; null means the stored copies could not be read in time.
+ */
+export function choose(mode: Mode, list: readonly ModeChoice[], usable: readonly ModeChoice[], answer: Extract<DeciderAnswer, { kind: 'answer' }>, standings: Standings | null | undefined, writer: ModelChoice | null): { model: ModelChoice; fit: number | null; note: string | null } {
+  const lined = () => pickModel(usable, answer.lines[mode]);
+  const first = (reason: string) => ({ model: plain(usable[0]), fit: null, note: `${reason}, so the first model is picked` });
+  if (standings === undefined) return lined();
+  if (standings === null) return list.some(choice => choice.useFor !== '') || usable.length < 2 ? lined() : first('the index and prices could not be read in time');
+  const ranked = rank(mode, list, usable, standings, writer);
+  if (ranked === null) return lined();
+  if (ranked.kind === 'unranked') return first(ranked.reason);
+  if (same(ranked.strongest, ranked.cheapest)) return { model: ranked.strongest, fit: null, note: null };
+  const size = answer.sizes?.[mode];
+  if (size && size.confidence >= LINE_UNSURE_BELOW) {
+    return size.size === 'big' ? { model: ranked.strongest, fit: size.confidence, note: 'big work, so the highest index' } : { model: ranked.cheapest, fit: size.confidence, note: 'small work, so the cheapest' };
+  }
+  return first('not sure how big the work is');
+}
+
+/** The modes whose size the decider is asked: those Relay ranks by itself, where the strongest is not also the cheapest. */
+export function sizesFor(settings: Pick<RelaySettings, 'modes'>, models: readonly RoutableModel[], attachment: Attachment, current: ModelChoice | null, standings: Standings | null): Mode[] {
+  if (standings === null) return [];
+  return modes.filter(mode => {
+    const list = settings.modes[mode], ranked = rank(mode, list, candidates(mode, list, models, attachment, current).usable, standings, current);
+    return ranked?.kind === 'ranked' && !same(ranked.strongest, ranked.cheapest);
+  });
+}
+
 // Stay or go: a step down to a cheaper model is made only when it pays. Arithmetic only, on whole numbers; no model is asked. The method
 // and its worked examples are in docs/research/2026-11-17-relay-cost-and-model-choice.md (section 4.2). Nothing in it has been measured.
 // shortcut: a cache is taken to live five minutes, OpenCode's default. A longer lifetime set in OpenCode is not read, so a chat that was idle for more than five minutes is always moved.
@@ -150,15 +181,18 @@ function stayOrGo(mode: Mode, pick: ModelChoice, current: ModelChoice | null, us
   return { stay: true, note: `moving this chat to ${name} would cost ${aboutUsd(extra / 1_000_000n)} to read it again and save ${aboutUsd(saving / 1_000_000n)} over ${requests} requests${saving >= extra ? ', less than one and a half times that cost' : ''}, so the chat's model stays` };
 }
 
-/** `unsure` says what an answer under UNSURE_BELOW means: Plan for `/relay`, no change for a chat whose switch is on. */
-export function route(answer: DeciderAnswer, settings: Pick<RelaySettings, 'modes'>, models: readonly RoutableModel[], attachment: Attachment, current: ModelChoice | null, unsure: 'plan' | 'stay' = 'plan'): RouteResult {
+/**
+ * `unsure` says what an answer under UNSURE_BELOW means: Plan for `/relay`, no change for a chat whose switch is on. `standings` lets Relay
+ * choose by itself in a mode with no lines (see `choose`); left out, every mode follows its lines as before.
+ */
+export function route(answer: DeciderAnswer, settings: Pick<RelaySettings, 'modes'>, models: readonly RoutableModel[], attachment: Attachment, current: ModelChoice | null, unsure: 'plan' | 'stay' = 'plan', standings?: Standings | null): RouteResult {
   if (answer.kind === 'none') return { switch: false, mode: null, note: answer.reason };
   const doubtful = answer.confidence < UNSURE_BELOW;
   if (doubtful && unsure === 'stay') return { switch: false, mode: null, note: 'not sure, so the chat stays as it is' };
   const mode: Mode = doubtful ? 'plan' : answer.mode, notes = doubtful ? ['not sure, so Plan'] : [];
   const { usable, note } = candidates(mode, settings.modes[mode], models, attachment, current);
   if (note !== null) return { switch: false, mode, note: [...notes, note].join('; ') };
-  const chosen = pickModel(usable, answer.lines[mode]), weighed = stayOrGo(mode, chosen.model, current, usable, models, attachment);
+  const chosen = choose(mode, settings.modes[mode], usable, answer, standings, current), weighed = stayOrGo(mode, chosen.model, current, usable, models, attachment);
   for (const said of [chosen.note, weighed.note]) if (said !== null) notes.push(said);
   // Whichever model is used, the mode still sets the agent and the review rules.
   const kept = weighed.stay && current !== null;
