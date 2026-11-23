@@ -175,3 +175,34 @@ test('it gives up after the time limit and ignores a late answer and a late fail
   for (const _ of [1, 2]) { const a = await decide(slow, judge, chat, 10); assert.deepEqual([a.kind, (a as { reason: string }).reason], ['none', 'the decider took longer than 0.01 seconds']); }
   await new Promise(done => setTimeout(done, 60));   // the late failure must not surface as an unhandled rejection
 });
+
+const SIZE_CHOICES = [
+  { value: 'small', description: 'Small and clear. One or two files, a quick question, a simple edit.' },
+  { value: 'big', description: 'Big, unclear or risky. Several files, a new feature, a hard bug, data, money or security, or the last reply shows a failed try.' },
+];
+
+test('a mode whose size is asked gets the size question word for word, and the reply goes with it', () => {
+  const request = buildDecisionRequest(judge, { kind: 'chat', text: 'Implement it.', agent: 'plan', files: [], images: 0, lines: {}, sizes: ['execute'], reply: 'Plan: one file.' });
+  assert.deepEqual(request.questions[1], { type: 'choice', name: 'execute_size', instructions: "How big is the work? Judge by the person's message and the end of the chat's last reply.", choices: SIZE_CHOICES });
+  assert.equal(request.questions.length, 2);
+  assert.ok(request.input[0].text.includes(`The end of the chat's last reply: "Plan: one file."`));
+});
+
+test('without a reply, the size question asks about the text alone', () => {
+  const request = buildDecisionRequest(judge, { ...chat, sizes: ['review'] });
+  assert.deepEqual(request.questions[1], { type: 'choice', name: 'review_size', instructions: 'How big is the work the text asks for?', choices: SIZE_CHOICES });
+  assert.ok(!request.input[0].text.includes('last reply'));
+});
+
+test('a size answer is read when it is small or big with a confidence, and only for a mode that was asked', async () => {
+  const host = { decisions: async () => reply('execute', 0.95, choice('execute_size', 'small', 0.98), choice('plan_size', 'big', 0.9)) };
+  const answer = await decide(host, judge, { ...chat, sizes: ['execute'] });
+  assert.deepEqual((answer as { sizes?: unknown }).sizes, { execute: { size: 'small', confidence: 0.98 } });
+});
+
+test('a malformed size answer is left out', async () => {
+  for (const bad of [choice('execute_size', 'medium', 0.9), choice('execute_size', 'big', 1.2), choice('execute_size', 'big', '0.9')]) {
+    const answer = await decide({ decisions: async () => reply('execute', 0.95, bad) }, judge, { ...chat, sizes: ['execute'] });
+    assert.deepEqual((answer as { sizes?: unknown }).sizes, {});
+  }
+});

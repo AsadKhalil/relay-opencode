@@ -1,6 +1,7 @@
 import { usdString } from './costs.js';
 import { modes, type Mode } from './relay-store.js';
 import { brief, safeHead, MAX_LINES, type DeciderAnswer, type LineAnswer } from './router.js';
+import type { SizeAnswer } from './ranking.js';
 import type { ModelChoice } from './settings.js';
 
 // One request to a decision model: which mode fits the text, and, for each mode that has a choice to make, which "use it for" line fits it.
@@ -16,8 +17,8 @@ export const MAX_FILE_NAMES = 10;
 const MAX_NAME = 80;
 
 export type FileFact = { name: string; bytes: number | null };
-/** `reply` is the end of the chat's last reply, for a chat message (see `lastReply`). */
-export type DecideInput = { kind: 'chat' | 'helper'; text: string; agent: string | null; files: readonly FileFact[]; images: number; lines: Partial<Record<Mode, readonly string[]>>; reply?: string | null };
+/** `reply` is the end of the chat's last reply, for a chat message (see `lastReply`). `sizes` are the modes Relay chooses for by itself, asked how big the work is. */
+export type DecideInput = { kind: 'chat' | 'helper'; text: string; agent: string | null; files: readonly FileFact[]; images: number; lines: Partial<Record<Mode, readonly string[]>>; reply?: string | null; sizes?: readonly Mode[] };
 export type DecisionsRequest = { model: { providerID: string; id: string; variant?: string }; input: { type: 'text'; text: string }[]; questions: { type: 'choice'; name: string; instructions: string; choices: { value: string; description: string }[] }[] };
 export type DecisionsHost = { decisions(request: DecisionsRequest): Promise<unknown> };
 
@@ -62,11 +63,13 @@ export function lastReply(messages: unknown, home: string | null = null): string
   return text ? endOf(text, MAX_REPLY_CHARS) : null;
 }
 /**
- * Whether a reply goes to the decider: only for a chat message with text, and only when the decider is asked to choose a line. The reply is
- * there to tell a mode's models apart (19 Nov); with one model a mode the request stays word for word as measured (the 23 Nov review).
+ * Whether a reply goes to the decider: only for a chat message with text, and only when the decider is asked to choose a line or a size. The
+ * reply is there to tell a mode's models apart (19 Nov); with one model a mode the request stays word for word as measured (the 23 Nov review).
  */
 const replied = (input: DecideInput): input is DecideInput & { reply: string } =>
-  input.kind === 'chat' && typeof input.reply === 'string' && input.reply.trim() !== '' && modes.some(mode => (input.lines[mode]?.length ?? 0) > 0);
+  input.kind === 'chat' && typeof input.reply === 'string' && input.reply.trim() !== '' && (modes.some(mode => (input.lines[mode]?.length ?? 0) > 0) || sized(input).length > 0);
+/** The modes asked about the size of the work: those Relay chooses for by itself, which never have lines. */
+const sized = (input: DecideInput): Mode[] => modes.filter(mode => input.sizes?.includes(mode) && !input.lines[mode]?.length);
 
 const flat = (text: string, max: number) => safeHead(text.replace(/[\s\x00-\x1f\x7f]+/g, ' ').trim(), max);
 /** Only the last part of a path is sent, so the name of a home folder never leaves the machine. */
@@ -107,13 +110,23 @@ const lineQuestion = (mode: Mode, lines: readonly string[], reply: boolean) => (
     : 'Which description of work fits the text best? Choose none when no description fits clearly.',
   choices: [...lines.slice(0, MAX_LINES).map((line, index) => ({ value: String(index + 1), description: line })), { value: 'none', description: 'None of these fits clearly.' }],
 });
+// Word for word as measured on 23 Nov (27 of 30 made-up cases right, docs/compatibility.md). A change is measured again with
+// scripts/decider-size-cases.json before it ships. The decider is asked about the work, never about models, prices or scores.
+const sizeQuestion = (mode: Mode, reply: boolean) => ({
+  type: 'choice' as const, name: `${mode}_size`,
+  instructions: reply ? "How big is the work? Judge by the person's message and the end of the chat's last reply." : 'How big is the work the text asks for?',
+  choices: [
+    { value: 'small', description: 'Small and clear. One or two files, a quick question, a simple edit.' },
+    { value: 'big', description: 'Big, unclear or risky. Several files, a new feature, a hard bug, data, money or security, or the last reply shows a failed try.' },
+  ],
+});
 
 export function buildDecisionRequest(decider: ModelChoice, input: DecideInput): DecisionsRequest {
   const reply = replied(input);
   return {
     model: { providerID: decider.providerID, id: decider.id, ...(decider.variant === null ? {} : { variant: decider.variant }) },
     input: [{ type: 'text', text: describe(input) }],
-    questions: [modeQuestion(reply), ...modes.flatMap(mode => input.lines[mode]?.length ? [lineQuestion(mode, input.lines[mode], reply)] : [])],
+    questions: [modeQuestion(reply), ...modes.flatMap(mode => input.lines[mode]?.length ? [lineQuestion(mode, input.lines[mode], reply)] : []), ...sized(input).map(mode => sizeQuestion(mode, reply))],
   };
 }
 
@@ -137,7 +150,13 @@ function read(result: unknown, input: DecideInput, ms: number): DeciderAnswer {
     if (line.choice === 'none') lines[item] = { index: null, confidence: line.confidence };
     else if (typeof line.choice === 'string' && /^[1-8]$/.test(line.choice) && Number(line.choice) <= sent) lines[item] = { index: Number(line.choice) - 1, confidence: line.confidence };
   }
-  return { kind: 'answer', mode: found, confidence: mode.confidence, lines, ms, costUsd: usdString((result as { cost?: unknown }).cost) };
+  // A size answer counts only for a mode that was asked, and only as small or big with a confidence; anything else is left out.
+  const asked = sized(input), sizes: Partial<Record<Mode, SizeAnswer>> = {};
+  for (const item of asked) {
+    const size = named(`${item}_size`);
+    if (size?.type === 'choice' && (size.choice === 'small' || size.choice === 'big') && sure(size.confidence)) sizes[item] = { size: size.choice, confidence: size.confidence };
+  }
+  return { kind: 'answer', mode: found, confidence: mode.confidence, lines, ...(asked.length ? { sizes } : {}), ms, costUsd: usdString((result as { cost?: unknown }).cost) };
 }
 
 export const LATE = Symbol('late');

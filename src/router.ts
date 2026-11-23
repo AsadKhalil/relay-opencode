@@ -2,6 +2,7 @@ import { offered, type ModelChoice, type OfferedModel } from './settings.js';
 import { modelName, modes, type Decision, type Mode, type ModeChoice, type RelaySettings } from './relay-store.js';
 import { aboutUsd, parseUsd, pricesAt } from './costs.js';
 import type { ModelCostView } from './inventory.js';
+import type { SizeAnswer } from './ranking.js';
 
 // Pure rules: which of a mode's models can be used now, which "use it for" lines the decider is asked about, and what its answer means for the chat.
 // Nothing here calls the host, and nothing here may import from `node:` (the panel bundles this file).
@@ -37,7 +38,8 @@ export const brief = (error: unknown) => safeHead(describeError(error, 'unknown 
 
 /** The decider's answer about one mode's lines. `index` points into `described(usable)`; null means it chose "none of these". */
 export type LineAnswer = { index: number | null; confidence: number };
-export type DeciderAnswer = { kind: 'answer'; mode: Mode; confidence: number; lines: Partial<Record<Mode, LineAnswer>>; ms: number; costUsd: string | null } | { kind: 'none'; reason: string; ms: number };
+/** `sizes` holds the decider's answer about how big the work is, for the modes Relay chooses for by itself (src/ranking.ts). */
+export type DeciderAnswer = { kind: 'answer'; mode: Mode; confidence: number; lines: Partial<Record<Mode, LineAnswer>>; sizes?: Partial<Record<Mode, SizeAnswer>>; ms: number; costUsd: string | null } | { kind: 'none'; reason: string; ms: number };
 export type RoutableModel = OfferedModel & { capabilities: { input: readonly string[] }; limit: { context: number }; cost?: ModelCostView };
 /** What is known of a chat: its size in tokens, and each model's latest answer in it, newest first, with the chat's size then and how long ago its request began. */
 export type ChatFacts = { tokens: number; answered: readonly { providerID: string; id: string; tokens: number; agoMs: number }[] };
