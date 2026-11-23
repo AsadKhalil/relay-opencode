@@ -73,6 +73,11 @@ const decodeCache = (value: unknown): Cache | null => {
 };
 const fromRows = (rows: Cache['rows']): IndexTable => new Map(rows.map(([key, id, index]) => [key, { id, index }]));
 
+/** The stored table at any age, from storage alone and never the network, for Relay's own choice while a message is placed. Empty when there is no readable copy. */
+export async function storedIndexTable(store: { get(key: string): Promise<unknown> }): Promise<IndexTable> {
+  try { const saved = decodeCache(await store.get(CACHE_KEY)); return saved ? fromRows(saved.rows) : new Map(); } catch { return new Map(); }
+}
+
 /** The index table: the stored copy while it is under a day old, else a fresh fetch, stored; when that fails, the older copy with a note. */
 export async function loadIndexTable(store: CacheStore, fetcher: typeof fetch, now: number): Promise<{ table: IndexTable; fetchedAt: string | null; note: string | null }> {
   let saved: Cache | null = null;

@@ -13,21 +13,24 @@ export const AA_CREDIT = 'Prices and index: Artificial Analysis (artificialanaly
 const MAX_PAGES = 5, MAX_CHARS = 8_000_000, DAY_MS = 24 * 3600_000;
 const LIST_KEY = 'relay/aa-models', PRICE_KEY = 'relay/aa-key';
 
-export type AaModel = { slug: string; name: string; creator: string; released: string | null; index: number | null; prices: Prices };
+/** `index` is the Intelligence Index and `coding` the Coding Index; either can be missing. */
+export type AaModel = { slug: string; name: string; creator: string; released: string | null; index: number | null; coding: number | null; prices: Prices };
 type Store = { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void>; remove(key: string): Promise<void> };
 
 const price = (value: unknown) => typeof value === 'number' ? usdString(value) : null;
 const text = (value: unknown) => typeof value === 'string' ? value : null;
+const score = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : null;
 /** One page of the list: its models, and whether another page follows. An entry with no slug or name is left out. */
 export function parseAaPage(body: unknown): { models: AaModel[]; more: boolean } {
   const page = body as { data?: unknown; pagination?: { has_more?: unknown } } | null;
   const data: unknown[] = Array.isArray(page?.data) ? page.data : [];
   const models = data.flatMap(item => {
-    const model = item as { slug?: unknown; name?: unknown; model_creator?: { name?: unknown }; release_date?: unknown; evaluations?: { artificial_analysis_intelligence_index?: unknown }; pricing?: Record<string, unknown> } | null;
+    const model = item as { slug?: unknown; name?: unknown; model_creator?: { name?: unknown }; release_date?: unknown; evaluations?: { artificial_analysis_intelligence_index?: unknown; artificial_analysis_coding_index?: unknown }; pricing?: Record<string, unknown> } | null;
     if (!model || typeof model.slug !== 'string' || typeof model.name !== 'string') return [];
-    const index = model.evaluations?.artificial_analysis_intelligence_index, pricing = model.pricing ?? {};
+    const pricing = model.pricing ?? {};
     return [{
-      slug: model.slug, name: model.name, creator: text(model.model_creator?.name) ?? '', released: text(model.release_date), index: typeof index === 'number' && Number.isFinite(index) ? index : null,
+      slug: model.slug, name: model.name, creator: text(model.model_creator?.name) ?? '', released: text(model.release_date),
+      index: score(model.evaluations?.artificial_analysis_intelligence_index), coding: score(model.evaluations?.artificial_analysis_coding_index),
       prices: { inputPerMillion: price(pricing.price_1m_input_tokens), outputPerMillion: price(pricing.price_1m_output_tokens), cacheReadPerMillion: price(pricing.price_1m_cache_hit_tokens), cacheWritePerMillion: price(pricing.price_1m_cache_write_tokens) },
     }];
   });
@@ -57,7 +60,8 @@ const storedModel = (value: unknown): AaModel | null => {
   const model = value as Partial<Record<keyof AaModel, unknown>> | null, prices = model?.prices as Partial<Record<keyof Prices, unknown>> | null | undefined;
   if (!model || typeof model.slug !== 'string' || typeof model.name !== 'string' || !prices || typeof prices !== 'object') return null;
   return {
-    slug: model.slug, name: model.name, creator: text(model.creator) ?? '', released: text(model.released), index: typeof model.index === 'number' && Number.isFinite(model.index) ? model.index : null,
+    // A copy stored before the Coding index was kept has none, until the next daily load.
+    slug: model.slug, name: model.name, creator: text(model.creator) ?? '', released: text(model.released), index: score(model.index), coding: score(model.coding),
     prices: { inputPerMillion: text(prices.inputPerMillion), outputPerMillion: text(prices.outputPerMillion), cacheReadPerMillion: text(prices.cacheReadPerMillion), cacheWritePerMillion: text(prices.cacheWritePerMillion) },
   };
 };

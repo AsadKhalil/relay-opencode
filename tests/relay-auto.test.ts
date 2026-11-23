@@ -159,7 +159,7 @@ test('a model list that fails or is slow leaves the prices unknown, and the repl
 
 test("the idle hook prices a reply from Artificial Analysis's stored list when OpenCode lists no price, and keeps the reply when that list fails", async () => {
   const api = { inputPerMillion: '2', outputPerMillion: '10', cacheReadPerMillion: '0.1', cacheWritePerMillion: '2.5' }, unlisted = { inputPerMillion: null, outputPerMillion: null, cacheReadPerMillion: null, cacheWritePerMillion: null };
-  const lent = [{ slug: 'exec', name: 'Exec', creator: 'P', released: null, index: 40, prices: api }];
+  const lent = [{ slug: 'exec', name: 'Exec', creator: 'P', released: null, index: 40, coding: null, prices: api }];
   const cases = [['a stored list', async () => lent, api, 'artificial-analysis'], ['a list that cannot be read', async () => { throw new Error('no store'); }, unlisted, null]] as const;
   for (const [label, borrowedPrices, prices, pricesFrom] of cases) {
     const f = turnOn(fakeRelay({ messages: replied(1000) }));

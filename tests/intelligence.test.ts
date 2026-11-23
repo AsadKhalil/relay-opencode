@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchIndexTable, indexFor, indexTable, modelKey } from '../src/intelligence.js';
+import { fetchIndexTable, indexFor, indexTable, modelKey, storedIndexTable } from '../src/intelligence.js';
 
 const entry = (id: string, index: number | null, extra: Record<string, unknown> = {}) => ({ id, canonical_slug: id, name: id, benchmarks: { artificial_analysis: { intelligence_index: index } }, ...extra });
 const body = { data: [
@@ -56,4 +56,10 @@ test('the list is fetched once, refused when it is not a model list, too big, or
   await assert.rejects(fetchIndexTable(fetcher(() => new Response(JSON.stringify({ data: [entry('vendor/no-index', null)] })))), /carries no index/);
   const late = (async (_url: string, init?: RequestInit) => new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(new Error('aborted'))))) as typeof fetch;
   await assert.rejects(fetchIndexTable(late, 50), /aborted/);
+});
+
+test('the stored index table is read from storage alone, at any age', async () => {
+  const store = { get: async () => ({ fetchedAt: '2020-01-01T00:00:00.000Z', rows: [['glm-5-3', 'z-ai/glm-5.3', 50]] }) };
+  assert.deepEqual([...await storedIndexTable(store)], [['glm-5-3', { id: 'z-ai/glm-5.3', index: 50 }]]);
+  assert.equal((await storedIndexTable({ get: async () => { throw new Error('disk'); } })).size, 0);
 });

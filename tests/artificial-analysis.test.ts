@@ -19,7 +19,7 @@ const answer = (status: number, body: unknown = {}) => new Response(JSON.stringi
 
 test('a page becomes models with prices as USD strings and the index', () => {
   const { models, more } = parseAaPage(page([listed('glm-5-3', 'GLM-5.3 (Max)'), null, { name: 'no slug' }], true));
-  assert.deepEqual(models, [{ slug: 'glm-5-3', name: 'GLM-5.3 (Max)', creator: 'Z AI', released: '2026-08-01', index: 30, prices: { inputPerMillion: '1.5', outputPerMillion: '4.5', cacheReadPerMillion: '0.25', cacheWritePerMillion: null } }]);
+  assert.deepEqual(models, [{ slug: 'glm-5-3', name: 'GLM-5.3 (Max)', creator: 'Z AI', released: '2026-08-01', index: 30, coding: null, prices: { inputPerMillion: '1.5', outputPerMillion: '4.5', cacheReadPerMillion: '0.25', cacheWritePerMillion: null } }]);
   assert.equal(more, true);
   assert.deepEqual(parseAaPage({ data: 'odd' }), { models: [], more: false });
   assert.equal(parseAaPage(page([listed('x', 'X', 'Z AI', '2026-08-01', { evaluations: {} })], false)).models[0].index, null, 'a model with no index');
@@ -88,4 +88,11 @@ test('the key is kept, refused when it cannot be one, and removed with the store
   await setPriceKey(db, null);
   assert.deepEqual([await getPriceKey(db), [...db.map.keys()]], [null, []], 'the key and the stored list are gone');
   assert.equal(await getPriceKey({ async get() { return 7; } }), null);
+});
+
+test('the Coding index is kept, and a copy stored before it reads as null', async () => {
+  const page = parseAaPage({ data: [{ slug: 'm', name: 'M', evaluations: { artificial_analysis_intelligence_index: 40, artificial_analysis_coding_index: 35 }, pricing: {} }] });
+  assert.equal(page.models[0].coding, 35);
+  const old = { get: async () => ({ fetchedAt: new Date().toISOString(), models: [{ slug: 'm', name: 'M', creator: '', released: null, index: 40, prices: {} }] }) };
+  assert.equal((await storedAaModels(old))[0].coding, null);
 });
