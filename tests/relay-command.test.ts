@@ -207,7 +207,7 @@ test('in a mode with several models the line the decider chose picks the model',
 
 test("the decider is told the end of the chat's last reply, with the home folder as ~", async () => {
   const messages = [{ type: 'user', id: 'm1', text: 'plan it' }, { type: 'assistant', content: [{ type: 'reasoning', text: 'thinking aloud' }, { type: 'text', text: `Plan: change ${homedir()}\\relay-bench\\wordy.py only.` }] }];
-  const f = fakeRelay({ messages }); await run(f);
+  const f = fakeRelay({ messages, settings: execute(entry('exec', 'high', 'small, clear changes'), entry('usual', null, 'large changes across many files')) }); await run(f);
   const text = input(f, 'decisions').input[0].text as string;
   assert.ok(text.includes('The end of the chat\'s last reply: "Plan: change ~\\relay-bench\\wordy.py only."'), text);
   assert.equal(text.toLowerCase().includes(homedir().toLowerCase()), false);
@@ -225,12 +225,12 @@ test('when no line fits, the first model of the list is used, whatever model the
   const decision = { choice: 'execute', confidence: 0.9, lines: { execute: { choice: 'none', confidence: 0.9 } } };
   const listed = fakeRelay({ settings, decision }); await run(listed);          // the chat is on p/usual, the list's second model
   assert.deepEqual(input(listed, 'switchModel').model, { providerID: 'p', id: 'exec', variant: 'high' });
-  assert.deepEqual([(await last(listed)).model, (await last(listed)).note], ['p/exec#high', 'no line fits clearly, so the first model is used']);
+  assert.deepEqual([(await last(listed)).model, (await last(listed)).note], ['p/exec#high', 'no line fits clearly, so the first model is picked']);
   const moves = fakeRelay({ settings, decision, chat: { model: { providerID: 'p', id: 'plan' } } }); await run(moves);
   assert.deepEqual(input(moves, 'switchModel').model, { providerID: 'p', id: 'exec', variant: 'high' });
-  assert.equal((await last(moves)).note, 'no line fits clearly, so the first model is used');
+  assert.equal((await last(moves)).note, 'no line fits clearly, so the first model is picked');
   const silent = fakeRelay({ settings, decision: { choice: 'execute', confidence: 0.9 } }); await run(silent);
-  assert.equal((await last(silent)).note, 'no answer about the lines, so the first model is used');
+  assert.equal((await last(silent)).note, 'no answer about the lines, so the first model is picked');
 });
 
 test('files that do not fit leave a model out; a size that cannot be read counts as nothing, and reading gives up after its limit', async () => {

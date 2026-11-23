@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cheapestFirst, checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, privacyNote, recentLine, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
+import { cheapestFirst, checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
 import type { UsageRow } from '../src/relay-store.js';
-import { buildDecisionRequest, MAX_CHARS, MAX_FILE_NAMES } from '../src/decider.js';
+import { buildDecisionRequest, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS } from '../src/decider.js';
 
 const chat = { kind: 'chat' as const, mode: 'execute' as const, model: 'p/exec#high' as string | null, confidence: 0.98 as number | null, fit: null as number | null, ms: 150, note: null as string | null };
 
@@ -32,14 +32,21 @@ test('a try in the test box reads as one line, with the cost', () => {
 });
 
 test('the panel says what is sent to the decider and to whom, with the limits the decider really has', () => {
-  assert.equal(privacyNote('opencode'), "To choose, Relay sends to opencode: your message text (at most 4,000 characters), the names and sizes of attached files (the first 10), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures or earlier messages. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.");
+  assert.equal(privacyNote('opencode'), "To choose, Relay sends to opencode: your message text (at most 4,000 characters), the end of the chat's last reply when it must choose between the lines you wrote (at most 1,500 characters of its text, with your home folder as ~), the names and sizes of attached files (the first 10), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures, the model's reasoning or tool output, or other earlier messages. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.");
   assert.match(privacyNote(null), /^To choose, Relay sends to the decider's provider: your message text/);
-  assert.deepEqual([MAX_CHARS, MAX_FILE_NAMES], [4000, 10]);
+  assert.deepEqual([MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS], [4000, 10, 1500]);
   // Everything the request carries is something the sentence names: the text, file names with sizes, a count of pictures, what the agent can do and the lines.
   const request = buildDecisionRequest({ providerID: 'opencode', id: 'judge', variant: null }, { kind: 'chat', text: 'fix the test', agent: 'build', files: [{ name: 'C:/home/me/notes.txt', bytes: 2048 }], images: 2, lines: { plan: ['deep design', 'quick questions'] } });
   assert.deepEqual(request.input, [{ type: 'text', text: 'The person\'s message: "fix the test"\nBefore this message the chat was on an agent that can change files. Attached files: notes.txt (2 kB). Attached pictures: 2.' }]);
   assert.deepEqual(request.questions.map(question => question.name), ['mode', 'plan_line']);
   assert.deepEqual(request.questions[1].choices.map(choice => choice.description), ['deep design', 'quick questions', 'None of these fits clearly.']);
+  // With a reply, the one more line is the reply the sentence names.
+  const replied = buildDecisionRequest({ providerID: 'opencode', id: 'judge', variant: null }, { kind: 'chat', text: 'fix the test', agent: 'build', files: [], images: 0, lines: { plan: ['deep design', 'quick questions'] }, reply: 'Plan: one file.' });
+  assert.equal(replied.input[0].text.split('\n')[1], 'The end of the chat\'s last reply: "Plan: one file."');
+});
+
+test('under a list of several models, the panel says the first model is the default when no line fits', () => {
+  assert.equal(severalModelsHint, 'Several models: the decider picks the one whose line fits your message. When no line fits clearly, the first model in this list is used, so put your everyday model first. With no lines written, the first is always used.');
 });
 
 test('the pill says whether every message in this chat goes through Relay, offers to turn it, and shows the last choice there', () => {

@@ -68,10 +68,16 @@ test('text over 4,000 characters keeps the first 2,000 and the last 2,000, and n
 });
 
 test('the end of the last reply is told to the decider, after the message, and never for a helper', () => {
-  const text = (input: DecideInput) => buildDecisionRequest(judge, input).input[0].text;
-  assert.deepEqual(text({ ...chat, reply: 'Plan: change wordy.py only.' }).split('\n').slice(0, 2), ['The person\'s message: "fix the login test"', 'The end of the chat\'s last reply: "Plan: change wordy.py only."']);
-  const helper: DecideInput = { kind: 'helper', text: 'Review the diff', agent: null, files: [], images: 0, lines: {}, reply: 'Plan: change wordy.py only.' };
-  for (const input of [{ ...chat, reply: null }, { ...chat, reply: '' }, chat, helper]) assert.doesNotMatch(text(input), /last reply/);
+  const text = (input: DecideInput) => buildDecisionRequest(judge, input).input[0].text, lines = { execute: ['small edits', 'bigger changes'] };
+  assert.deepEqual(text({ ...chat, lines, reply: 'Plan: change wordy.py only.' }).split('\n').slice(0, 2), ['The person\'s message: "fix the login test"', 'The end of the chat\'s last reply: "Plan: change wordy.py only."']);
+  const helper: DecideInput = { kind: 'helper', text: 'Review the diff', agent: null, files: [], images: 0, lines, reply: 'Plan: change wordy.py only.' };
+  for (const input of [{ ...chat, lines, reply: null }, { ...chat, lines, reply: '' }, { ...chat, lines }, helper]) assert.doesNotMatch(text(input), /last reply/);
+});
+
+test('the reply goes only when the decider is asked to choose a line, so a mode with one model is asked as before', () => {
+  const request = buildDecisionRequest(judge, { ...chat, reply: 'Plan: change wordy.py only.' });
+  assert.doesNotMatch(request.input[0].text, /last reply/);
+  assert.match(request.questions[0].instructions, /^Which mode fits the text\?/);
 });
 
 test('with a reply, the mode is judged by the message and the line by both; without one, the questions are as before', () => {
@@ -117,6 +123,9 @@ test('the home folder is replaced with either slash and in any case, and not ins
   assert.equal(withoutHome('C:\\Users\\me2\\x and C:\\Users\\me.old', 'C:\\Users\\me'), 'C:\\Users\\me2\\x and C:\\Users\\me.old');
   assert.equal(withoutHome('/home/me/src, /home/me', '/home/me/'), '~/src, ~');
   assert.equal(withoutHome('a/b', '/'), 'a/b', 'a home with no name is left alone');
+  // A sentence can end right after the folder, and models working through Git Bash or WSL write a Windows home as /c/... or /mnt/c/....
+  assert.equal(withoutHome('It is in C:\\Users\\someone. Next, C:\\Users\\someone-old', 'C:\\Users\\someone'), 'It is in ~. Next, C:\\Users\\someone-old');
+  assert.equal(withoutHome('/c/Users/someone/proj and /mnt/c/users/someone/x', 'C:\\Users\\someone'), '~/proj and ~/x');
 });
 
 test('the home folder is hidden before the reply is cut, so no part of it is left', () => {

@@ -1,7 +1,7 @@
 import type { ModelCostView } from './inventory.js';
 import type { Decision, Prices, Reply, UsageRow } from './relay-store.js';
 import { modeLabel } from './router.js';
-import { MAX_CHARS, MAX_FILE_NAMES } from './decider.js';
+import { MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS } from './decider.js';
 import { costOf, formatUsd, parseUsd } from './costs.js';
 import type { ModelChoice } from './settings.js';
 
@@ -138,9 +138,12 @@ export function tryLine(result: Shown & Pick<Decision, 'costUsd'>): string {
   return noted(`${facts({ ...result, mode }, result.model ?? 'no model')}, cost ${result.costUsd === null ? 'not reported' : `$${result.costUsd}`}`, result.note);
 }
 
+/** Under a list of several models. Since 19 Nov the first model is the default when no line fits, so the list's order matters. */
+export const severalModelsHint = 'Several models: the decider picks the one whose line fits your message. When no line fits clearly, the first model in this list is used, so put your everyday model first. With no lines written, the first is always used.';
+
 /** What leaves the machine to make a choice, and to whom. It names everything `describe` in `decider.ts` puts in a request, with that file's own limits. */
 export const privacyNote = (providerID: string | null) =>
-  `To choose, Relay sends to ${providerID ?? "the decider's provider"}: your message text (at most ${MAX_CHARS.toLocaleString('en-US')} characters), the names and sizes of attached files (the first ${MAX_FILE_NAMES}), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures or earlier messages. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.`;
+  `To choose, Relay sends to ${providerID ?? "the decider's provider"}: your message text (at most ${MAX_CHARS.toLocaleString('en-US')} characters), the end of the chat's last reply when it must choose between the lines you wrote (at most ${MAX_REPLY_CHARS.toLocaleString('en-US')} characters of its text, with your home folder as ~), the names and sizes of attached files (the first ${MAX_FILE_NAMES}), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures, the model's reasoning or tool output, or other earlier messages. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.`;
 
 /**
  * The model to put in Desktop's model picker after Relay switched a chat. Desktop sends the picker's model with every message (seen on

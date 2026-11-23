@@ -45,7 +45,7 @@ test('with several Review models the line the decider chose picks the helper\'s 
   // A helper has no model of its own to keep, so with no clear line the first Review model is used.
   const none = await started({ settings, decision: { choice: 'review', confidence: 0.9, lines: { review: { choice: 'none', confidence: 0.9 } } } });
   assert.equal(none.input.model, 'p/review');
-  assert.deepEqual([(await last(none.f)).model, (await last(none.f)).fit, (await last(none.f)).note], ['p/review', null, 'no line fits clearly, so the first model is used']);
+  assert.deepEqual([(await last(none.f)).model, (await last(none.f)).fit, (await last(none.f)).note], ['p/review', null, 'no line fits clearly, so the first model is picked']);
   const effort = await started({ ...check, settings: reviewers(entry('exec', 'high')) });
   assert.equal(effort.input.model, 'p/exec#high', 'the effort travels in the model name');
   const gone = await started({ ...check, settings: reviewers(entry('gone'), entry('eyes')) });
@@ -61,7 +61,7 @@ test('a helper that names its own model still starts on a Review model when its 
   assert.deepEqual([same.input.model, (await last(same.f)).note], ['p/review', null], 'asking for the Review model itself needs no note');
   const settings = reviewers(entry('review', null, 'small diffs'), entry('eyes', null, 'security and money code'));
   const unclear = await started({ settings, decision: { choice: 'review', confidence: 0.9, lines: { review: { choice: 'none', confidence: 0.9 } } } }, { ...task, model: 'q/other' });
-  assert.deepEqual([unclear.input.model, (await last(unclear.f)).note], ['p/review', 'its caller asked for q/other; no line fits clearly, so the first model is used']);
+  assert.deepEqual([unclear.input.model, (await last(unclear.f)).note], ['p/review', 'its caller asked for q/other; no line fits clearly, so the first model is picked']);
 });
 
 test('every other helper is left as it is', async () => {

@@ -2,6 +2,11 @@
 
 Status: on 2026-11-19 the owner chose "Both" when asked which fix to plan. The plan is `docs/superpowers/plans/2026-11-19-relay-decider-last-reply.md`. Choices made while writing are marked *(my call)*.
 
+Changed on 2026-11-23, after the fresh review of the build:
+- The reply, and the reworded questions, go only when the decider is asked to choose a line. With one model a mode, the request stays word for word as it was measured on 19 Nov.
+- The note says "so the first model is picked", because the cost check can still keep the chat's model.
+- The home folder is also hidden in Git Bash and WSL spellings (`/c/…`, `/mnt/c/…`) and before a full stop.
+
 ## Why
 
 The proof test on 19 Nov (`docs/compatibility.md`) set Execute up with two models:

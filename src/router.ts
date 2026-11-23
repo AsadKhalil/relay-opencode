@@ -99,7 +99,7 @@ export function pickModel(usable: readonly ModeChoice[], line: LineAnswer | unde
   const chosen = line && line.index !== null ? asked[line.index] : undefined;
   if (line && chosen && line.confidence >= LINE_UNSURE_BELOW) return { model: plain(chosen), fit: line.confidence, note: null };
   const reason = line && (line.index === null || chosen) ? 'no line fits clearly' : 'no answer about the lines';
-  return { model: plain(usable[0]), fit: null, note: `${reason}, so the first model is used` };
+  return { model: plain(usable[0]), fit: null, note: `${reason}, so the first model is picked` };
 }
 
 // Stay or go: a step down to a cheaper model is made only when it pays. Arithmetic only, on whole numbers; no model is asked. The method

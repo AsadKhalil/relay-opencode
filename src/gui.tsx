@@ -5,7 +5,7 @@ import { offered, type ModelChoice } from './settings.js';
 import type { ListedModel } from './inventory.js';
 import { USE_FOR_MAX, type Decision, type Mode, type ModeChoice, type RelaySettings, type UsageRow } from './relay-store.js';
 import { describeError, modeLabel, reviewRules } from './router.js';
-import { checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, privacyNote, recentLine, switchHint, tryLine, usageCells, type TableOrder } from './relay-view.js';
+import { checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, type TableOrder } from './relay-view.js';
 import { panelCss } from './gui-styles.js';
 
 type Model = ListedModel;
@@ -229,7 +229,7 @@ export default Plugin.define({
                     onChange={event => { const useFor = event.currentTarget.value.replace(/\s+/g, ' ').trim(); if (useFor !== choice.useFor) setList(mode, chosen(mode).map(item => same(item, choice) ? { ...item, useFor } : item)); }} />
                 </div>}</For>
                 <Show when={!chosen(mode).length}><span class="rl-hint">None chosen yet. /relay leaves the chat as it is for {modeLabel(mode)}.</span></Show>
-                <Show when={chosen(mode).length > 1}><span class="rl-hint">Several models: the decider picks the one whose line fits your message. When no line fits clearly, the chat keeps its model if it is in this list; otherwise the first is used. With no lines written, the first is always used.</span></Show>
+                <Show when={chosen(mode).length > 1}><span class="rl-hint">{severalModelsHint}</span></Show>
                 <Show when={adding() === mode} fallback={<button type="button" class="rl-btn sm rl-add" disabled={saving() || response.loading} onClick={() => setAdding(mode)}>+ Add a model</button>}>
                   <ModelTable label={`Add a model to ${modeLabel(mode)}`} models={usable()} source={indexSource()} action="Add" actionLabel={model => `Add ${model.name} from ${model.providerID} to ${modeLabel(mode)}`}
                     can={model => !saving() && nextEffort(chosen(mode), model) !== undefined} mark={model => `${model.capabilities.tools ? '' : ' · no tools'}${inList(mode, model) ? ' · ✓ in the list' : ''}`}

@@ -75,22 +75,22 @@ test('the line the decider chose picks the model, from a confidence of 0.5', () 
 test('when no line fits, the first model of the list is used, whatever model the chat is on', () => {
   const noLine = sure('plan', 0.9, { plan: { index: null, confidence: 0.95 } });
   for (const current of [null, pick('eyes'), pick('other'), pick('eyes', 'high')])
-    assert.deepEqual(route(noLine, three, models, nothing, current), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no line fits clearly, so the first model is used' });
+    assert.deepEqual(route(noLine, three, models, nothing, current), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no line fits clearly, so the first model is picked' });
   const weak = sure('plan', 0.9, { plan: { index: 1, confidence: 0.3 } });
-  assert.equal((route(weak, three, models, nothing, pick('eyes')) as { note: string }).note, 'no line fits clearly, so the first model is used');
+  assert.equal((route(weak, three, models, nothing, pick('eyes')) as { note: string }).note, 'no line fits clearly, so the first model is picked');
 });
 
 test('a missing line answer, or one that names a line that is not there, falls back the same way', () => {
   for (const lines of [{}, { plan: { index: 3, confidence: 0.9 } }, { plan: { index: -1, confidence: 0.9 } }, { execute: { index: 1, confidence: 0.9 } }]) {
     for (const current of [pick('deep'), null])
-      assert.deepEqual(route(sure('plan', 0.9, lines), three, models, nothing, current), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no answer about the lines, so the first model is used' });
+      assert.deepEqual(route(sure('plan', 0.9, lines), three, models, nothing, current), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: null, note: 'no answer about the lines, so the first model is picked' });
   }
 });
 
 test('a mode the decider was not sure about uses the Plan line', () => {
   const answer = sure('execute', 0.4, { plan: { index: 1, confidence: 0.7 }, execute: { index: 0, confidence: 0.99 } });
   assert.deepEqual(route(answer, three, models, nothing, null), { switch: true, mode: 'plan', agent: 'plan', model: pick('deep'), fit: 0.7, note: 'not sure, so Plan' });
-  assert.deepEqual((route(sure('execute', 0.4), three, models, nothing, null) as { note: string }).note, 'not sure, so Plan; no answer about the lines, so the first model is used');
+  assert.deepEqual((route(sure('execute', 0.4), three, models, nothing, null) as { note: string }).note, 'not sure, so Plan; no answer about the lines, so the first model is picked');
 });
 
 test('the lines count only the models that can be used now and have a line', () => {
@@ -114,7 +114,7 @@ test('lines are asked about only where there is a choice to make, and at most ei
   const all = { modes: { plan: many, execute: many, review: many } }, offeredNow = many.map(item => m(item.id));
   assert.deepEqual(linesFor(all, offeredNow, nothing), { plan: many.slice(0, 8).map(item => item.useFor), execute: many.slice(0, 8).map(item => item.useFor), review: many.slice(0, 8).map(item => item.useFor) });
   assert.deepEqual((route(sure('plan', 0.9, { plan: { index: 7, confidence: 0.9 } }), all, offeredNow, nothing, null) as { model: unknown }).model, pick('m7'));
-  assert.equal((route(sure('plan', 0.9, { plan: { index: 8, confidence: 0.9 } }), all, offeredNow, nothing, null) as { note: string }).note, 'no answer about the lines, so the first model is used');
+  assert.equal((route(sure('plan', 0.9, { plan: { index: 8, confidence: 0.9 } }), all, offeredNow, nothing, null) as { note: string }).note, 'no answer about the lines, so the first model is picked');
 });
 
 test('checks are routed only with a decider and a usable Review model', () => {
@@ -199,6 +199,17 @@ test('a step down to a cheaper model happens only when it pays', () => {
 test("when a step down does not pay, the chat's model stays for this message, the mode still sets the agent, and the note says why", () => {
   assert.deepEqual(move('opus', 'sonnet', 60_000), { switch: true, mode: 'execute', agent: 'build', model: pick('opus'), fit: null,
     note: "moving this chat to p/sonnet would cost about $0.14 to read it again and save about $0.09 over 6 requests, so the chat's model stays" });
+});
+
+test("when no line fits and the first model is the cheaper one, the cost check can still keep the chat's model, and the note says both", () => {
+  // Execute lists the cheaper model first; the chat is on the dearer one, which answered a minute ago, and no line fits.
+  const lists = { modes: { ...settings.modes, execute: [entry('sonnet', 'small, clear changes'), entry('opus', 'the usual work')] } };
+  const noLine = sure('execute', 0.9, { execute: { index: null, confidence: 0.95 } });
+  const chat = (answered: object[]) => ({ needsImage: false, tokens: 0, chat: { tokens: 60_000, answered } }) as never;
+  assert.deepEqual(went(route(noLine, lists, priced as never, chat([{ providerID: 'p', id: 'opus', tokens: 60_000, agoMs: 60_000 }]), pick('opus'))),
+    ['opus', "no line fits clearly, so the first model is picked; moving this chat to p/sonnet would cost about $0.14 to read it again and save about $0.09 over 6 requests, so the chat's model stays"]);
+  // With nothing held in a cache, the move costs nothing more, and the first model is used.
+  assert.deepEqual(went(route(noLine, lists, priced as never, chat([]), pick('opus'))), ['sonnet', 'no line fits clearly, so the first model is picked']);
 });
 
 test('a saving that is more than the cost, but less than one and a half times it, is named as such in the note', () => {

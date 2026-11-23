@@ -169,3 +169,10 @@ Plan: docs/opencode-feature-pilot-plan.md
   - When no "use it for" line fits, the mode's first model is used instead of the chat's model.
   - For a chat message, the decider also gets the end of the chat's last reply: at most 1,500 characters of its text, with the home folder as `~`. With a reply, its questions say which text to judge.
   - Privacy, guide, saving-money and AGENTS.md say so. The live re-run in the owner's OpenCode is the plan's task 5.
+- 2026-11-23: a fresh review of the decider fix found one Critical and four Important issues, now fixed:
+  - the panel's privacy note now names the reply;
+  - the panel's hint under a list now gives the new rule;
+  - the home folder is hidden in more spellings;
+  - the note reads "picked";
+  - the reply goes only when a line is chosen.
+  200 tests.

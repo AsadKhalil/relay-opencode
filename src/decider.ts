@@ -34,8 +34,11 @@ export function capText(text: string): string {
 export function withoutHome(text: string, home: string): string {
   const parts = home.replace(/[\\/]+$/, '').split(/[\\/]+/);
   if (!parts.some(part => /\w/.test(part))) return text;
-  const pattern = parts.map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\\\/]+');
-  return text.replace(new RegExp(`${pattern}(?![\\w.-])`, 'gi'), '~');
+  const escape = (part: string) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // A Windows home (C:\Users\x) is also written /c/Users/x in Git Bash and /mnt/c/Users/x in WSL.
+  const drive = /^([a-z]):$/i.exec(parts[0]), first = drive ? `(?:${drive[1]}:|/(?:mnt/)?${drive[1]})` : escape(parts[0]);
+  // Not followed by more of a folder name: a letter, digit, "_" or "-", or a "." that a name goes on after ("me.old"; "me." ends a sentence).
+  return text.replace(new RegExp(`${[first, ...parts.slice(1).map(escape)].join('[\\\\/]+')}(?![\\w-]|\\.\\w)`, 'gi'), '~');
 }
 
 type Part = { type?: unknown; text?: unknown };
@@ -58,8 +61,12 @@ export function lastReply(messages: unknown, home: string | null = null): string
   const text = home ? withoutHome(joined, home) : joined;
   return text ? endOf(text, MAX_REPLY_CHARS) : null;
 }
-/** Whether a reply goes to the decider: only for a chat message, and only when there is text. */
-const replied = (input: DecideInput): input is DecideInput & { reply: string } => input.kind === 'chat' && typeof input.reply === 'string' && input.reply.trim() !== '';
+/**
+ * Whether a reply goes to the decider: only for a chat message with text, and only when the decider is asked to choose a line. The reply is
+ * there to tell a mode's models apart (19 Nov); with one model a mode the request stays word for word as measured (the 23 Nov review).
+ */
+const replied = (input: DecideInput): input is DecideInput & { reply: string } =>
+  input.kind === 'chat' && typeof input.reply === 'string' && input.reply.trim() !== '' && modes.some(mode => (input.lines[mode]?.length ?? 0) > 0);
 
 const flat = (text: string, max: number) => safeHead(text.replace(/[\s\x00-\x1f\x7f]+/g, ' ').trim(), max);
 /** Only the last part of a path is sent, so the name of a home folder never leaves the machine. */
