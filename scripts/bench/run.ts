@@ -3,7 +3,7 @@
 // per token to their Ollama account). Run it only with the owner's yes.
 // It works in one test folder that the owner has opened in Desktop (RELAY_BENCH_DIR, by default relay-bench in the home folder), and sends the
 // service no request about any other folder. It sets Relay's settings for each side and puts back the ones it found, even after an error.
-// Usage: npx tsx scripts/bench/run.ts --plan go|go-plus|ollama --out <folder> [--tasks a,b] [--sides off,on-one,on-two,cheap] [--check]
+// Usage: npx tsx scripts/bench/run.ts --plan go|go-plus|ollama --out <folder> [--tasks a,b] [--sides off,on-one,on-two,on-own,cheap] [--check]
 //   [--budget <percent of a 5-hour window>, on Go; default 100] [--cap <US dollars>, on Ollama; default 2]
 import { execFile as execFileCallback } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { parseArgs, promisify } from 'node:util';
 import { OpenCode } from '@opencode/client/promise';
 import { formatUsd, parseUsd, usdString } from '../../src/costs.js';
 import { isProject, permissionAnswer, resetFolder } from './folder.js';
-import { MONTH, monthShare, nextFits, requestCost, shares, SIDES, stopReason, type Cost, type Side, type Tokens } from './lib.js';
+import { MONTH, monthShare, nextFits, ownChoiceProblem, requestCost, shares, SIDES, stopReason, type Cost, type Side, type Tokens } from './lib.js';
 import { restoreSettings } from './relay-settings.js';
 
 const execFile = promisify(execFileCallback);
@@ -51,6 +51,8 @@ const { strong: STRONG, cheap: CHEAP, monthly: MONTHLY } = PLANS[plan], DECIDER 
 const SETTINGS = {
   'on-one': { plan: [STRONG], execute: [CHEAP], review: [STRONG] },
   'on-two': { plan: [STRONG], execute: [{ ...CHEAP, useFor: 'small edits in one or two files' }, { ...STRONG, useFor: 'bigger changes across several files' }], review: [STRONG] },
+  // No lines: Relay chooses by itself, the highest index for big work and the cheapest for small (Relay 23 Nov); unsure takes the first.
+  'on-own': { plan: [STRONG], execute: [CHEAP, STRONG], review: [STRONG] },
 };
 const MESSAGE_LIMIT_MS = 15 * 60_000, TEST_LIMIT_MS = 120_000;
 const messages = (module: string) => [
@@ -149,8 +151,11 @@ function dollarsOf(entries: readonly Entry[]): bigint {
 async function runChat(task: string, side: Side, prices: Map<string, Cost>, left: bigint | null): Promise<Chat> {
   const module = task.replaceAll('-', '_'), source = join(taskRoot, task), began = Date.now();
   resetFolder(folder, { 'instructions.md': readFileSync(join(source, 'instructions.md'), 'utf8'), [`${module}.py`]: readFileSync(join(source, `${module}.py`), 'utf8') });
-  const on = side === 'on-one' || side === 'on-two';
+  const on = side !== 'off' && side !== 'cheap';
   if (on) await rpc.saveRelay({ revision: (await rpc.getRelay({}, options)).settings.revision, decider: DECIDER, modes: SETTINGS[side] }, options);
+  // Nothing is sent on "On, Relay chooses" unless Relay can rank Execute with these models; otherwise it would only repeat "two for Execute".
+  const problem = side === 'on-own' ? ownChoiceProblem((await rpc.getOwnChoice({}, options)).modes.execute, `${STRONG.providerID}/${STRONG.id}`, `${CHEAP.providerID}/${CHEAP.id}`) : null;
+  if (problem) throw new Error(problem);
   const start = side === 'cheap' ? CHEAP : STRONG;
   // The owner's Plannotator plugin watches the `plan` agent and makes each plan wait for a person's approval (`submit_plan`), which an
   // unattended test cannot give: each test chat is created with that tool denied, so a call fails at once and the chat goes on.
@@ -188,6 +193,8 @@ async function run(): Promise<void> {
   mkdirSync(out, { recursive: true });
   const before = await rpc.getRelay({}, options);
   const listed = items((await rpc.listModels({}, options)).models);
+  // Relay's own choice reads only stored copies of the index; the panel's call stores one (Relay's own GET, at most once a day).
+  if (sides.includes('on-own')) await rpc.listIntelligence({}, options);
   const prices = new Map<string, Cost>(listed.filter(model => [STRONG, CHEAP].some(wanted => model.providerID === wanted.providerID && model.id === wanted.id)).map(model => [`${model.providerID}/${model.id}`, model.cost]));
   const results = { startedAt: new Date().toISOString(), opencodeVersion, plan, ...(onGo ? { budgetPercentOfFiveHours: Number(budget) } : { capUsd: formatUsd(cap) }), folder, models: { strong: `${STRONG.providerID}/${STRONG.id}`, cheap: `${CHEAP.providerID}/${CHEAP.id}`, decider: `${DECIDER.providerID}/${DECIDER.id}` },
     prices: Object.fromEntries(prices), settingsBefore: before.settings, stoppedBecause: null as string | null, chats: [] as Chat[] };

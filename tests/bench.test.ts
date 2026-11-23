@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isProject, permissionAnswer, resetFolder, TEST_CONFIG } from '../scripts/bench/folder.js';
 import { formatUsd, parseUsd } from '../src/costs.js';
-import { commonChats, limitShare, monthShare, nextFits, requestCost, sideTotals, stopReason, table, type ChatResult, type Cost } from '../scripts/bench/lib.js';
+import { commonChats, limitShare, monthShare, nextFits, ownChoiceProblem, requestCost, sideTotals, stopReason, table, type ChatResult, type Cost } from '../scripts/bench/lib.js';
 import { restoreSettings } from '../scripts/bench/relay-settings.js';
 
 // The proof test's exercises (scripts/bench/tasks): Exercism's Python exercises, as Aider's polyglot benchmark chose them.
@@ -102,6 +102,21 @@ test('a run stops at a failed request, or at a request on a model with no price'
   assert.equal(stopReason([{ model: 'opencode-go/kimi-k3.1-pro', error: null, priced: true }]), null);
   assert.match(stopReason([{ model: 'opencode-go/kimi-k3.1-pro', error: { type: 'rate_limit', message: 'limit reached' }, priced: true }]) ?? '', /a request failed: .*limit reached/);
   assert.match(stopReason([{ model: 'other/model', error: null, priced: false }]) ?? '', /other\/model has no list price/);
+});
+
+// "On, Relay chooses" (docs/superpowers/specs/2026-11-23-relay-own-choice-by-index-and-price-design.md): Execute holds both models and no lines.
+test('the side where Relay chooses by itself has its own column', () => {
+  const printed = table(sideTotals([chat('wordy', 'off', true, '0.1'), chat('wordy', 'on-own', true, '0.05')]));
+  assert.ok(printed.includes('| | Off | On, Relay chooses |'), printed);
+  assert.ok(printed.includes('| Saved, against Off | - | 50.0% |'), printed);
+});
+
+test('"On, Relay chooses" starts only when Relay gives big work to the strong model and small work to the cheap one', () => {
+  const strong = 'opencode-go/kimi-k3.1-pro', cheap = 'opencode-go/glm-5.3-flash';
+  assert.equal(ownChoiceProblem({ kind: 'ranked', strongest: strong, cheapest: cheap }, strong, cheap), null);
+  assert.equal(ownChoiceProblem(null, strong, cheap), 'Relay does not choose by itself in Execute');
+  assert.equal(ownChoiceProblem({ kind: 'unranked', reason: `no index for ${cheap}` }, strong, cheap), `Relay can't rank Execute: no index for ${cheap}`);
+  assert.equal(ownChoiceProblem({ kind: 'ranked', strongest: cheap, cheapest: cheap }, strong, cheap), `Relay gives big work to ${cheap} and small work to ${cheap}`);
 });
 
 // The test folder is emptied before each chat. Only a folder whose opencode.json is the test's own may be emptied, and that file stays.

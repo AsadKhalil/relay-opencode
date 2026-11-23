@@ -1,9 +1,17 @@
 // The proof test's arithmetic and its table (docs/superpowers/specs/2026-11-18-relay-proof-design.md). Money is whole trillionths of a dollar.
 import { parseUsd } from '../../src/costs.js';
 
-export type Side = 'off' | 'on-one' | 'on-two' | 'cheap';
-export const SIDES: readonly Side[] = ['off', 'on-one', 'on-two', 'cheap'];
-const LABELS: Record<Side, string> = { off: 'Off', 'on-one': 'On, one model a mode', 'on-two': 'On, two for Execute', cheap: 'Cheap only' };
+export type Side = 'off' | 'on-one' | 'on-two' | 'on-own' | 'cheap';
+export const SIDES: readonly Side[] = ['off', 'on-one', 'on-two', 'on-own', 'cheap'];
+const LABELS: Record<Side, string> = { off: 'Off', 'on-one': 'On, one model a mode', 'on-two': 'On, two for Execute', 'on-own': 'On, Relay chooses', cheap: 'Cheap only' };
+
+/** Why "On, Relay chooses" would not test Relay's own choice, from the Execute part of Relay's getOwnChoice answer; null when big work goes to `strong` and small work to `cheap`. */
+export function ownChoiceProblem(execute: unknown, strong: string, cheap: string): string | null {
+  const part = execute as { kind?: string; reason?: string; strongest?: string; cheapest?: string } | null;
+  if (!part) return 'Relay does not choose by itself in Execute';
+  if (part.kind !== 'ranked') return `Relay can't rank Execute: ${part.reason}`;
+  return part.strongest === strong && part.cheapest === cheap ? null : `Relay gives big work to ${part.strongest} and small work to ${part.cheapest}`;
+}
 
 /** A request's tokens as OpenCode keeps them on an assistant entry of `session.context`. */
 export type Tokens = { input: number; output: number; reasoning: number; cache: { read: number; write: number } };
