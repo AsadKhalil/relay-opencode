@@ -179,3 +179,4 @@ Plan: docs/opencode-feature-pilot-plan.md
 - 2026-11-23 (owner: "Close and reopen"): the decider fix (`dd2a17a`) is in the owner's Relay copy, and "On, two for Execute" ran again on Go's six exercises.
   - 6 of 6 passed, at $1.41 list price: 15.6% less than Relay off. One model a mode was 29.8% less; the gap between the two is noise between runs.
   - Every build went to Flash. The decider chose the "small edits" line in 4 of 12, and the first model was used in the other 8.
+- 2026-11-23 (owner: "Test the decider alone first"): the size question of the own-choice design, asked of `opencode/jev-1.13-free` with 30 made-up cases from an isolated OpenCode 2.3.2 (`scripts/decider-size-cases.json`). 27 right, 1 wrong, 2 unsure: all 15 small cases right, and no failed try called small, so the bar (24 of 30) is met. The misses were risky work that looks small (money, security).

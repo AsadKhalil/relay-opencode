@@ -1,6 +1,6 @@
 # Relay: its own choice inside a mode, by index and price (design)
 
-Status: on 2026-11-23 the owner asked how Relay should pick between several models in one mode, and brought two routing designs to compare. They chose my proposal: "Write it up, build after the re-run". Building waits for that re-run (see Gate). A builder check the same day raised four points, settled below: helpers, efforts, an unsure answer after a failed try, and the smoke. Choices made while writing are marked *(my call)*.
+Status: on 2026-11-23 the owner asked how Relay should pick between several models in one mode, and brought two routing designs to compare. They chose my proposal: "Write it up, build after the re-run". The re-run and then a test of the decider alone followed the same day, and the gate is now open (see Gate). A builder check the same day raised four points, settled below: helpers, efforts, an unsure answer after a failed try, and the smoke. Choices made while writing are marked *(my call)*.
 
 ## Why
 
@@ -87,9 +87,15 @@ Within C, Relay writing its own lines into empty boxes was weighed against a siz
 
 Built only after the Go re-run of "On, two for Execute" with the decider fix meets that design's success line: on the one-file exercises the decider picks the "small edits" line, so the side costs about as little as one model a mode, with no fewer tasks passed. The size question rests on the same judgment (small work from big, with the last reply), which the research found weak from the message alone. If the re-run misses, this design is reconsidered, not built.
 
+What happened (`docs/compatibility.md`, 23 Nov):
+- **The re-run.** 6 of 6 passed and every build went to the cheap model, 15.6% below Off; the gap to one model a mode is noise. But the decider chose the "small edits" line itself in only 4 of 12 turns, and the list's order did the rest. The six exercises have no big work.
+- **So the owner chose a test of the size question alone**, with the bar "at least 8 in 10 right and no failed try called small" ("Test the decider alone first").
+- **It passed.** 30 made-up cases (`scripts/decider-size-cases.json`) to `opencode/jev-1.13-free`: 27 right, 1 wrong, 2 unsure. All 15 small cases were right, and no failed try was called small.
+- **The weak spot is risky work that looks small.** A change to how prices round was called small (96% sure), and turning off a security check was called big at only 48%, so it would fall back to the first model.
+
 ## Left to the builder
 
-- The exact wording of the size question, its choices, the panel parts and the notes.
+- The exact wording of the panel parts and the notes. The size question and its choices were tested as written in step 2; a change to them is tested again with `scripts/decider-size-cases.json` before it ships.
 - Whether OpenRouter's public list also carries a Coding index (one GET of the list Relay already reads). If it does, use it without a key.
 - How the smoke's mock decider answers a size question.
 

@@ -1202,3 +1202,35 @@ The table comes from `npx tsx scripts/bench/report.ts` over the morning and afte
 - The panel's new texts on screen.
 - More than one run of each exercise.
 - Claude, and Ollama's two-model side.
+
+## 2026-11-23 (later) — The size question, asked of a real decision model with 30 made-up cases (Windows 11, OpenCode 2.3.2 CLI from Desktop, isolated)
+
+After the re-run above, the owner chose to test the decider alone before the design in `docs/superpowers/specs/2026-11-23-relay-own-choice-by-index-and-price-design.md` is built ("Test the decider alone first"). The bar, set before the run: at least 24 of 30 right, and no failed try called small.
+
+**The run.**
+- 30 made-up cases (`scripts/decider-size-cases.json`), written by Claude before the run and labelled by the design's rule: 15 small, 15 big (4 failed tries, 4 risky, 2 unclear). 15 carry the end of a reply; 15 are first messages.
+- Each request was Relay's own, built by `buildDecisionRequest`, so the message, the end of the reply and the agent line are as Relay sends them. The line question was swapped for the design's size question, word for word.
+- The decider: `opencode/jev-1.13-free`, the one the proof test uses, listed at $0. One request a case, 300 ms apart, each cut at Relay's 5-second limit.
+- The host: the CLI that comes with Desktop (2.3.2), with a throwaway password and no login or plugin. Its XDG, home, app-data and temp folders were all in a scratch root outside the profile (`C:\relay-size-…`), removed afterwards.
+- One `--version` read of that CLI ran earlier without the scratch folders, and may have left a "cli starting" line in the real profile's log.
+
+| | Cases | Right | Wrong | Unsure (under 0.5) |
+|---|---:|---:|---:|---:|
+| All | 30 | 27 | 1 | 2 |
+| Labelled small | 15 | 15 | 0 | 0 |
+| Labelled big | 15 | 12 | 1 | 2 |
+| With the end of a reply | 15 | 14 | 0 | 1 |
+| First messages | 15 | 13 | 1 | 1 |
+| Failed tries | 4 | 3 | 0 | 1 |
+
+- **The bar is met:** 27 of 30, and no failed try called small.
+- **Small work was always recognised**, at 94% to 100% sure. That includes "Implement it." after a one-file plan, and both near misses: a big-sounding "Do that refactor." over a ten-line plan, and a failing test whose code is right.
+- **The misses were risky work that looks small:**
+  - "Change how checkout rounds prices: round each line instead of the total." was called small, 96% sure. The design counts money as big.
+  - "Turn off the CSRF check on the /api/upload route" was called big, but only 48% sure, so Relay would use the first model.
+  - One failed try ("Please sort that out." after two tests broke) was called big at 30%, so Relay would use the first model, as the design accepts.
+- **The mode answers:** execute 29 times. "Keep going." after a failed WebSocket fix was taken as plan (72%), which would move that message to Plan.
+- **Time and cost:** a median of 125 ms, 1.6 s for the first request, $0 reported.
+- **Against the re-run above.** On real chats, the line question was answered with a line in only 4 of 12 build turns. Here the two-way question answered every small case at 94% or more. The cases were short and written to be clear, so this does not show how the question fares on real plans.
+
+**Not tested.** Real chats and real plans; the Plan and Review size questions; a helper's task text; other decision models; more than one run.
