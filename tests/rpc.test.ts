@@ -247,3 +247,29 @@ test("with a saved key the index is Artificial Analysis's; when it refuses the k
   assert.deepEqual(headers.filter(asked => !asked.url.startsWith(AA_LIST_URL)).map(asked => asked.key), [null], 'OpenRouter is asked without the key');
   assert.equal(headers.filter(asked => asked.url.startsWith(AA_LIST_URL)).every(asked => asked.key === KEY), true);
 });
+
+const scored = (...rows: [string, number][]) => ({ fetchedAt: '2020-01-01T00:00:00.000Z', rows: rows.map(([id, index]) => [id, `x/${id}`, index]) });
+
+test('getOwnChoice gives each mode’s part from the saved settings and the stored copies, and null for a mode with lines', async () => {
+  const host = relayHost(), one = await host.connect('/one');
+  await one.saveRelay({ revision: 0, modes: { plan: [{ ...relayHigh, useFor: 'thinking' }, relayDeep], execute: [relayHigh, relayDeep], review: [relayDeep] }, decider: relayJudge });
+  await host.storage.set('relay/intelligence', scored(['m', 60], ['deep', 40]));
+  const parts = await one.getOwnChoice({});
+  assert.deepEqual(fits(RelayRpc.methods.getOwnChoice.output, parts), []);
+  assert.deepEqual(parts, { directory: '/one', modes: { plan: null, execute: { kind: 'ranked', strongest: 'p/m#high', cheapest: 'p/deep' }, review: null } });
+  await host.storage.set('relay/intelligence', scored(['deep', 40]));
+  const unranked = await one.getOwnChoice({});
+  assert.deepEqual(unranked.modes.execute, { kind: 'unranked', reason: 'no index for m' });
+  assert.deepEqual(fits(RelayRpc.methods.getOwnChoice.output, unranked), []);
+});
+
+test('testDecider shows Relay’s own choice', async () => {
+  const host = relayHost(), one = await host.connect('/one');
+  await one.saveRelay({ revision: 0, modes: { ...noModes, execute: [relayHigh, relayDeep] }, decider: relayJudge });
+  await host.storage.set('relay/intelligence', scored(['m', 60], ['deep', 40]));
+  host.answer({ answers: [picked('mode', 'execute', 0.97), picked('execute_size', 'big', 0.9)], cost: 0 });
+  const result = await one.testDecider({ text: 'add sign-in with Google across the app' });
+  assert.deepEqual({ ...result, ms: 0 }, { directory: '/one', mode: 'execute', confidence: 0.97, model: 'p/m#high', fit: 0.9, ms: 0, costUsd: '0', note: 'big work, so the highest index' });
+  assert.deepEqual(host.requests[0].questions.map((question: { name: string }) => question.name), ['mode', 'execute_size']);
+  assert.equal(/p\/m|deep|0\.24|60|40/.test(JSON.stringify(host.requests[0])), false, 'the decider is never told a model name, a price or a score');
+});

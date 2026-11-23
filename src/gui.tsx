@@ -5,7 +5,7 @@ import { offered, type ModelChoice } from './settings.js';
 import type { ListedModel } from './inventory.js';
 import { USE_FOR_MAX, type Decision, type Mode, type ModeChoice, type RelaySettings, type UsageRow } from './relay-store.js';
 import { describeError, modeLabel, reviewRules } from './router.js';
-import { checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, type TableOrder } from './relay-view.js';
+import { checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, ownChoiceNote, ownChoicePart, pickerModel, pillView, priceCell, priceLabel, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, type OwnChoicePart, type TableOrder } from './relay-view.js';
 import { panelCss } from './gui-styles.js';
 
 type Model = ListedModel;
@@ -113,6 +113,13 @@ export default Plugin.define({
           if (!value.source) return `Index: not shown (${value.note}).`;
           return `Index: ${value.source}. For a model with efforts it is the highest effort's score; lower efforts score less.${value.note ? ` (${value.note})` : ''}`;
         };
+        // Relay's own choice: which model of each mode gets big work and small work, worked out on the server from the saved settings
+        // and the stored copies. Asked for again after a save. It never throws; when it can't be had, no part is shown.
+        const [own, { refetch: refetchOwn }] = createResource(() => props.session, async session => {
+          try { return { session, modes: (await call<{ modes: Record<Mode, OwnChoicePart> }>(session, ({ rpc, options }) => rpc.getOwnChoice({}, options))).modes }; }
+          catch { return { session, modes: null }; }
+        });
+        const ownPart = (mode: Mode): OwnChoicePart => { const value = own(); return value?.session === props.session && value.modes ? value.modes[mode] : null; };
         // Recent choices, asked for again every 5 seconds while the panel is open, so a /relay sent meanwhile shows up without a Refresh.
         const [recent, setRecent] = createSignal<{ session: Session; decisions: Decision[] }>();
         const loadRecent = async () => {
@@ -147,7 +154,7 @@ export default Plugin.define({
             const value = await rpc.setPriceKey({ key }, options) as { saved: boolean; note: string | null };
             setKeyDraft('');
             setKeyNote({ session, bad: !!value.note, text: !value.saved ? 'Key removed.' : value.note ? `Key saved, but ${value.note}.` : 'Key saved. Prices and the index now come from Artificial Analysis.' });
-            await Promise.all([refetch(), refetchIntel(), loadUsage()]);
+            await Promise.all([refetch(), refetchIntel(), loadUsage(), refetchOwn()]);
           } catch (error) { setKeyNote({ session, bad: true, text: describeError(error, 'Could not save the key.') }); }
           finally { setKeying(false); }
         };
@@ -164,7 +171,7 @@ export default Plugin.define({
           try { await call(current.session, ({ rpc, options }) => rpc.saveRelay({ revision, modes, decider, ...change }, options)); }
           catch (error) { setSaveError(describeError(error, 'Could not save. The settings may have changed; refresh and try again.')); }
           finally {
-            try { if (props.session === current.session) await refetch(); }
+            try { if (props.session === current.session) { await refetch(); void refetchOwn(); } }
             catch { setSaveError('Could not refresh the settings. Try Refresh.'); }
             finally { setSaving(false); }
           }
@@ -225,11 +232,13 @@ export default Plugin.define({
                     </Show>
                     <span class="rl-hint">{priceLabel(model().cost)}{indexText(model())}</span>
                   </div>}</Show>
+                  <Show when={ownChoicePart(ownPart(mode), choice)}>{part => <span class="rl-hint">{part()}</span>}</Show>
                   <input class="rl-in" type="text" maxlength={USE_FOR_MAX} aria-label={`What ${choice.id} is for in ${modeLabel(mode)}`} placeholder="Use it for… (your own words, optional)" value={choice.useFor} disabled={saving()}
                     onChange={event => { const useFor = event.currentTarget.value.replace(/\s+/g, ' ').trim(); if (useFor !== choice.useFor) setList(mode, chosen(mode).map(item => same(item, choice) ? { ...item, useFor } : item)); }} />
                 </div>}</For>
                 <Show when={!chosen(mode).length}><span class="rl-hint">None chosen yet. /relay leaves the chat as it is for {modeLabel(mode)}.</span></Show>
                 <Show when={chosen(mode).length > 1}><span class="rl-hint">{severalModelsHint}</span></Show>
+                <Show when={ownChoiceNote(ownPart(mode))}>{note => <span class="rl-hint">{note()}</span>}</Show>
                 <Show when={adding() === mode} fallback={<button type="button" class="rl-btn sm rl-add" disabled={saving() || response.loading} onClick={() => setAdding(mode)}>+ Add a model</button>}>
                   <ModelTable label={`Add a model to ${modeLabel(mode)}`} models={usable()} source={indexSource()} action="Add" actionLabel={model => `Add ${model.name} from ${model.providerID} to ${modeLabel(mode)}`}
                     can={model => !saving() && nextEffort(chosen(mode), model) !== undefined} mark={model => `${model.capabilities.tools ? '' : ' · no tools'}${inList(mode, model) ? ' · ✓ in the list' : ''}`}

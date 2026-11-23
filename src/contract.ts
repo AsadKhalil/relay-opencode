@@ -49,6 +49,12 @@ const relayOutput = { type: 'object', properties: {
 /** The host reports any exception thrown by a handler as an opaque "RPC call failed", so a refusal the panel must show is returned as this declared error instead. */
 const errors = { rejected: { type: 'object', properties: {}, additionalProperties: false } } as const;
 const nothing = { type: 'object', properties: {}, additionalProperties: false } as const;
+/** Relay's own choice for one mode (src/ranking.ts): null when the mode is not Relay's to choose, else the models by name, or why it can't rank them. */
+const ownPart = { anyOf: [
+  { type: 'null' },
+  { type: 'object', properties: { kind: { type: 'string', enum: ['unranked'] }, reason: { type: 'string' } }, required: ['kind', 'reason'], additionalProperties: false },
+  { type: 'object', properties: { kind: { type: 'string', enum: ['ranked'] }, strongest: { type: 'string' }, cheapest: { type: 'string' } }, required: ['kind', 'strongest', 'cheapest'], additionalProperties: false },
+] } as const;
 
 export const RelayRpc = Rpc.define({
   id: 'relay-opencode',
@@ -65,6 +71,8 @@ export const RelayRpc = Rpc.define({
     testDecider: { errors, input: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'], additionalProperties: false }, output: { type: 'object', properties: { directory: { type: 'string' }, mode: nullableMode, confidence: nullableNumber, model: nullableString, fit: nullableNumber, ms: { type: 'number' }, costUsd: nullableString, note: nullableString }, required: ['directory', 'mode', 'confidence', 'model', 'fit', 'ms', 'costUsd', 'note'], additionalProperties: false } },
     /** Usage by model: the totals of every reply Relay counted, and the credit Artificial Analysis asks for when its prices are used. Storage only. */
     getRelayUsage: { errors, input: nothing, output: { type: 'object', properties: { directory: { type: 'string' }, since: nullableString, rows: { type: 'array', items: usageRow }, credit: nullableString }, required: ['directory', 'since', 'rows', 'credit'], additionalProperties: false } },
+    /** For the panel: which model of each mode Relay gives big work and small work by itself, from the saved settings and the stored copies only. */
+    getOwnChoice: { errors, input: nothing, output: { type: 'object', properties: { directory: { type: 'string' }, modes: { type: 'object', properties: { plan: ownPart, execute: ownPart, review: ownPart }, required: ['plan', 'execute', 'review'], additionalProperties: false } }, required: ['directory', 'modes'], additionalProperties: false } },
     /** Saves the Artificial Analysis key, or with null removes it, and never returns it. `note` says why the list could not be loaded with it. */
     setPriceKey: { errors, input: { type: 'object', properties: { key: nullableString }, required: ['key'], additionalProperties: false }, output: { type: 'object', properties: { saved: { type: 'boolean' }, note: nullableString }, required: ['saved', 'note'], additionalProperties: false } },
     listModels: { errors, input: nothing, output: { type: 'object', properties: { directory: { type: 'string' }, models: { type: 'array', items: modelItem } }, required: ['directory', 'models'], additionalProperties: false } },

@@ -2,8 +2,10 @@ import { RelayRpc } from './contract.js';
 export { RelayRpc } from './contract.js';
 import type { Plugin } from '@opencode/plugin';
 import { listProjectModels } from './inventory.js';
-import { getRelaySettings, saveRelaySettings, recentDecisions, modelName, chatSwitch, setChatSwitch, getUsage, type RelaySettings, type RelayStore } from './relay-store.js';
-import { checksStatus, describeError, linesFor, route } from './router.js';
+import { getRelaySettings, saveRelaySettings, recentDecisions, modelName, modes, chatSwitch, setChatSwitch, getUsage, type Mode, type RelaySettings, type RelayStore } from './relay-store.js';
+import { candidates, checksStatus, describeError, linesFor, route, sizesFor } from './router.js';
+import { rank } from './ranking.js';
+import { readStored, standingsOf } from './standings.js';
 import { decide } from './decider.js';
 import { INDEX_SOURCE, indexFor, loadIndexTable } from './intelligence.js';
 import { AA_CREDIT, AA_SOURCE, aaFor, getPriceKey, loadAaModels, setPriceKey } from './artificial-analysis.js';
@@ -40,6 +42,18 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
       const [usage, key] = await Promise.all([getUsage(relayStore), getPriceKey(relayStore)]);
       return { directory: context.location.directory, ...usage, credit: key !== null || usage.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null };
     },
+    // Which model of each mode gets big work and small work by itself. Worked out here, not in the panel: the panel has neither each
+    // effort's own score nor the Coding index. Storage only, with the same rule as /relay (src/ranking.ts).
+    getOwnChoice: async () => {
+      const [settings, models, stored] = await Promise.all([getRelaySettings(relayStore), listProjectModels(context), readStored(relayStore)]);
+      const standings = standingsOf(stored, models, modes.flatMap(mode => settings.modes[mode])), nothingAttached = { needsImage: false, tokens: 0 };
+      const part = (mode: Mode) => {
+        const list = settings.modes[mode], ranked = rank(mode, list, candidates(mode, list, models, nothingAttached).usable, standings, null);
+        if (ranked === null) return null;
+        return ranked.kind === 'unranked' ? { kind: 'unranked' as const, reason: ranked.reason } : { kind: 'ranked' as const, strongest: modelName(ranked.strongest), cheapest: modelName(ranked.cheapest) };
+      };
+      return { directory: context.location.directory, modes: { plan: part('plan'), execute: part('execute'), review: part('review') } };
+    },
     // The key is saved and the list loaded with it at once, so a refused key shows now. The key is never sent back.
     setPriceKey: async input => {
       await setPriceKey(context.storage, (input as { key: string | null }).key);
@@ -70,11 +84,11 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
     testDecider: async input => {
       const text = (input as { text: string }).text;
       if (!text.trim()) throw new Error('Type a sample message');
-      const [settings, models] = await Promise.all([getRelaySettings(relayStore), listProjectModels(context)]);
-      // The same path as /relay with nothing attached and no chat: the lines asked about and the pick come from the router.
-      const attachment = { needsImage: false, tokens: 0 };
-      const answer = await decide({ decisions: request => context.experimental.generate.decisions(request as never) }, settings.decider, { kind: 'chat', text, agent: null, files: [], images: 0, lines: linesFor(settings, models, attachment) });
-      const result = route(answer, settings, models, attachment, null);
+      const [settings, models, stored] = await Promise.all([getRelaySettings(relayStore), listProjectModels(context), readStored(relayStore)]);
+      // The same path as /relay with nothing attached and no chat: the lines or sizes asked about and the pick come from the router.
+      const attachment = { needsImage: false, tokens: 0 }, standings = standingsOf(stored, models, modes.flatMap(mode => settings.modes[mode]));
+      const answer = await decide({ decisions: request => context.experimental.generate.decisions(request as never) }, settings.decider, { kind: 'chat', text, agent: null, files: [], images: 0, lines: linesFor(settings, models, attachment), sizes: sizesFor(settings, models, attachment, null, standings) });
+      const result = route(answer, settings, models, attachment, null, 'plan', standings);
       return { directory: context.location.directory, mode: result.mode, confidence: answer.kind === 'answer' ? answer.confidence : null, model: result.switch ? modelName(result.model) : null, fit: result.switch ? result.fit : null, ms: answer.ms, costUsd: answer.kind === 'answer' ? answer.costUsd : null, note: result.note };
     },
   }));
