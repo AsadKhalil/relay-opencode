@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { reviewHelperHook } from '../src/review-helper.js';
 import { recentDecisions } from '../src/relay-store.js';
 import { reviewRules } from '../src/router.js';
-import { entry, fakeRelay } from './relay-fakes.js';
+import { entry, fakeModels, fakeRelay } from './relay-fakes.js';
 
 const call = (input: unknown, tool = 'subagent') => ({ tool, sessionID: 'ses-1', agent: 'build', messageID: 'msg-1', id: 'call-1', input });
 const task = { agent: 'general', description: 'Check the diff', prompt: 'Review the changes in src/auth.ts for mistakes.' };
@@ -31,7 +31,7 @@ test('a helper whose task is a check starts on the Review model and gets the rul
   assert.deepEqual([record.messageID, record.reply], [null, null], "a helper's record names no message, so nothing is read for it later");
   assert.deepEqual([record.kind, record.sessionID, record.mode, record.model, record.confidence, record.fit, record.costUsd, record.note], ['helper', 'ses-1', 'review', 'p/review', 0.95, null, '0', null]);
   assert.equal(/auth\.ts|Review the changes/.test(JSON.stringify(record)), false, 'the record holds no task text');
-  assert.equal(f.calls.some(item => ['get', 'wait', 'switchAgent', 'switchModel', 'put', 'remove', 'prompt'].includes(item.name)), false, 'the calling chat is not touched');
+  assert.equal(f.calls.some(item => ['wait', 'switchAgent', 'switchModel', 'put', 'remove', 'prompt'].includes(item.name)), false, 'the calling chat is not changed (its model is only read, for the Review guard)');
 });
 
 test('with several Review models the line the decider chose picks the helper\'s model, and only the Review lines are asked about', async () => {
@@ -115,3 +115,26 @@ test('a host call that never answers lets the helper start as it was, instead of
   assert.match((await last(f))?.note ?? '', /helper left alone: did not answer within 0\.02 seconds/);
 });
 
+const priced = (id: string, input: string, output: string) => { const base = fakeModels.find(model => model.id === 'exec')!; return { ...base, id, name: id, cost: { ...base.cost, inputPerMillion: input, outputPerMillion: output } }; };
+const twoReviewers = { settings: reviewers(entry('flash', 'high'), entry('kimi', 'high')), models: [...fakeModels, priced('flash', '0.15', '0.5'), priced('kimi', '2', '10')] };
+const scores = (...rows: [string, number][]) => ({ 'relay/intelligence': { fetchedAt: '2020-01-01T00:00:00.000Z', rows: rows.map(([id, index]) => [id, `x/${id}`, index]) } });
+const sizedCheck = (size: string) => ({ choice: 'review', confidence: 0.95, sizes: { review: { choice: size, confidence: 0.9 } } });
+
+test('a check with no Review lines is asked its size and gets the strongest reviewer for big work', async () => {
+  const { f, input } = await started({ ...twoReviewers, stored: scores(['kimi', 60], ['flash', 30]), decision: sizedCheck('big') });
+  assert.ok(asked(f).questions.some((question: { name: string }) => question.name === 'review_size'));
+  assert.equal(input.model, 'p/kimi#high');
+  assert.equal((await last(f)).note, 'big work, so the highest index');
+});
+
+test('no reviewer weaker than the calling chat’s model', async () => {
+  const { f, input } = await started({ ...twoReviewers, chat: { model: { providerID: 'p', id: 'usual' } }, stored: scores(['kimi', 60], ['flash', 30], ['usual', 50]), decision: sizedCheck('small') });
+  assert.equal(input.model, 'p/kimi#high', 'flash scores below the writer, so even small work goes to kimi');
+  assert.ok(!asked(f).questions.some((question: { name: string }) => question.name === 'review_size'), 'one reviewer left: nothing to ask');
+});
+
+test('when the calling chat can’t be read, there is no guard and the helper still gets a Review model', async () => {
+  const { input } = await started({ ...twoReviewers, settings: reviewers(entry('kimi', 'high'), entry('flash', 'high')), fail: { get: new Error('gone') }, stored: scores(['kimi', 60], ['flash', 30], ['usual', 50]), decision: sizedCheck('small') });
+  assert.equal(input.model, 'p/flash#high', 'no writer, no guard: small work goes to the cheapest, not the first');
+  assert.equal(input.prompt, `${task.prompt}\n\n${reviewRules}`);
+});
