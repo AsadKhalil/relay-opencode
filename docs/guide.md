@@ -49,6 +49,13 @@ Add models to **Plan**, **Execute** and **Review**: press **+ Add a model** unde
 - The index is the Artificial Analysis Intelligence Index, taken from OpenRouter's public model list. For a model with efforts, it is the score at its highest effort, and a lower effort scores less (GPT-6.2 Sol: 57 at max, 41 at low). The price per token is the same at every effort, but a higher effort writes more tokens, so each reply costs more. "—" means Relay could not match the model. Hover over a number to see which model it came from. See [data sources](data-sources.md).
 - When a mode has more than one model, write a short "use it for" line for each, for example "hard design and architecture" or "small, quick edits". The decision model matches your message to these lines. It also reads the end of the chat's last reply, so a short follow-up such as "Implement it." is matched by the plan before it. It never sees model names or prices.
 - When no line fits clearly, Relay uses the first model in the mode's list, so put your everyday model first. A move to a cheaper model is still made only when it pays (see [When Relay saves money](saving-money.md)).
+- **Or write no lines at all, and Relay chooses by itself.** With two or more models in a mode and no line written, the decision model is asked only how big the work is: small and clear, or big, unclear or risky (a failed try in the last reply counts as big). Big work goes to the model with the highest index, small work to the cheapest.
+  - "Index" is Artificial Analysis's Coding index for Execute when every model there has one (with your Artificial Analysis key), and the main index otherwise.
+  - "Cheapest" is a typical request at the model's prices, counting how much that model itself writes once it has three replies Relay counted.
+  - In Review, a reviewer with a lower index than the model that wrote the work is not used.
+  - When the decision model is not sure, or a model has no index or no price, the first model is used, and the panel says why under the list.
+  - The panel shows each model's part: "Relay: big work", "small work" or "all work". It reads only what Relay has stored, so the index list must have been loaded once (the model tables load it).
+  - Two rows of one model need an effort on each; "default effort" can't be ranked against the same model's named effort.
 
 ### The decider
 

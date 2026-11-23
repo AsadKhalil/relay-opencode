@@ -258,6 +258,17 @@ try {
   // The whole reply adds up both requests (each read 62,000 tokens, 61,000 of them from a cache, and wrote 5), at $4 / $0.20 / $20 for a million.
   assert.deepEqual([tooled.reply.model, tooled.reply.total, tooled.reply.prices], ['smoke/model-big', { input: 2000, output: 10, reasoning: 0, cacheRead: 122_000, cacheWrite: 0, costUsd: '0.0326' }, { inputPerMillion: '4', outputPerMillion: '20', cacheReadPerMillion: '0.2', cacheWritePerMillion: '5' }]);
 
+  // Relay's own choice: Plan gets two models and no lines. Relay reads only its stored copies, and no index was loaded here (the mock models
+  // are in no list anyway), so it can't rank them: no size question, and the first model, with the reason.
+  const current = (await rpc().getRelay({}, options)).settings;
+  await rpc().saveRelay({ revision: current.revision, decider: current.decider, modes: { ...current.modes, plan: [{ ...of('model-big'), useFor: '' }, { ...of('model-cheap'), useFor: '' }] } }, options);
+  const parts = await rpc().getOwnChoice({}, options);
+  note('own choice, as the panel gets it', parts.modes);
+  assert.deepEqual(parts.modes, { plan: { kind: 'unranked', reason: 'no index for model-big' }, execute: null, review: null });
+  const own = await turn('Plan with two models and no lines, no index: the first model', { mode: 'plan', line: '1' }, { prompt: 63_000, cached: 62_500 }, () => relay('Think about the design of the cache.'));
+  assert.equal(asked.at(-1).plan_size, undefined, 'nothing to rank, so no size question');
+  assert.deepEqual([own.mode, own.model, own.note], ['plan', 'smoke/model-big', 'no index for model-big, so the first model is picked']);
+
   // Usage by model adds up every reply Relay counted. The cheaper model answered one message: 5,000 tokens in, 5 out and 15,000 from a cache.
   const totals = await rpc().getRelayUsage({}, options);
   note('usage by model', totals.rows.map(row => [row.model, row.messages, row.requests, row.byPrice, row.pricesFrom]));

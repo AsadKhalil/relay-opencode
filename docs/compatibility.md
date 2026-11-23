@@ -1234,3 +1234,19 @@ After the re-run above, the owner chose to test the decider alone before the des
 - **Against the re-run above.** On real chats, the line question was answered with a line in only 4 of 12 build turns. Here the two-way question answered every small case at 94% or more. The cases were short and written to be clear, so this does not show how the question fares on real plans.
 
 **Not tested.** Real chats and real plans; the Plan and Review size questions; a helper's task text; other decision models; more than one run.
+
+## 2026-11-23 (evening) — Relay's own choice inside a mode, on an isolated OpenCode 2.3.2 with mock models (Windows 11)
+
+Built from `docs/superpowers/plans/2026-11-23-relay-own-choice-by-index-and-price.md`, on the branch `own-choice`.
+
+**The real-host check.** `npm run smoke:host:model` ran with the CLI that comes with Desktop (2.3.2), isolated as always, with mock models and a mock decider. It passed, with every earlier check unchanged. The new part:
+- Plan was saved as `[model-big, model-cheap]` with no lines. The mock models are in no index list, and none was loaded.
+- `getOwnChoice` gave `plan: { kind: 'unranked', reason: 'no index for model-big' }`, through the host's own check of the method's declared output.
+- `/relay` asked no `plan_size` question and used the first model, with the note "no index for model-big, so the first model is picked".
+
+**The four checks, fresh:** typecheck clean; 233 of 233 tests; build; "Package check passed: 44 files, 82.9 kB packed."
+
+**Not tested.**
+- A ranked list on a real host: the mock models have no index. The ranking, the size question and the pick are covered by unit tests.
+- The size question in real chats; helpers on a real host; Artificial Analysis's real Coding index.
+- Desktop's panel showing the parts.
