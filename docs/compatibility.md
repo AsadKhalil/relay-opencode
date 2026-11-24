@@ -1309,3 +1309,19 @@ After pushing, the owner said: "test on relay with Go allowance". For the update
 - Helpers that check work, on a real host.
 - Artificial Analysis's Coding index, and big or risky work outside these six exercises.
 - Claude and Ollama.
+
+## 2026-11-24 — The Relay usage tab, on an isolated OpenCode 2.3.2 with mock models (Windows 11)
+
+Built from `docs/superpowers/plans/2026-11-24-relay-usage-tab.md`, on the branch `usage-tab`.
+
+**The real-host check.** `npm run smoke:host:model` ran with the CLI that comes with Desktop (2.3.2), isolated as always, with mock models and a mock decider. It passed, with every earlier check unchanged. The new part:
+- After all the smoke's chats, `getUsageLog` for the last hour gave 10 records, read back through the host's own storage scan. The host checked the method's declared output.
+- In the first chat, the three messages Relay handled carry its note ("no decider chosen"). The plain message sent with the switch off has none.
+- Totals by model: `smoke/model-big` 5 replies, 6 requests, $0.095162; `smoke/model-cheap` 1 reply, $0.01155; `smoke/model-chat` 4 replies, no price listed. No record held the text of a message.
+
+**The four checks, fresh:** typecheck clean; 275 of 275 tests; build; "Package check passed: 48 files, 100.8 kB packed."
+
+**Not tested.**
+- Desktop's new tab on screen, and real replies.
+- The `compaction` hook around a real summary of a long chat; a helper's chat on a real host.
+- Records from two OpenCode windows at once.

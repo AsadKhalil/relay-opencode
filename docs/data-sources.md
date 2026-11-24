@@ -24,9 +24,9 @@ Since 19 Nov 2026, with an Artificial Analysis key saved in the panel, Relay dow
 
 - **When.** It downloads when the model tables load the index and when a key is saved, at most once a day; the copy is kept in plugin storage. A refused key or a used-up day keeps the older copy and says why.
 - **What it gives.** For each model and effort: the price for a million tokens in, out, read from a cache and written to a cache, and the intelligence index. Checked on 19 Nov 2026 with the owner's test key: 763 models, an index for 156, input and output prices for 475, a cache-read price for 364 and a cache-write price for 131.
-- **Prices.** A reply is priced with Artificial Analysis's prices only when OpenCode lists none for its model. They are marked `*` in Usage by model.
+- **Prices.** A reply is priced with Artificial Analysis's prices only when OpenCode lists none for its model. They are marked `*` in the Relay usage tab.
 - **Matching.** Each effort is listed on its own: `claude-sonnet-5-5` is Max and `claude-sonnet-5-5-high` is High. Relay matches the model's id or name exactly, with its effort first. The subscription login's `sonnet`, `haiku`, `opus` and `fable` stand for the newest Anthropic model of that name.
 - **The index.** With a key, the model tables show Artificial Analysis's index instead of OpenRouter's copy of it. Without one, or when its list cannot be had, OpenRouter's.
-- **Credit.** Artificial Analysis asks for a visible credit wherever its data is shown. Relay shows "Prices and index: Artificial Analysis (artificialanalysis.ai)" under Usage by model and in `/relay-stats`, and names it as the index's source.
+- **Credit.** Artificial Analysis asks for a visible credit wherever its data is shown. Relay shows "Prices and index: Artificial Analysis (artificialanalysis.ai)" in the Relay usage tab and in `/relay-stats`, and names it as the index's source.
 
 The older pipeline's optional OpenRouter price catalog and its separate Artificial Analysis panel, which needed a key, were removed on 17 Nov 2026.

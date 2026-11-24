@@ -277,6 +277,15 @@ try {
     byPrice: { input: '0.01', output: '0.00005', cacheRead: '0.0015', cacheWrite: '0' }, prices: { inputPerMillion: '2', outputPerMillion: '10', cacheReadPerMillion: '0.1', cacheWritePerMillion: '2.5' }, pricesFrom: 'opencode',
   });
   assert.ok((totals.rows.find(row => row.model === 'smoke/model-big')?.requests ?? 0) >= 5, 'the dearer model answered at least five requests');
+  // Usage records (the Relay usage tab): every reply of every chat, written when the chat goes idle and read back through the host's own
+  // storage scan. In the first chat, the /relay message carries Relay's part ("no decider chosen"); the plain message sent with the switch off has none.
+  const until = new Date(), log = await rpc().getUsageLog({ from: new Date(until.getTime() - 3_600_000).toISOString(), to: until.toISOString(), tzOffsetMinutes: 0, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 200 }, options);
+  const firstChat = log.records.filter(record => record.sessionID === chat.id);
+  note('usage records', { matching: log.matching, removed: log.removed, firstChat: firstChat.map(record => [record.kind, record.model, record.requests, record.relay]), totals: log.totals.map(total => [total.model, total.replies, total.requests, total.cost]) });
+  assert.ok(firstChat.some(record => record.relay?.note === 'no decider chosen'), 'the /relay message keeps its Relay part');
+  assert.ok(firstChat.some(record => record.relay === null), 'the plain message sent with the switch off has no Relay part');
+  assert.ok(log.records.every(record => !JSON.stringify(record).includes('Say hello')), 'no text is kept');
+  assert.ok(log.matching >= 8 && log.days.length >= 1, `every reply of every chat is counted: ${log.matching}`);
   // The terminal part: the host lists Relay with it, so /relay-stats is there in the terminal app.
   const listed = (await server.client.plugin.list({ location: options.location })).data.find(item => JSON.stringify(item).includes('relay-opencode'));
   note('plugin features', listed?.features);
