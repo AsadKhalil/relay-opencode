@@ -185,6 +185,13 @@ test('totals add USD exactly, and are ordered by cost', () => {
   assert.deepEqual(totals.map(total => [total.model, total.replies, total.cost, total.aaPriced]), [['p/b', 1, '1', true], ['p/a', 2, '0.3', false]]);
 });
 
+test('a total counts its replies with no price, also when others of its model have one', () => {
+  const priced = at('2026-11-23T10:00:00Z', { model: 'p/a', costByPrice: '0.1' }), bare = at('2026-11-23T11:00:00Z', { model: 'p/a', costByPrice: null, openCodeUsd: '0' });
+  const none = at('2026-11-23T12:00:00Z', { model: 'p/b', costByPrice: null, openCodeUsd: null });
+  const { totals } = summarize([priced, bare, none], query());
+  assert.deepEqual(totals.map(total => [total.model, total.cost, total.replies, total.unpriced]), [['p/a', '0.1', 2, 1], ['p/b', null, 1, 1]]);
+});
+
 // The final review's fixes (24 Nov): what a record keeps when it is read again, and a range that does not trust the host's `after`.
 test('a price that turns up later is added to a record that has none', () => {
   const unpriced = record(1000, { costByPrice: null, pricesFrom: null }), priced = record(1000, { costByPrice: '0.3', pricesFrom: 'opencode' });

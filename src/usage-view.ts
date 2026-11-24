@@ -52,12 +52,12 @@ export function dayLabels(days: readonly string[]): string[] {
   return days.map((day, n) => kept.has(n) ? `${at(day).getUTCDate()} ${MONTHS[at(day).getUTCMonth()]}` : '');
 }
 const nameOf = (model: string) => model.slice(model.indexOf('/') + 1);
-/** One model's row in By model: its name and cost, then its provider, replies and every kind of token. */
+/** One model's row in By model: its name and cost, then its provider, replies, every kind of token, and how many replies the cost leaves out. */
 export function totalCells(total: UsageTotal) {
   const slash = total.model.indexOf('/'), provider = slash < 0 ? '' : total.model.slice(0, slash);
   const tokens = short(total.input + total.output + total.reasoning + total.cacheRead + total.cacheWrite);
   return { name: nameOf(total.model), provider, cost: `${money(total.cost)}${total.cost !== null && total.aaPriced ? '*' : ''}`, tokens,
-    detail: [provider, `${amount(total.replies)} ${total.replies === 1 ? 'reply' : 'replies'}`, `${tokens} tokens`].filter(Boolean).join(' · ') };
+    detail: [provider, `${amount(total.replies)} ${total.replies === 1 ? 'reply' : 'replies'}`, `${tokens} tokens`, total.cost !== null && total.unpriced ? `${amount(total.unpriced)} without a price` : ''].filter(Boolean).join(' · ') };
 }
 export const METRICS: readonly { id: Metric; label: string }[] = [{ id: 'cost', label: 'Cost' }, { id: 'tokens', label: 'Tokens' }, { id: 'requests', label: 'Requests' }];
 const COLORS = ['#4f7cff', '#2ea36a', '#d99a1c', '#9b6bff', '#e05a8a'], OTHER = '#8b949e';

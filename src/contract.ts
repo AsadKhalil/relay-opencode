@@ -58,8 +58,8 @@ const usageRecord = { type: 'object', properties: {
 }, required: ['at', 'sessionID', 'messageID', 'project', 'kind', 'agent', 'model', 'requests', 'input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'costByPrice', 'openCodeUsd', 'pricesFrom', 'relay'], additionalProperties: false } as const;
 const usageTotal = { type: 'object', properties: {
   model: { type: 'string' }, replies: { type: 'number' }, requests: { type: 'number' }, input: { type: 'number' }, output: { type: 'number' }, reasoning: { type: 'number' }, cacheRead: { type: 'number' }, cacheWrite: { type: 'number' },
-  cost: nullableString, aaPriced: { type: 'boolean' },
-}, required: ['model', 'replies', 'requests', 'input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'cost', 'aaPriced'], additionalProperties: false } as const;
+  cost: nullableString, aaPriced: { type: 'boolean' }, unpriced: { type: 'number' },
+}, required: ['model', 'replies', 'requests', 'input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'cost', 'aaPriced', 'unpriced'], additionalProperties: false } as const;
 /** What the usage tab asks for: a range of at most 92 days, the panel's offset from UTC, the filters, and a page of at most 200 records. */
 const usageQuery = { type: 'object', properties: {
   from: { type: 'string' }, to: { type: 'string' }, tzOffsetMinutes: { type: 'integer', minimum: -840, maximum: 840 }, search: { type: 'string', maxLength: 200 },

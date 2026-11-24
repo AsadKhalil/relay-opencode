@@ -147,7 +147,7 @@ export type UsageQuery = {
 };
 /** One local day, with each model's cost (null when none of it has a price), tokens of every kind, and requests. */
 export type UsageDay = { day: string; models: { model: string; cost: string | null; tokens: number; requests: number }[] };
-export type UsageTotal = { model: string; replies: number; requests: number; input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number; cost: string | null; aaPriced: boolean };
+export type UsageTotal = { model: string; replies: number; requests: number; input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number; cost: string | null; aaPriced: boolean; unpriced: number };
 /** `first` is the oldest record given. `matching` counts every record the filters keep; `records` is one page of them, newest first. */
 export type UsageSummary = { days: UsageDay[]; totals: UsageTotal[]; options: { providers: string[]; efforts: string[]; modes: string[]; projects: string[] }; records: UsageRecord[]; matching: number; first: string | null };
 
@@ -182,7 +182,7 @@ export function summarize(records: readonly UsageRecord[], query: UsageQuery): U
   const totals = [...byModel].map(([model, mine]): UsageTotal => ({
     model, replies: mine.length, requests: add(mine, record => record.requests), input: add(mine, record => record.input), output: add(mine, record => record.output),
     reasoning: add(mine, record => record.reasoning), cacheRead: add(mine, record => record.cacheRead), cacheWrite: add(mine, record => record.cacheWrite), cost: sum(mine.map(shownCost)),
-    aaPriced: mine.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis'),
+    aaPriced: mine.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis'), unpriced: mine.filter(record => shownCost(record) === null).length,
   }));
   const costKey = (total: UsageTotal) => total.cost === null ? -1n : parseUsd(total.cost), tokens = (total: UsageTotal) => total.input + total.output + total.reasoning + total.cacheRead + total.cacheWrite;
   totals.sort((a, b) => costKey(b) > costKey(a) ? 1 : costKey(b) < costKey(a) ? -1 : tokens(b) - tokens(a));

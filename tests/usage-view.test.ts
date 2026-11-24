@@ -9,7 +9,7 @@ const record = (extra: Partial<UsageRecord> = {}): UsageRecord => ({
   at: '2026-11-24T15:30:00.000Z', sessionID: 'ses_0123456789abcdef', messageID: 'm1', project: 'C:\\Users\\someone\\work\\app', kind: 'chat', agent: 'build', model: 'opencode-go/kimi-k3.1-pro',
   requests: 3, input: 1000, output: 200, reasoning: 50, cacheRead: 4000, cacheWrite: 0, costByPrice: '0.12', openCodeUsd: '0', pricesFrom: 'opencode', relay: null, ...extra,
 });
-const total = (model: string, cost: string | null, extra: Partial<UsageTotal> = {}): UsageTotal => ({ model, replies: 1, requests: 1, input: 1, output: 1, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost, aaPriced: false, ...extra });
+const total = (model: string, cost: string | null, extra: Partial<UsageTotal> = {}): UsageTotal => ({ model, replies: 1, requests: 1, input: 1, output: 1, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost, aaPriced: false, unpriced: 0, ...extra });
 
 test('today runs from local midnight to now; 7 days starts six midnights earlier', () => {
   const now = new Date(2026, 10, 24, 15, 30);
@@ -94,6 +94,8 @@ test("a model's row: its name and cost, then provider, replies and all its token
   const kimi = totalCells(total('opencode-go/kimi-k3.1-pro', '0.352448', { replies: 28, requests: 84, input: 72_291, output: 73_303, reasoning: 1_000, cacheRead: 838_760, cacheWrite: 0 }));
   assert.deepEqual(kimi, { name: 'kimi-k3.1-pro', provider: 'opencode-go', cost: '$0.35', tokens: '985.4K', detail: 'opencode-go · 28 replies · 985.4K tokens' });
   assert.equal(totalCells(total('claude-agent/claude-sonnet-5-5', null)).cost, 'no price');
+  assert.equal(totalCells(total('p/part', '0.21', { replies: 10, unpriced: 4 })).detail, 'p · 10 replies · 2 tokens · 4 without a price', 'a cost of only some replies says so');
+  assert.equal(totalCells(total('p/none', null, { replies: 3, unpriced: 3 })).detail, 'p · 3 replies · 2 tokens', 'no price at all is said by the cost');
   assert.equal(totalCells(total('p/aa', '0.2', { aaPriced: true })).cost, '$0.20*');
   assert.deepEqual(totalCells(total('bare', '0.1')), { name: 'bare', provider: '', cost: '$0.10', tokens: '2', detail: '1 reply · 2 tokens' });
 });

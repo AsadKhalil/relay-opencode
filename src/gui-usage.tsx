@@ -77,7 +77,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
     const priced = all.flatMap(total => total.cost === null ? [] : [parseUsd(total.cost)]);
     return {
       spent: priced.length || !all.length ? money(formatUsd(priced.reduce((sum, cost) => sum + cost, 0n))) : 'no price', aa: all.some(total => total.cost !== null && total.aaPriced),
-      unpriced: add(total => total.cost === null ? total.replies : 0), replies: add(total => total.replies), requests: add(total => total.requests),
+      unpriced: add(total => total.unpriced), replies: add(total => total.replies), requests: add(total => total.requests),
       in: add(total => total.input + total.cacheRead + total.cacheWrite), out: add(total => total.output + total.reasoning),
     };
   });
