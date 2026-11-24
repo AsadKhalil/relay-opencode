@@ -49,6 +49,32 @@ const relayOutput = { type: 'object', properties: {
 /** The host reports any exception thrown by a handler as an opaque "RPC call failed", so a refusal the panel must show is returned as this declared error instead. */
 const errors = { rejected: { type: 'object', properties: {}, additionalProperties: false } } as const;
 const nothing = { type: 'object', properties: {}, additionalProperties: false } as const;
+/** One usage record (src/usage-log.ts): numbers, models, ids and the project's folder, never text. */
+const usageRecord = { type: 'object', properties: {
+  at: { type: 'string' }, sessionID: { type: 'string' }, messageID: { type: 'string' }, project: { type: 'string' }, kind: { type: 'string', enum: ['chat', 'helper', 'summary'] },
+  agent: nullableString, model: nullableString, requests: { type: 'number' }, input: { type: 'number' }, output: { type: 'number' }, reasoning: { type: 'number' }, cacheRead: { type: 'number' }, cacheWrite: { type: 'number' },
+  costByPrice: nullableString, openCodeUsd: nullableString, pricesFrom: priceSource,
+  relay: { anyOf: [{ type: 'object', properties: { mode: nullableMode, note: nullableString }, required: ['mode', 'note'], additionalProperties: false }, { type: 'null' }] },
+}, required: ['at', 'sessionID', 'messageID', 'project', 'kind', 'agent', 'model', 'requests', 'input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'costByPrice', 'openCodeUsd', 'pricesFrom', 'relay'], additionalProperties: false } as const;
+const usageTotal = { type: 'object', properties: {
+  model: { type: 'string' }, replies: { type: 'number' }, requests: { type: 'number' }, input: { type: 'number' }, output: { type: 'number' }, reasoning: { type: 'number' }, cacheRead: { type: 'number' }, cacheWrite: { type: 'number' },
+  cost: nullableString, aaPriced: { type: 'boolean' },
+}, required: ['model', 'replies', 'requests', 'input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'cost', 'aaPriced'], additionalProperties: false } as const;
+/** What the usage tab asks for: a range of at most 92 days, the panel's offset from UTC, the filters, and a page of at most 200 records. */
+const usageQuery = { type: 'object', properties: {
+  from: { type: 'string' }, to: { type: 'string' }, tzOffsetMinutes: { type: 'integer', minimum: -840, maximum: 840 }, search: { type: 'string', maxLength: 200 },
+  provider: nullableString, effort: nullableString, mode: nullableString, relay: { type: 'string', enum: ['any', 'on', 'off'] }, kind: { type: 'string', enum: ['any', 'chat', 'helper', 'summary'] },
+  project: nullableString, offset: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 200 },
+}, required: ['from', 'to', 'tzOffsetMinutes', 'search', 'provider', 'effort', 'mode', 'relay', 'kind', 'project', 'offset', 'limit'], additionalProperties: false } as const;
+const strings = { type: 'array', items: { type: 'string' } } as const;
+const usageDay = { type: 'object', properties: { day: { type: 'string' }, models: { type: 'array', items: { type: 'object', properties: { model: { type: 'string' }, cost: nullableString, tokens: { type: 'number' }, requests: { type: 'number' } }, required: ['model', 'cost', 'tokens', 'requests'], additionalProperties: false } } }, required: ['day', 'models'], additionalProperties: false } as const;
+const usageLog = { type: 'object', properties: {
+  directory: { type: 'string' }, days: { type: 'array', items: usageDay }, totals: { type: 'array', items: usageTotal },
+  options: { type: 'object', properties: { providers: strings, efforts: strings, modes: strings, projects: strings }, required: ['providers', 'efforts', 'modes', 'projects'], additionalProperties: false },
+  records: { type: 'array', items: usageRecord }, matching: { type: 'number' }, first: nullableString,
+  before: { type: 'object', properties: { since: nullableString, rows: { type: 'array', items: usageRow } }, required: ['since', 'rows'], additionalProperties: false },
+  credit: nullableString, removed: { type: 'number' },
+}, required: ['directory', 'days', 'totals', 'options', 'records', 'matching', 'first', 'before', 'credit', 'removed'], additionalProperties: false } as const;
 /** Relay's own choice for one mode (src/ranking.ts): null when the mode is not Relay's to choose, else the models by name, or why it can't rank them. */
 const ownPart = { anyOf: [
   { type: 'null' },
@@ -72,6 +98,8 @@ export const RelayRpc = Rpc.define({
     /** Usage by model: the totals of every reply Relay counted, and the credit Artificial Analysis asks for when its prices are used. Storage only. */
     getRelayUsage: { errors, input: nothing, output: { type: 'object', properties: { directory: { type: 'string' }, since: nullableString, rows: { type: 'array', items: usageRow }, credit: nullableString }, required: ['directory', 'since', 'rows', 'credit'], additionalProperties: false } },
     /** For the panel: which model of each mode Relay gives big work and small work by itself, from the saved settings and the stored copies only. */
+    /** The usage tab (Relay usage): every reply of every chat in a time range, added up and filtered on the server. Storage only; it also removes records past 90 days. */
+    getUsageLog: { errors, input: usageQuery, output: usageLog },
     getOwnChoice: { errors, input: nothing, output: { type: 'object', properties: { directory: { type: 'string' }, modes: { type: 'object', properties: { plan: ownPart, execute: ownPart, review: ownPart }, required: ['plan', 'execute', 'review'], additionalProperties: false } }, required: ['directory', 'modes'], additionalProperties: false } },
     /** Saves the Artificial Analysis key, or with null removes it, and never returns it. `note` says why the list could not be loaded with it. */
     setPriceKey: { errors, input: { type: 'object', properties: { key: nullableString }, required: ['key'], additionalProperties: false }, output: { type: 'object', properties: { saved: { type: 'boolean' }, note: nullableString }, required: ['saved', 'note'], additionalProperties: false } },

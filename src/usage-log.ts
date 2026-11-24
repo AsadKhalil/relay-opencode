@@ -185,3 +185,29 @@ export function summarize(records: readonly UsageRecord[], query: UsageQuery): U
     options: { providers: sorted(records.map(providerOf)), efforts: sorted(records.map(effortOf)), modes: sorted(records.map(modeOf)), projects: sorted(records.map(record => record.project)) },
   };
 }
+
+/** The time of the oldest record kept, for the tab's "since"; null with none. */
+export async function oldestRecord(store: Pick<LogStore, 'scan'>): Promise<string | null> {
+  const key = (await store.scan({ prefix: LOG_PREFIX, limit: 1 })).entries[0]?.key;
+  return key ? timeOfKey(key) : null;
+}
+
+const RANGE_DAYS = 92, LIMIT = 200;
+/** The tab's question, checked and with its times in the keys' own form. A question that is not one gets a plain sentence. */
+export function usageQueryOf(input: unknown): UsageQuery {
+  const item = (input ?? {}) as Record<string, unknown>;
+  const time = (value: unknown, name: string) => { const ms = typeof value === 'string' ? Date.parse(value) : NaN; if (Number.isNaN(ms)) throw new Error(`The ${name} time is not a time.`); return ms; };
+  const from = time(item.from, 'start'), to = time(item.to, 'end');
+  if (from > to) throw new Error('The range starts after it ends.');
+  if (to - from > RANGE_DAYS * DAY_MS) throw new Error(`A range is at most ${RANGE_DAYS} days.`);
+  const whole = (value: unknown, low: number, high: number, name: string) => { if (typeof value !== 'number' || !Number.isInteger(value) || value < low || value > high) throw new Error(`${name} must be a whole number from ${low} to ${high}.`); return value; };
+  const choice = (value: unknown, name: string) => { if (value !== null && (typeof value !== 'string' || value.length > 500)) throw new Error(`The ${name} filter is not one.`); return value; };
+  if (typeof item.search !== 'string' || item.search.length > 200) throw new Error('The search is at most 200 characters.');
+  if (item.relay !== 'any' && item.relay !== 'on' && item.relay !== 'off') throw new Error('The Relay filter is any, on or off.');
+  if (item.kind !== 'any' && !kinds.includes(item.kind as UsageKind)) throw new Error('The kind filter is any, chat, helper or summary.');
+  return {
+    from: new Date(from).toISOString(), to: new Date(to).toISOString(), tzOffsetMinutes: whole(item.tzOffsetMinutes, -840, 840, 'The time zone offset'), search: item.search,
+    provider: choice(item.provider, 'provider'), effort: choice(item.effort, 'effort'), mode: choice(item.mode, 'mode'), relay: item.relay, kind: item.kind as UsageQuery['kind'],
+    project: choice(item.project, 'project'), offset: whole(item.offset, 0, 1_000_000, 'The offset'), limit: whole(item.limit, 1, LIMIT, 'The page size'),
+  };
+}

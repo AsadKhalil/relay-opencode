@@ -9,6 +9,7 @@ import { readStored, standingsOf } from './standings.js';
 import { decide } from './decider.js';
 import { INDEX_SOURCE, indexFor, loadIndexTable } from './intelligence.js';
 import { AA_CREDIT, AA_SOURCE, aaFor, getPriceKey, loadAaModels, setPriceKey } from './artificial-analysis.js';
+import { oldestRecord, pruneRecords, readRecords, summarize, usageQueryOf, type LogStore } from './usage-log.js';
 
 const chatID = (input: unknown) => { const id = (input as { sessionID: string }).sessionID.trim(); if (!id) throw new Error('Name the chat'); return id; };
 
@@ -44,6 +45,15 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
     },
     // Which model of each mode gets big work and small work by itself. Worked out here, not in the panel: the panel has neither each
     // effort's own score nor the Coding index. Storage only, with the same rule as /relay (src/ranking.ts).
+    // The usage tab: one range of usage records, added up and filtered here. Old records go first, 1,000 at most a call. Storage only.
+    getUsageLog: async input => {
+      const query = usageQueryOf(input), log = context.storage as unknown as LogStore;
+      const removed = await pruneRecords(log, (options.now ?? Date.now)());
+      const [records, oldest, before] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore)]);
+      const summary = summarize(records, query);
+      const credit = summary.totals.some(total => total.aaPriced) || before.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null;
+      return { directory: context.location.directory, ...summary, first: oldest ?? summary.first, before, credit, removed };
+    },
     getOwnChoice: async () => {
       const [settings, models, stored] = await Promise.all([getRelaySettings(relayStore), listProjectModels(context), readStored(relayStore)]);
       const standings = standingsOf(stored, models, modes.flatMap(mode => settings.modes[mode])), nothingAttached = { needsImage: false, tokens: 0 };

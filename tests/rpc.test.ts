@@ -273,3 +273,50 @@ test('testDecider shows Relay’s own choice', async () => {
   assert.deepEqual(host.requests[0].questions.map((question: { name: string }) => question.name), ['mode', 'execute_size']);
   assert.equal(/p\/m|deep|0\.24|60|40/.test(JSON.stringify(host.requests[0])), false, 'the decider is never told a model name, a price or a score');
 });
+
+// The Relay usage tab's call (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md): storage only, added up on the server.
+const usageQuery = (extra: Record<string, unknown> = {}) => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, ...extra });
+const usageRecord = (at: string, extra: Record<string, unknown> = {}) => ({ at, sessionID: 'ses-1', messageID: `m-${at}`, project: '/repo', kind: 'chat', agent: 'build', model: 'p/big', requests: 1, input: 10, output: 5, reasoning: 0, cacheRead: 0, cacheWrite: 0, costByPrice: '0.01', openCodeUsd: null, pricesFrom: 'opencode', relay: null, ...extra });
+const putRecord = (data: Map<string, unknown>, record: ReturnType<typeof usageRecord>) => data.set(`relay/usage-log/${record.at}/${record.sessionID}/${record.messageID}`, record);
+function usageHost(data: Map<string, unknown>, now = Date.parse('2026-11-24T16:00:00Z')) {
+  let handlers: any;
+  const storage = {
+    async get(key: string) { return structuredClone(data.get(key)); }, async set(key: string, value: unknown) { data.set(key, structuredClone(value)); }, async remove(key: string) { data.delete(key); },
+    async scan({ prefix, after, limit }: { prefix: string; after?: string; limit?: number }) {
+      const keys = [...data.keys()].filter(key => key.startsWith(prefix) && (after === undefined || key > after)).sort(), page = keys.slice(0, limit ?? 100);
+      return { entries: page.map(key => ({ key, value: structuredClone(data.get(key)) })), ...(keys.length > page.length ? { next: page.at(-1) } : {}) };
+    },
+  };
+  registerRpc({ location: { directory: '/repo' }, storage, model: {}, rpc: { async register(_definition: unknown, h: unknown) { handlers = asClient(h); return { async dispose() {} }; } } } as never, { now: () => now });
+  return handlers;
+}
+
+test('getUsageLog adds up the stored records for a range and its output fits the contract', async () => {
+  const data = new Map<string, unknown>();
+  for (const at of ['2026-11-10T12:00:00.000Z', '2026-11-23T15:00:00.000Z', '2026-11-24T10:00:00.000Z']) putRecord(data, usageRecord(at));
+  const answer = await usageHost(data).getUsageLog(usageQuery());
+  assert.deepEqual([answer.directory, answer.matching, answer.totals.map((total: { model: string; replies: number; cost: string }) => [total.model, total.replies, total.cost]), answer.days.length], ['/repo', 2, [['p/big', 2, '0.02']], 5]);
+  assert.equal(answer.first, '2026-11-10T12:00:00.000Z', 'the oldest record kept, for "since"');
+  assert.deepEqual([fits(RelayRpc.methods.getUsageLog.output, answer), fits(RelayRpc.methods.getUsageLog.input, usageQuery(), 'input')], [[], []]);
+});
+
+test('getUsageLog removes records past 90 days, at most 1,000', async () => {
+  const data = new Map<string, unknown>();
+  for (const at of ['2026-08-01T00:00:00.000Z', '2026-08-02T00:00:00.000Z', '2026-08-20T00:00:00.000Z', '2026-11-24T10:00:00.000Z']) putRecord(data, usageRecord(at));
+  const answer = await usageHost(data).getUsageLog(usageQuery());
+  assert.deepEqual([answer.removed, data.size], [3, 1]);
+});
+
+test('getUsageLog refuses a range longer than 92 days or a limit over 200', async () => {
+  const host = usageHost(new Map());
+  await assert.rejects(host.getUsageLog(usageQuery({ from: '2026-08-01T00:00:00.000Z' })), { type: 'rejected', message: /92 days/ });
+  await assert.rejects(host.getUsageLog(usageQuery({ limit: 500 })), { type: 'rejected' });
+  await assert.rejects(host.getUsageLog(usageQuery({ from: '2026-11-25T00:00:00.000Z' })), { type: 'rejected' });
+  await assert.rejects(host.getUsageLog(usageQuery({ relay: 'maybe' })), { type: 'rejected' });
+});
+
+test('the old totals come along as before', async () => {
+  const host = usageHost(new Map());
+  const [answer, old] = await Promise.all([host.getUsageLog(usageQuery()), host.getRelayUsage({})]);
+  assert.deepEqual([answer.before.since, answer.before.rows], [old.since, old.rows]);
+});
