@@ -3,10 +3,11 @@ import { registerRpc } from './rpc.js';
 import { listProjectModels } from './inventory.js';
 import { relayCommand, fileSize, type RelayDeps } from './relay-command.js';
 import { reviewHelperHook } from './review-helper.js';
-import { relayAutoHook, relayReplyHook } from './relay-auto.js';
+import { relayAutoHook, relayCompactionHook, relayReplyHook } from './relay-auto.js';
 import { decide } from './decider.js';
 import { storedAaModels } from './artificial-analysis.js';
 import type { RelayStore } from './relay-store.js';
+import type { LogStore } from './usage-log.js';
 
 export async function createRuntime(context: Plugin.Context) {
   const disposers: (() => Promise<void>)[] = [];
@@ -30,9 +31,14 @@ export async function createRuntime(context: Plugin.Context) {
     // The switch: in a chat where `/relay on` turned it on, every message is placed before it goes out. The hook sees every message and never throws.
     const auto = await context.session.hook('prompt', relayAutoHook(relayDeps));
     disposers.push(() => auto.dispose());
-    // When a chat has finished its work, what the reply to a placed message took is read from the chat and kept with its record. No model is asked.
-    const replies = await context.session.hook('experimental.idle', relayReplyHook({ ...relayDeps, borrowedPrices: () => storedAaModels(context.storage) }));
+    // When any chat has finished its work, what the reply to a placed message took is kept with its record, and every chat's newest messages
+    // get their usage records (numbers only). No model is asked.
+    const usage = { ...relayDeps, borrowedPrices: () => storedAaModels(context.storage), log: context.storage as unknown as LogStore, project: context.location.directory };
+    const replies = await context.session.hook('experimental.idle', relayReplyHook(usage));
     disposers.push(() => replies.dispose());
+    // Just before a long chat is summarized, the usage records so far are kept, since the chat is listed from the summary on afterwards.
+    const compaction = await context.session.hook('compaction', relayCompactionHook(usage));
+    disposers.push(() => compaction.dispose());
     const rpc = await registerRpc(context);
     disposers.push(() => rpc.dispose());
   } catch (error) {

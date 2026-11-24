@@ -30,7 +30,7 @@ test('registers /relay, the helper hook, the switch hook, the idle hook and the 
   const cleanup = await plugin.setup(host.ctx as never);
   assert.deepEqual(host.added.map(command => [command.name, typeof command.description, typeof command.execute]), [['relay', 'string', 'function']]);
   assert.deepEqual(host.hooks.map(hook => hook.name), ['execute.before']);
-  assert.deepEqual(host.sessionHooks.map(hook => hook.name).sort(), ['experimental.idle', 'prompt'], 'one prompt hook for the switch, and one idle hook for what a reply took');
+  assert.deepEqual(host.sessionHooks.map(hook => hook.name).sort(), ['compaction', 'experimental.idle', 'prompt'], 'one prompt hook for the switch, one idle hook for what a reply took and its usage records, and one before a summary');
   await cleanup?.();
   assert.equal(host.disposed(), 3, 'the command, the helper hook and the panel calls');
   assert.equal(host.sessionHooks.every(hook => hook.disposed), true);

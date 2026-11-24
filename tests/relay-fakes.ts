@@ -9,7 +9,7 @@ import type { Mode, RelaySettings } from '../src/relay-store.js';
 
 type Picked = { choice: string; confidence: number };
 export type FakeReply = Picked & { lines?: Partial<Record<Mode, Picked>>; sizes?: Partial<Record<Mode, Picked>> };
-type Step = 'get' | 'wait' | 'switchAgent' | 'switchModel' | 'put' | 'remove' | 'prompt' | 'context' | 'models' | 'storageGet' | 'storageSet';
+type Step = 'get' | 'wait' | 'switchAgent' | 'switchModel' | 'put' | 'remove' | 'prompt' | 'context' | 'models' | 'storageGet' | 'storageSet' | 'storageRemove' | 'storageScan';
 export type FakeOptions = {
   /** Default: plan [p/plan], execute [p/exec#high], review [p/review], no lines, decider d/judge. */
   settings?: Partial<RelaySettings>;
@@ -29,6 +29,8 @@ export type FakeOptions = {
   messages?: unknown[] | 'never';
   /** Storage keys to preload; `never` makes reading that key hang. */
   stored?: Record<string, unknown>;
+  /** The chat's parent chat, as `session.get` gives it for a helper's chat; `never` makes `session.get` hang. */
+  parentID?: string;
 };
 
 const sleep = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
@@ -57,7 +59,7 @@ export function fakeRelay(options: FakeOptions = {}) {
   };
   const deps: RelayDeps = {
     session: {
-      async get(input: { sessionID: string }) { return step('get', input, () => ({ id: input.sessionID, agent: chat.agent, model: { ...chat.model } })); },
+      async get(input: { sessionID: string }) { return step('get', input, () => options.parentID === 'never' ? new Promise(() => undefined) : ({ id: input.sessionID, agent: chat.agent, model: { ...chat.model }, ...(options.parentID ? { parentID: options.parentID } : {}) })); },
       async wait(input: unknown) { step('wait', input, () => undefined); const left = idleAt - Date.now(); if (left > 0) await sleep(left); calls.push({ name: 'idle', input }); },
       async switchAgent(input: { agent: string }) { step('switchAgent', input, () => { chat.agent = input.agent; }); },
       async switchModel(input: { model: { providerID: string; id: string; variant?: string } }) { step('switchModel', input, () => { chat.model = { variant: 'default', ...input.model }; }); },
@@ -68,7 +70,15 @@ export function fakeRelay(options: FakeOptions = {}) {
     store: {
       async get(key: string) { return step('storageGet', key, () => options.stored?.[key] === 'never' ? new Promise(() => undefined) : structuredClone(data.get(key))); },
       async set(key: string, value: unknown) { step('storageSet', key, () => { data.set(key, structuredClone(value)); }); },
-    },
+      // Plugin storage also removes and scans keys in order (2.3): the usage records use both.
+      async remove(key: string) { step('storageRemove', key, () => { data.delete(key); }); },
+      async scan(input: { prefix: string; after?: string; limit?: number }) {
+        return step('storageScan', input, () => {
+          const keys = [...data.keys()].filter(key => key.startsWith(input.prefix) && (input.after === undefined || key > input.after)).sort(), page = keys.slice(0, input.limit ?? 100);
+          return { entries: page.map(key => ({ key, value: structuredClone(data.get(key)) })), ...(keys.length > page.length ? { next: page.at(-1) } : {}) };
+        });
+      },
+    } as RelayDeps['store'],
     chatModels: async () => step('models', undefined, () => options.models ?? fakeModels),
     decide: (decider, input) => decide({ decisions }, decider, input, options.decideMs),
     fileSize: async uri => {
