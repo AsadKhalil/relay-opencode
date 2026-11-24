@@ -6,6 +6,12 @@ export const SIDES: readonly Side[] = ['off', 'on-one', 'on-two', 'on-own', 'on-
 const LABELS: Record<Side, string> = { off: 'Off', 'on-one': 'On, one model a mode', 'on-two': 'On, two for Execute', 'on-own': 'On, Relay chooses', 'on-low': 'On, low effort for Plan and Review', 'on-size': 'On, Relay sizes Plan and Review', cheap: 'Cheap only' };
 
 /** Why "On, Relay chooses" would not test Relay's own choice, from the Execute part of Relay's getOwnChoice answer; null when big work goes to `strong` and small work to `cheap`. */
+/**
+ * Tools a test chat may not use. Plannotator's `submit_plan` waits for a person. OpenCode's `execute` runs a model's code inside the service
+ * (24 Nov: one ran away to 51 GB), and through it `pty_spawn` started Python without the shell permission the folder denies.
+ */
+export const DENIED_TOOLS: readonly string[] = ['submit_plan', 'execute', 'pty_spawn', 'pty_write', 'pty_read', 'pty_list', 'pty_kill'];
+
 export function ownChoiceProblem(execute: unknown, strong: string, cheap: string, mode = 'Execute'): string | null {
   const part = execute as { kind?: string; reason?: string; strongest?: string; cheapest?: string } | null;
   if (!part) return `Relay does not choose by itself in ${mode}`;

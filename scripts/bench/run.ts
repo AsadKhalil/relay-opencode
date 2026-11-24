@@ -14,7 +14,7 @@ import { parseArgs, promisify } from 'node:util';
 import { OpenCode } from '@opencode/client/promise';
 import { formatUsd, parseUsd, usdString } from '../../src/costs.js';
 import { isProject, permissionAnswer, resetFolder } from './folder.js';
-import { MONTH, monthShare, nextFits, ownChoiceProblem, requestCost, shares, SIDES, stopReason, type Cost, type Side, type Tokens } from './lib.js';
+import { DENIED_TOOLS, MONTH, monthShare, nextFits, ownChoiceProblem, requestCost, shares, SIDES, stopReason, type Cost, type Side, type Tokens } from './lib.js';
 import { restoreSettings } from './relay-settings.js';
 
 const execFile = promisify(execFileCallback);
@@ -165,7 +165,7 @@ async function runChat(task: string, side: Side, prices: Map<string, Cost>, left
   // The owner's Plannotator plugin watches the `plan` agent and makes each plan wait for a person's approval (`submit_plan`), which an
   // unattended test cannot give: each test chat is created with that tool denied, so a call fails at once and the chat goes on.
   // The folder's opencode.json must stay the test's own; resetFolder refuses a changed one before the next chat, and this asks the host not to allow the edit at all.
-  const permissions = [{ action: 'submit_plan', resource: '*', effect: 'deny' as const }, ...['edit', 'write'].map(action => ({ action, resource: '*opencode.json', effect: 'deny' as const }))];
+  const permissions = [...DENIED_TOOLS.map(action => ({ action, resource: '*', effect: 'deny' as const })), ...['edit', 'write'].map(action => ({ action, resource: '*opencode.json', effect: 'deny' as const }))];
   const { id: sessionID } = await client.session.create({ model: { providerID: start.providerID, id: start.id }, location, title: `relay-bench ${task} ${side}`, permissions });
   let stopped: string | null = null;
   try {

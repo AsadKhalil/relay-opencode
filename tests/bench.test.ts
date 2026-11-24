@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isProject, permissionAnswer, resetFolder, TEST_CONFIG } from '../scripts/bench/folder.js';
 import { formatUsd, parseUsd } from '../src/costs.js';
-import { commonChats, limitShare, monthShare, nextFits, ownChoiceProblem, requestCost, sideTotals, stopReason, table, type ChatResult, type Cost } from '../scripts/bench/lib.js';
+import { commonChats, DENIED_TOOLS, limitShare, monthShare, nextFits, ownChoiceProblem, requestCost, sideTotals, stopReason, table, type ChatResult, type Cost } from '../scripts/bench/lib.js';
 import { restoreSettings } from '../scripts/bench/relay-settings.js';
 
 // The proof test's exercises (scripts/bench/tasks): Exercism's Python exercises, as Aider's polyglot benchmark chose them.
@@ -129,6 +129,12 @@ test('the size check is asked of the mode it is for', () => {
   const strong = 'opencode-go/kimi-k3.1-pro', cheap = 'opencode-go/glm-5.3-flash';
   assert.equal(ownChoiceProblem(null, strong, cheap, 'Review'), 'Relay does not choose by itself in Review');
   assert.equal(ownChoiceProblem({ kind: 'unranked', reason: 'no index' }, strong, cheap, 'Plan'), "Relay can't rank Plan: no index");
+});
+
+// On 24 Nov a test chat ran code inside OpenCode's service through `execute` (it grew to 51 GB) and started Python through `pty_spawn`,
+// which skips the shell permission when called from `execute`. A test chat refuses both, and Plannotator's plan approval.
+test('a test chat refuses the code runner, the pty tools and the plan approval', () => {
+  for (const tool of ['execute', 'pty_spawn', 'pty_write', 'pty_read', 'pty_list', 'pty_kill', 'submit_plan']) assert.ok(DENIED_TOOLS.includes(tool), tool);
 });
 
 // The test folder is emptied before each chat. Only a folder whose opencode.json is the test's own may be emptied, and that file stays.
