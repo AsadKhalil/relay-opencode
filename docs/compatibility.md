@@ -1367,3 +1367,41 @@ The owner approved, with the design: "install it in your copy (Desktop closes fo
 - `bowling` and `forth` in this run, and more than one run of the others.
 - On a real host: chats with Relay off (every bench chat had it on), helpers, and summaries of long chats.
 - Relay on Desktop 2.4.1.
+
+## 2026-11-24 (afternoon) — The usage tab redrawn, and the rest of the second Go run (Windows 11; Desktop's service 2.3.2; the owner's Relay copy, 0.1.0 built from `26aa4df`)
+
+The owner, looking at the tab in Desktop: "the usage tab is still useless the ui si so poor i cannnot see the usage in dolllars or tokens please review it". Asked how to fix it, they chose "Redesign, install, then Go". When the rest of the run turned out to need about 50–55% of a 5-hour window, not the 35–40% first said, they chose "Run all 7 chats".
+
+**What the tab hid.** The real component in a browser page, with test data, 420 px wide: in a window 720 px tall both tables were empty boxes; the By model rows had lost their columns; Records' Tokens and Cost sat off-screen (944 px of table in a 375 px box). The redesign is in `docs/superpowers/specs/2026-11-24-relay-usage-tab-fix-design.md`.
+
+**The update.**
+- At 16:52 UTC Desktop and its service were ended forcefully, so the 2.4.1 update kept waiting. The packed build of `26aa4df` was installed into the fixed copy ("changed 1 package"). The installed files match the build (compared by hash).
+- Desktop was opened through Explorer and stayed on 2.3.2. Its service answered within a minute, loaded Relay from the copy with no error, and booted the test folder.
+- After the run, `getUsageLog` through the copy gave 60 records for today, each total with its new count of replies with no price (0 for both): Kimi K3.1 Pro 33 replies, $2.34; GLM-5.3 Flash 27 replies, $0.27.
+
+**The run.** `scripts/bench/run.ts --plan go`: `wordy` on one model a mode, then `book-store`, `bowling` and `forth` on both sides.
+- The runner was started with `Start-Process`, in a console of its own. Its test output was readable this time, but it still died with the Claude Code session, during the `book-store` chat on one model a mode, after 3 of its 4 messages (17 requests, $0.1396). OpenCode Desktop had also been restarted, at 18:10 UTC, and was still 2.3.2.
+- That chat was stopped and its switch turned off, and Relay's settings were put back from the runner's copy (revision 51).
+- The rest was started again through WMI (`Win32_Process.Create`), so its parent was Windows' WMI host, not Claude Code: 18:18 to 18:39 UTC. Each part put Relay's settings back at its end (last: revision 58).
+
+The whole second run, this morning's finished chats included (in brackets, where Relay sent the two builds):
+
+| Exercise | On, Relay chooses | On, one model a mode |
+|---|---|---|
+| `affine-cipher` | passed, $0.0999 (Flash, Flash: small) | passed, $0.1167 |
+| `variable-length-quantity` | passed, $0.1641 (Flash, Flash: small) | passed, $0.1530 |
+| `wordy` | 24 of 25, $0.1355 (Flash, Flash: small) | 22 of 25, $0.1524 |
+| `book-store` | 1 of 20, $0.1786 (Flash: small, then not sure) | passed, $0.1936 |
+| `bowling` | passed, $0.1811 (Kimi: big, then Flash: small) | passed, $0.1295 |
+| `forth` | 52 of 54, $0.2616 (Kimi: big, then Flash: small) | passed, $0.1938 |
+| **Total** | **3 of 6, $1.0207** | **5 of 6, $0.9391** |
+
+- Relay chooses cost 8.7% more and passed two fewer. Over both Go runs of this setup (23 and 24 Nov) it passed 7 of 12 for $2.22.
+- Relay sent 10 of its 12 builds to Flash, so most chats ran the same models on both sides. `book-store` shows the spread: Flash failed it with Relay choosing (a `KeyError` in 19 of 20 tests) and passed it on one model a mode. `wordy` failed on both sides, with the same "syntax error" where the test wants "unknown operation".
+- **This afternoon's use of Go:** the 7 finished chats an estimated 40.1% of a 5-hour window and 16.0% of the weekly limit, $1.29 at list price; with the stopped chat, $1.43.
+
+**Not tested.**
+- The redrawn tab on Desktop's screen: the owner looks at it.
+- More than two runs of each exercise; with one run a day, a single exercise can go either way.
+- On a real host: chats with Relay off, helpers, and summaries of long chats.
+- Relay on Desktop 2.4.1.
