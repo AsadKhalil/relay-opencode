@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUsd } from '../src/costs.js';
 import { decisionsOf, type Decision } from '../src/relay-store.js';
-import { buildRecords, grown, KEEP_DAYS, LOG_PREFIX, logKey, pruneRecords, readRecords, saveRecords, type LogStore, type UsageRecord } from '../src/usage-log.js';
+import { buildRecords, grown, KEEP_DAYS, LOG_PREFIX, logKey, pruneRecords, readRecords, saveRecords, shownCost, summarize, type LogStore, type UsageQuery, type UsageRecord } from '../src/usage-log.js';
 
 // Usage records (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). Messages are shaped as OpenCode 2.3 gives them from `session.context`.
 const user = (id: string, created: number) => ({ id, type: 'user', time: { created }, text: 'never read' });
@@ -117,4 +117,70 @@ test('a stored value that is not a record is skipped', async () => {
 test('the Relay records of one chat are listed for the idle hook', async () => {
   const stored = [decision('m1'), decision('m2', { sessionID: 'ses-2' })];
   assert.deepEqual((await decisionsOf({ get: async () => structuredClone(stored) }, 'ses-1')).map(item => item.messageID), ['m1']);
+});
+
+// Adding up for the tab: what the panel shows for a range and its filters.
+const query = (extra: Partial<UsageQuery> = {}): UsageQuery => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, ...extra });
+const at = (time: string, extra: Partial<UsageRecord> = {}) => record(Date.parse(time), extra);
+const kimi = at('2026-11-23T15:00:00Z', { model: 'opencode-go/kimi-k3.1-pro', costByPrice: '0.1', relay: { mode: 'plan', note: null } });
+const flash = at('2026-11-23T16:00:00Z', { model: 'opencode-go/glm-5.3-flash#high', costByPrice: '0.2', agent: 'build', kind: 'helper', project: 'C:/work/other' });
+const claude = at('2026-11-24T04:59:00Z', { model: 'claude-agent/sonnet', costByPrice: null, openCodeUsd: '0', pricesFrom: null });
+
+test("the cost shown is the cost by price, else OpenCode's own when more than $0, else none", () => {
+  assert.equal(shownCost(record(1, { costByPrice: '0.5', openCodeUsd: '0.7' })), '0.5');
+  assert.equal(shownCost(record(1, { costByPrice: null, openCodeUsd: '0.7' })), '0.7');
+  assert.equal(shownCost(record(1, { costByPrice: null, openCodeUsd: '0' })), null);
+  assert.equal(shownCost(record(1, { costByPrice: null, openCodeUsd: null })), null);
+});
+
+test("days are counted in the panel's time zone", () => {
+  const { days } = summarize([kimi, claude], query());
+  assert.deepEqual(days.map(day => day.day), ['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23', '2026-11-24'], 'every day of the range, empty ones too');
+  assert.deepEqual(days.find(day => day.day === '2026-11-23')!.models.map(model => model.model).sort(), ['claude-agent/sonnet', 'opencode-go/kimi-k3.1-pro'], '04:59 UTC is 23:59 the day before at UTC-5');
+  assert.deepEqual(days.find(day => day.day === '2026-11-24')!.models, []);
+});
+
+test('search matches part of the model, provider or id in any case', () => {
+  assert.deepEqual(summarize([kimi, flash, claude], query({ search: 'KIMI' })).records.map(item => item.model), ['opencode-go/kimi-k3.1-pro']);
+  assert.equal(summarize([kimi, flash, claude], query({ search: 'opencode-go' })).matching, 2);
+});
+
+test('each filter narrows the records, totals and days alike', () => {
+  const all = [kimi, flash, claude], models = (part: Partial<UsageQuery>) => summarize(all, query(part)).totals.map(total => total.model).sort();
+  assert.deepEqual(models({ provider: 'opencode-go' }), ['opencode-go/glm-5.3-flash#high', 'opencode-go/kimi-k3.1-pro']);
+  assert.deepEqual(models({ effort: 'high' }), ['opencode-go/glm-5.3-flash#high']);
+  assert.deepEqual(models({ mode: 'plan' }), ['opencode-go/kimi-k3.1-pro'], "a placed message's mode");
+  assert.deepEqual(models({ mode: 'build' }), ['claude-agent/sonnet', 'opencode-go/glm-5.3-flash#high'], 'else its agent');
+  assert.deepEqual(models({ relay: 'on' }), ['opencode-go/kimi-k3.1-pro']);
+  assert.deepEqual(models({ relay: 'off' }), ['claude-agent/sonnet', 'opencode-go/glm-5.3-flash#high']);
+  assert.deepEqual(models({ kind: 'helper' }), ['opencode-go/glm-5.3-flash#high']);
+  assert.deepEqual(models({ project: 'C:/work/other' }), ['opencode-go/glm-5.3-flash#high']);
+  const day = summarize(all, query({ relay: 'on' })).days.find(item => item.day === '2026-11-23')!;
+  assert.deepEqual(day.models.map(model => model.model), ['opencode-go/kimi-k3.1-pro']);
+});
+
+test('the filter lists come from the whole range, not the filtered part', () => {
+  const { options } = summarize([kimi, flash, claude], query({ provider: 'claude-agent' }));
+  assert.deepEqual(options, { providers: ['claude-agent', 'opencode-go'], efforts: ['default', 'high'], modes: ['build', 'plan'], projects: ['C:/work/app', 'C:/work/other'] });
+});
+
+test('a record with no model, or with no effort, is counted and searchable', () => {
+  const nameless = at('2026-11-23T17:00:00Z', { model: null, costByPrice: '0.05' });
+  const summed = summarize([nameless, kimi], query());
+  assert.deepEqual(summed.totals.map(total => total.model).sort(), ['opencode-go/kimi-k3.1-pro', 'unknown model']);
+  assert.equal(summarize([nameless, kimi], query({ search: 'unknown' })).matching, 1);
+  assert.deepEqual(summed.options.efforts, ['default']);
+});
+
+test('records come newest first, 50 at a time, with how many match', () => {
+  const many = Array.from({ length: 120 }, (_, n) => record(Date.parse('2026-11-23T00:00:00Z') + n * 60_000));
+  const page = summarize(many, query()), next = summarize(many, query({ offset: 50 }));
+  assert.deepEqual([page.records.length, page.matching, page.records[0].at, next.records[0].at], [50, 120, many[119].at, many[69].at]);
+});
+
+test('totals add USD exactly, and are ordered by cost', () => {
+  const one = at('2026-11-23T10:00:00Z', { model: 'p/a', costByPrice: '0.1' }), two = at('2026-11-23T11:00:00Z', { model: 'p/a', costByPrice: '0.2' });
+  const dear = at('2026-11-23T12:00:00Z', { model: 'p/b', costByPrice: '1', pricesFrom: 'artificial-analysis' });
+  const { totals } = summarize([one, two, dear], query());
+  assert.deepEqual(totals.map(total => [total.model, total.replies, total.cost, total.aaPriced]), [['p/b', 1, '1', true], ['p/a', 2, '0.3', false]]);
 });

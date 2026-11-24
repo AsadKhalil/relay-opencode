@@ -1,6 +1,6 @@
 import type { AaModel } from './artificial-analysis.js';
 import { agentOf, newestAnchors, replyOf } from './chat-facts.js';
-import { costOf, formatUsd, storedUsd } from './costs.js';
+import { costOf, formatUsd, parseUsd, storedUsd } from './costs.js';
 import type { ListedModel } from './inventory.js';
 import { modes, type Decision, type Mode, type PriceSource, type Prices, type Totals } from './relay-store.js';
 
@@ -124,4 +124,64 @@ export async function readRecords(store: Pick<LogStore, 'scan'>, from: string, t
     if (!page.next || !page.entries.length) return found;
     after = page.next;
   }
+}
+
+// ---- Adding up for the tab ----
+
+/** What the tab asks for: a time range (ISO), the panel's offset from UTC in minutes (local = UTC + offset), the filters, and a page of records. */
+export type UsageQuery = {
+  from: string; to: string; tzOffsetMinutes: number; search: string; provider: string | null; effort: string | null; mode: string | null;
+  relay: 'any' | 'on' | 'off'; kind: 'any' | UsageKind; project: string | null; offset: number; limit: number;
+};
+/** One local day, with each model's cost (null when none of it has a price), tokens of every kind, and requests. */
+export type UsageDay = { day: string; models: { model: string; cost: string | null; tokens: number; requests: number }[] };
+export type UsageTotal = { model: string; replies: number; requests: number; input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number; cost: string | null; aaPriced: boolean };
+/** `first` is the oldest record given. `matching` counts every record the filters keep; `records` is one page of them, newest first. */
+export type UsageSummary = { days: UsageDay[]; totals: UsageTotal[]; options: { providers: string[]; efforts: string[]; modes: string[]; projects: string[] }; records: UsageRecord[]; matching: number; first: string | null };
+
+/** The cost the tab shows: by price when the model has one, else OpenCode's own when it is more than $0, else none. */
+export function shownCost(record: UsageRecord): string | null {
+  if (record.costByPrice !== null) return record.costByPrice;
+  return record.openCodeUsd !== null && parseUsd(record.openCodeUsd) > 0n ? record.openCodeUsd : null;
+}
+const nameOf = (record: UsageRecord) => record.model ?? 'unknown model';
+const providerOf = (record: UsageRecord) => record.model?.split('/', 1)[0] ?? 'unknown';
+const effortOf = (record: UsageRecord) => { const hash = record.model?.lastIndexOf('#') ?? -1; return hash < 0 ? 'default' : record.model!.slice(hash + 1); };
+const modeOf = (record: UsageRecord) => record.relay?.mode ?? record.agent ?? 'unknown';
+const tokensOf = (record: UsageRecord) => record.input + record.output + record.reasoning + record.cacheRead + record.cacheWrite;
+const sum = (costs: readonly (string | null)[]) => { const known = costs.filter((cost): cost is string => cost !== null); return known.length ? formatUsd(known.reduce((total, cost) => total + parseUsd(cost), 0n)) : null; };
+const sorted = (values: Iterable<string>) => [...new Set(values)].sort();
+
+/** The days, totals, filter lists and one page of records for a range. The filter lists come from every record given, so a filter never hides its own choices. */
+export function summarize(records: readonly UsageRecord[], query: UsageQuery): UsageSummary {
+  const dayOf = (time: string | number) => new Date((typeof time === 'number' ? time : Date.parse(time)) + query.tzOffsetMinutes * 60_000).toISOString().slice(0, 10);
+  const search = query.search.trim().toLowerCase();
+  const kept = records.filter(record => (!search || nameOf(record).toLowerCase().includes(search))
+    && (query.provider === null || providerOf(record) === query.provider) && (query.effort === null || effortOf(record) === query.effort)
+    && (query.mode === null || modeOf(record) === query.mode) && (query.relay === 'any' || (query.relay === 'on') === (record.relay !== null))
+    && (query.kind === 'any' || record.kind === query.kind) && (query.project === null || record.project === query.project));
+  // Every day of the range, empty ones too, in the panel's own days.
+  const days: UsageDay[] = [], last = dayOf(query.to);
+  for (let day = dayOf(query.from); day <= last && days.length < KEEP_DAYS + 3; day = new Date(Date.parse(`${day}T00:00:00Z`) + DAY_MS).toISOString().slice(0, 10)) days.push({ day, models: [] });
+  const byDay = new Map(days.map(day => [day.day, new Map<string, UsageRecord[]>()]));
+  const byModel = new Map<string, UsageRecord[]>();
+  for (const record of kept) {
+    const models = byDay.get(dayOf(record.at));
+    if (models) models.set(nameOf(record), [...models.get(nameOf(record)) ?? [], record]);
+    byModel.set(nameOf(record), [...byModel.get(nameOf(record)) ?? [], record]);
+  }
+  for (const day of days) day.models = [...byDay.get(day.day)!].map(([model, mine]) => ({ model, cost: sum(mine.map(shownCost)), tokens: mine.reduce((total, record) => total + tokensOf(record), 0), requests: mine.reduce((total, record) => total + record.requests, 0) }));
+  const add = (mine: UsageRecord[], pick: (record: UsageRecord) => number) => mine.reduce((total, record) => total + pick(record), 0);
+  const totals = [...byModel].map(([model, mine]): UsageTotal => ({
+    model, replies: mine.length, requests: add(mine, record => record.requests), input: add(mine, record => record.input), output: add(mine, record => record.output),
+    reasoning: add(mine, record => record.reasoning), cacheRead: add(mine, record => record.cacheRead), cacheWrite: add(mine, record => record.cacheWrite), cost: sum(mine.map(shownCost)),
+    aaPriced: mine.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis'),
+  }));
+  const costKey = (total: UsageTotal) => total.cost === null ? -1n : parseUsd(total.cost), tokens = (total: UsageTotal) => total.input + total.output + total.reasoning + total.cacheRead + total.cacheWrite;
+  totals.sort((a, b) => costKey(b) > costKey(a) ? 1 : costKey(b) < costKey(a) ? -1 : tokens(b) - tokens(a));
+  const newest = [...kept].sort((a, b) => a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
+  return {
+    days, totals, records: newest.slice(query.offset, query.offset + query.limit), matching: kept.length, first: records.reduce<string | null>((oldest, record) => oldest === null || record.at < oldest ? record.at : oldest, null),
+    options: { providers: sorted(records.map(providerOf)), efforts: sorted(records.map(effortOf)), modes: sorted(records.map(modeOf)), projects: sorted(records.map(record => record.project)) },
+  };
 }
