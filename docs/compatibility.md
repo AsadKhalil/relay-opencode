@@ -1327,3 +1327,43 @@ Built from `docs/superpowers/plans/2026-11-24-relay-usage-tab.md`, on the branch
 - The `compaction` hook around a real summary of a long chat; a helper's chat on a real host.
 - Records from two OpenCode windows at once.
 - On a real host: more than 200 records in a range (the scan's paging), and removing records older than 90 days.
+
+## 2026-11-24 (later) — The usage tab on real replies, and a second Go run cut short (Windows 11; Desktop's service 2.3.2; the owner's Relay copy, 0.1.0 built from `af16c33`)
+
+The owner approved, with the design: "install it in your copy (Desktop closes for a minute) and run the two Go tests". They also chose "Merge back to main locally". Desktop had its own update to 2.4.1 waiting (its pending installer reads 2.4.1), and a normal close would install it. For that they chose "Stay on 2.3.2 for now".
+
+**The update.**
+- At 12:14 UTC Desktop and its service were ended forcefully, so the update kept waiting.
+- The packed build of `af16c33` was installed into the fixed copy with `npm install` ("changed 1 package"). The installed files match the build (compared by hash).
+- Desktop was opened again through Explorer and stayed on 2.3.2. Its service answered at 12:15:28 and loaded Relay from the copy with no warning, and the test folder was booted.
+- The runner's first check got "RPC is unavailable: relay-opencode" while the service was still loading plugins. Once the service had answered quickly three times (12:18), the check passed.
+
+**The run.** `scripts/bench/run.ts --plan go --sides on-own,on-one --budget 90`, 12:18 to 12:58 UTC:
+
+| Exercise | On, Relay chooses | On, one model a mode |
+|---|---|---|
+| `affine-cipher` | passed, $0.0999 (both builds small: Flash) | passed, $0.1167 |
+| `variable-length-quantity` | passed, $0.1641 (both small: Flash) | passed, $0.1530 |
+| `wordy` | 24 of 25, $0.1355 (both small: Flash) | unknown, $0.2684 (902 s) |
+| `book-store` | unknown, $0.1609 (not sure, then small: Flash both times) | stopped in the chat |
+| `bowling`, `forth` | not run | not run |
+
+- **The three exercises both sides finished:** Relay chooses cost $0.3994 and one model a mode $0.5381, 25.8% less for Relay chooses. Each passed 2 of 3, with one model a mode's `wordy` unknown.
+- `wordy` failed with Relay chooses the same way as on 23 Nov: "syntax error" where the test wants "unknown operation".
+- **What cut it short.**
+  - At about 12:46 Claude Code ended the shell the runner ran in, because the PC was low on memory (another program held 14 GB).
+  - The runner went on, but from then on each test run gave no output, so its pass or fail could not be read: `wordy` on one model a mode and `book-store` on Relay chooses. The same happened to `forth` on 23 Nov.
+  - Python ran normally from a fresh shell. The test folder had moved on, so neither result could be read again.
+  - The runner was ended at 12:58. The chat it had open was stopped and Relay turned off for it, and Relay's settings were put back from the runner's own copy ("checked, revision 46").
+  - A rerun should start the runner apart from Claude Code's shell.
+- **The usage records on real replies.** `getUsageLog` for today, through the owner's service, gave 29 records since 12:19 UTC, when the new build started.
+  - Each of the 7 finished chats has 4 records, one a message, each with Relay's part.
+  - Their cost by price equals the runner's own list cost for every chat, for example $0.1641 for `variable-length-quantity` with Relay chooses.
+  - Totals: Kimi K3.1 Pro 15 replies, 50 requests, $1.0315; GLM-5.3 Flash 14 replies, 61 requests, $0.1434.
+- **This run's use of Go:** the 7 finished chats an estimated 33.0% of a 5-hour window and 13.2% of the weekly limit; with the stopped chat, $1.17 at list price.
+
+**Not tested.**
+- The tab on screen in Desktop.
+- `bowling` and `forth` in this run, and more than one run of the others.
+- On a real host: chats with Relay off (every bench chat had it on), helpers, and summaries of long chats.
+- Relay on Desktop 2.4.1.
