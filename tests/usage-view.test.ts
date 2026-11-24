@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { UsageDay, UsageRecord, UsageTotal } from '../src/usage-log.js';
-import { chartOf, rangeOf, recordCells, sortTotals } from '../src/usage-view.js';
+import { chartOf, rangeOf, recordCells, refreshLimit, sortTotals } from '../src/usage-view.js';
 
 // The Relay usage tab's sums and texts (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). The panel only draws these.
 const day = (date: string, models: [string, string | null, number, number][]): UsageDay => ({ day: date, models: models.map(([model, cost, tokens, requests]) => ({ model, cost, tokens, requests })) });
@@ -58,4 +58,8 @@ test('sorting by cost uses the USD amounts exactly', () => {
   assert.deepEqual(sortTotals(totals, 'cost', true).map(item => item.model), ['p/c', 'p/d', 'p/a', 'p/b']);
   assert.deepEqual(sortTotals(totals, 'model', false).map(item => item.model), ['p/a', 'p/b', 'p/c', 'p/d']);
   assert.deepEqual(sortTotals([total('p/x', null, { requests: 5 }), total('p/y', null, { requests: 9 })], 'requests', true).map(item => item.model), ['p/y', 'p/x']);
+});
+
+test('a refresh asks for as many rows as are shown, up to 200, so Show more is kept', () => {
+  assert.deepEqual([refreshLimit(0), refreshLimit(30), refreshLimit(150), refreshLimit(260)], [50, 50, 150, 200]);
 });

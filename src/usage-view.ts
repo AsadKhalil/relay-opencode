@@ -13,6 +13,10 @@ export function rangeOf(range: Range, now: Date): { from: string; to: string; tz
   return { from: start.toISOString(), to: now.toISOString(), tzOffsetMinutes: -now.getTimezoneOffset() };
 }
 
+/** The records one page holds, and how many a refresh asks for: as many as are shown (up to the server's 200), so a refresh keeps Show more. */
+export const PAGE = 50, PAGE_MAX = 200;
+export const refreshLimit = (shown: number) => Math.min(PAGE_MAX, Math.max(PAGE, shown));
+
 /** The cost the tab shows: by price when the model has one, else OpenCode's own when it is more than $0, else none. */
 export function shownCost(record: Pick<UsageRecord, 'costByPrice' | 'openCodeUsd'>): string | null {
   if (record.costByPrice !== null) return record.costByPrice;

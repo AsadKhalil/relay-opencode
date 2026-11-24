@@ -184,3 +184,35 @@ test('totals add USD exactly, and are ordered by cost', () => {
   const { totals } = summarize([one, two, dear], query());
   assert.deepEqual(totals.map(total => [total.model, total.replies, total.cost, total.aaPriced]), [['p/b', 1, '1', true], ['p/a', 2, '0.3', false]]);
 });
+
+// The final review's fixes (24 Nov): what a record keeps when it is read again, and a range that does not trust the host's `after`.
+test('a price that turns up later is added to a record that has none', () => {
+  const unpriced = record(1000, { costByPrice: null, pricesFrom: null }), priced = record(1000, { costByPrice: '0.3', pricesFrom: 'opencode' });
+  assert.deepEqual(grown(unpriced, priced), priced);
+});
+
+test('a record that grows while the prices are late keeps waiting rather than losing its cost', () => {
+  const old = record(1000, { requests: 2, costByPrice: '0.2', pricesFrom: 'opencode' });
+  assert.equal(grown(old, record(1000, { requests: 3, input: 300, costByPrice: null, pricesFrom: null })), null);
+  assert.deepEqual(grown(old, record(1000, { requests: 3, input: 300, costByPrice: '0.3', pricesFrom: 'opencode' }))?.costByPrice, '0.3');
+});
+
+test('a helper record stays a helper when it grows, even if its chat could not be read that time', () => {
+  assert.equal(grown(record(1000, { kind: 'helper' }), record(1000, { kind: 'chat', requests: 3 }))?.kind, 'helper');
+  assert.equal(grown(record(1000, { kind: 'helper', costByPrice: null }), record(1000, { kind: 'chat', costByPrice: '0.1' }))?.kind, 'helper');
+});
+
+test('a range never includes records from before it, whatever the host does with after', async () => {
+  const { data, store } = memoryStore();
+  for (const at of [1000, 2000, 3000]) data.set(logKey(record(at)), record(at));
+  const ignoring: LogStore = { ...store, scan: options => store.scan({ ...options, after: undefined }) };
+  assert.deepEqual((await readRecords(ignoring, iso(2000), iso(3000))).map(made => made.at), [iso(2000), iso(3000)]);
+});
+
+test('with nothing old enough, removing old records looks at the oldest key only', async () => {
+  const { data, store } = memoryStore(), now = Date.parse('2026-11-24T12:00:00Z'), limits: (number | undefined)[] = [];
+  for (let at = 0; at < 300; at++) { const fresh = record(now - 3_600_000 - at); data.set(logKey(fresh), fresh); }
+  const counting: LogStore = { ...store, scan: options => { limits.push(options.limit); return store.scan(options); } };
+  assert.equal(await pruneRecords(counting, now), 0);
+  assert.deepEqual(limits, [1]);
+});

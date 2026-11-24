@@ -1318,10 +1318,12 @@ Built from `docs/superpowers/plans/2026-11-24-relay-usage-tab.md`, on the branch
 - After all the smoke's chats, `getUsageLog` for the last hour gave 10 records, read back through the host's own storage scan. The host checked the method's declared output.
 - In the first chat, the three messages Relay handled carry its note ("no decider chosen"). The plain message sent with the switch off has none.
 - Totals by model: `smoke/model-big` 5 replies, 6 requests, $0.095162; `smoke/model-cheap` 1 reply, $0.01155; `smoke/model-chat` 4 replies, no price listed. No record held the text of a message.
+- After the final review, the smoke also reads two ranges through the host's scan. One starts between the two chats: 6 records, all of the second chat. One starts after every record: none.
 
-**The four checks, fresh:** typecheck clean; 275 of 275 tests; build; "Package check passed: 48 files, 100.8 kB packed."
+**The four checks, fresh** (after the review's fixes): typecheck clean; 281 of 281 tests; build; "Package check passed: 48 files, 101.4 kB packed."
 
 **Not tested.**
 - Desktop's new tab on screen, and real replies.
 - The `compaction` hook around a real summary of a long chat; a helper's chat on a real host.
 - Records from two OpenCode windows at once.
+- On a real host: more than 200 records in a range (the scan's paging), and removing records older than 90 days.

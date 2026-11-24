@@ -61,12 +61,16 @@ export function buildRecords(messages: unknown, chat: { sessionID: string; proje
 
 /**
  * What to write when `next` was read for a message that may have a record already; null when there is nothing new. A record grows when its
- * reply made more requests (the host can wake a chat for the same message) or when a Relay part turns up late. It never loses a Relay part
- * and never goes back to fewer requests, so the last of two windows to write keeps the larger record.
+ * reply made more requests (the host can wake a chat for the same message), when its prices turn up late, or when a Relay part does. It
+ * never loses a Relay part, a price or being a helper's, and never goes back to fewer requests: a growth read without the prices a record
+ * already has waits for a read that has them. So the last of two windows to write keeps the larger record.
  */
 export function grown(old: UsageRecord | null, next: UsageRecord): UsageRecord | null {
   if (!old) return next;
-  if (next.requests > old.requests) return { ...next, relay: old.relay ?? next.relay };
+  // A later read can lack what an earlier one had: the chat's parent when session.get was late, the prices when the model list was.
+  const kept = { kind: old.kind === 'helper' ? 'helper' as const : next.kind, relay: old.relay ?? next.relay };
+  if (next.requests > old.requests) return next.costByPrice === null && old.costByPrice !== null ? null : { ...next, ...kept };
+  if (next.requests === old.requests && old.costByPrice === null && next.costByPrice !== null) return { ...next, ...kept };
   return !old.relay && next.relay ? { ...old, relay: next.relay } : null;
 }
 
@@ -99,6 +103,9 @@ export async function saveRecords(store: Pick<LogStore, 'get' | 'set'>, records:
 /** Removes records older than 90 days, oldest first, `max` at most; returns how many went. */
 export async function pruneRecords(store: Pick<LogStore, 'scan' | 'remove'>, now: number, max = 1000): Promise<number> {
   const before = new Date(now - KEEP_DAYS * DAY_MS).toISOString();
+  // Most calls have nothing to remove: one look at the oldest key settles it.
+  const oldest = (await store.scan({ prefix: LOG_PREFIX, limit: 1 })).entries[0];
+  if (!oldest || timeOfKey(oldest.key) >= before) return 0;
   let removed = 0, after: string | undefined;
   while (removed < max) {
     const page = await store.scan({ prefix: LOG_PREFIX, after, limit: Math.min(PAGE, max - removed) });
@@ -106,7 +113,7 @@ export async function pruneRecords(store: Pick<LogStore, 'scan' | 'remove'>, now
       if (timeOfKey(key) >= before) return removed;
       await store.remove(key); removed++;
     }
-    if (!page.next || !page.entries.length) return removed;
+    if (!page.next || !page.entries.length || page.next === after) return removed;
     after = page.next;
   }
   return removed;
@@ -120,11 +127,13 @@ export async function readRecords(store: Pick<LogStore, 'scan'>, from: string, t
   for (;;) {
     const page = await store.scan({ prefix: LOG_PREFIX, after, limit: PAGE });
     for (const { key, value } of page.entries) {
+      // The lower bound is checked here too, so the range never rests on how the host reads `after`.
+      if (timeOfKey(key) < from) continue;
       if (timeOfKey(key) > to) return found;
       const record = readable(value);
       if (record) found.push(record);
     }
-    if (!page.next || !page.entries.length) return found;
+    if (!page.next || !page.entries.length || page.next === after) return found;
     after = page.next;
   }
 }

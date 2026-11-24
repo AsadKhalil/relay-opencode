@@ -5,14 +5,14 @@ import { formatUsd, parseUsd } from './costs.js';
 import type { UsageRow } from './relay-store.js';
 import { describeError } from './router.js';
 import type { UsageKind, UsageRecord, UsageSummary, UsageTotal } from './usage-log.js';
-import { chartOf, METRICS, RANGES, rangeOf, recordCells, sortTotals, type Metric, type Range } from './usage-view.js';
+import { chartOf, METRICS, PAGE, RANGES, rangeOf, recordCells, refreshLimit, sortTotals, type Metric, type Range } from './usage-view.js';
 import { usageCells } from './relay-view.js';
 
 // The Relay usage tab (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md): every reply of every chat for a time range, with search,
 // filters, a chart by day, totals by model and the records. The server adds it all up (getUsageLog); this only draws what it gets.
 
 type Log = { directory: string; before: { since: string | null; rows: UsageRow[] }; credit: string | null; removed: number } & UsageSummary;
-const PAGE = 50, REFRESH_MS = 30_000, CHART_H = 60, BAR_W = 10;
+const REFRESH_MS = 30_000, CHART_H = 60, BAR_W = 10;
 const amount = (count: number) => Math.round(count).toLocaleString('en-US');
 const columns: readonly [keyof UsageTotal, string][] = [['model', 'Model'], ['replies', 'Replies'], ['requests', 'Requests'], ['input', 'In'], ['output', 'Out'], ['cacheRead', 'Cache read'], ['cacheWrite', 'Cache written'], ['cost', 'Cost']];
 const kinds: readonly ['any' | UsageKind, string][] = [['any', 'All kinds'], ['chat', 'Chats'], ['helper', 'Helpers'], ['summary', 'Summaries']];
@@ -38,18 +38,18 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   const [error, setError] = createSignal(''), [loading, setLoading] = createSignal(false);
   const view = createMemo(() => log()?.session === props.session ? log() : undefined);
 
-  const ask = async (session: MountedSession, offset: number) => {
-    const query = { ...rangeOf(range(), new Date()), search: search(), provider: provider(), effort: effort(), mode: mode(), relay: relay(), kind: kind(), project: project(), offset, limit: PAGE };
+  const ask = async (session: MountedSession, offset: number, limit = PAGE) => {
+    const query = { ...rangeOf(range(), new Date()), search: search(), provider: provider(), effort: effort(), mode: mode(), relay: relay(), kind: kind(), project: project(), offset, limit };
     const value = await session.server.client.rpc(RelayRpc).getUsageLog(query, { location: { directory: session.directory } }) as Log;
     if (value.directory !== session.directory) throw new Error('The usage came from a different project.');
     return value;
   };
   let asked = 0;
-  /** Asks for the first page again. A slower, older answer never replaces a newer one. */
-  const load = async () => {
-    const session = props.session, mine = ++asked;
+  /** Asks again: a new range, filter or chat starts at the first page; a refresh asks for as many rows as are shown. A slower, older answer never replaces a newer one. */
+  const load = async (refresh = false) => {
+    const session = props.session, mine = ++asked, shown = refresh && view() ? view()!.value.records.length + view()!.more.length : 0;
     setLoading(true);
-    try { const value = await ask(session, 0); if (mine === asked) { setLog({ session, value, more: [] }); setError(''); } }
+    try { const value = await ask(session, 0, refreshLimit(shown)); if (mine === asked) { setLog({ session, value, more: [] }); setError(''); } }
     catch (failure) { if (mine === asked) setError(describeError(failure, 'Could not load the usage.')); }
     finally { if (mine === asked) setLoading(false); }
   };
@@ -60,8 +60,9 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   };
   // Asked for when the tab opens, when the range or a filter changes, and every 30 seconds while it is open. The search waits for a pause in typing.
   createEffect(on([range, search, provider, effort, mode, relay, kind, project, () => props.session], () => { void load(); }));
+  // The timer skips a tick while an answer is still coming, or while the tab is hidden, so slow answers never pile up.
   createEffect(() => { const text = typed(); const timer = setTimeout(() => setSearch(text.trim()), 300); onCleanup(() => clearTimeout(timer)); });
-  const timer = setInterval(() => { void load(); }, REFRESH_MS); onCleanup(() => clearInterval(timer));
+  const timer = setInterval(() => { if (!loading() && !document.hidden) void load(true); }, REFRESH_MS); onCleanup(() => clearInterval(timer));
 
   const chart = createMemo(() => { const shown = view(); return shown ? chartOf(shown.value.days, metric()) : undefined; });
   const totals = createMemo(() => { const shown = view(); return shown ? sortTotals(shown.value.totals, order().by, order().down) : []; });
@@ -80,7 +81,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
     <div class="rl-body">
       <div class="rl-seg" role="group" aria-label="Time range">
         <For each={RANGES}>{item => <button type="button" class="rl-btn sm" aria-pressed={range() === item.id} onClick={() => setRange(item.id)}>{item.label}</button>}</For>
-        <button type="button" class="rl-btn sm rl-right" disabled={loading()} onClick={() => void load()}>{loading() ? 'Loading…' : 'Refresh'}</button>
+        <button type="button" class="rl-btn sm rl-right" disabled={loading()} onClick={() => void load(true)}>{loading() ? 'Loading…' : 'Refresh'}</button>
       </div>
       <input class="rl-in" type="search" aria-label="Search models" placeholder="Search models, e.g. kimi or opencode-go" value={typed()} onInput={event => setTyped(event.currentTarget.value)} />
       <div class="rl-filters">

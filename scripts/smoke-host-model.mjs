@@ -206,6 +206,8 @@ try {
   note('the prices Relay reads for model-big', big?.cost);
   assert.deepEqual(big?.cost, { inputPerMillion: '4', outputPerMillion: '20', cacheReadPerMillion: '0.2', cacheWritePerMillion: '5', tiered: false, steps: [] });
 
+  const betweenChats = new Date().toISOString();   // for the usage records' range check below
+  await sleep(50);
   const long = await server.client.session.create({ model: { providerID: 'smoke', id: 'model-big' }, location: options.location, title: 'relay smoke: stay or go' });
   const relay = text => server.client.session.command({ sessionID: long.id, name: 'relay', text });
   /** One message in the long chat: the mock decider chooses `choose`, the mock model reports `reads`, and the chat's newest record comes back once it says what the reply took. */
@@ -286,6 +288,13 @@ try {
   assert.ok(firstChat.some(record => record.relay === null), 'the plain message sent with the switch off has no Relay part');
   assert.ok(log.records.every(record => !JSON.stringify(record).includes('Say hello')), 'no text is kept');
   assert.ok(log.matching >= 8 && log.days.length >= 1, `every reply of every chat is counted: ${log.matching}`);
+  // A range is read through the host's own scan: one that starts between the two chats holds only the second chat's records, and one
+  // that starts after every record holds none.
+  const rangeFrom = async from => rpc().getUsageLog({ from, to: new Date(Math.max(Date.parse(from), Date.now())).toISOString(), tzOffsetMinutes: 0, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 200 }, options);
+  const later = await rangeFrom(betweenChats), none = await rangeFrom(new Date(Date.now() + 60_000).toISOString());
+  note('usage ranges', { fromBetweenChats: later.matching, firstChatThere: later.records.filter(record => record.sessionID === chat.id).length, fromAfterAll: none.matching });
+  assert.ok(later.matching > 0 && later.records.every(record => record.sessionID === long.id), 'a range that starts between the chats holds only the second chat');
+  assert.equal(none.matching, 0, 'a range after every record holds none');
   // The terminal part: the host lists Relay with it, so /relay-stats is there in the terminal app.
   const listed = (await server.client.plugin.list({ location: options.location })).data.find(item => JSON.stringify(item).includes('relay-opencode'));
   note('plugin features', listed?.features);
