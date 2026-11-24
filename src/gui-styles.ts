@@ -15,7 +15,7 @@ display:flex;flex-direction:column;height:100%;min-height:0;color:var(--rl-fg);f
 .rl-logo{flex:none;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;background:linear-gradient(135deg,var(--rl-accent),#9b6bff)}
 .rl-name{font-size:15px;font-weight:650;color:var(--rl-strong)}
 .rl-tag{margin-left:auto;color:var(--rl-weak);font-size:11px;white-space:nowrap}
-.rl-body{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-content:start;padding:12px 14px 18px}
+.rl-body{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;gap:12px;align-content:start;padding:12px 14px 18px}
 .rl-card{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:12px;border:1px solid var(--rl-line);border-radius:12px;background:var(--rl-card)}
 .rl-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
 .rl-inline{display:flex;align-items:center;gap:6px}
@@ -70,17 +70,25 @@ display:flex;flex-direction:column;height:100%;min-height:0;color:var(--rl-fg);f
 .rl-seg .rl-btn[aria-pressed=true]{background:var(--rl-inset);border-color:var(--rl-accent);color:var(--rl-strong)}
 .rl-right{margin-left:auto}
 .rl-filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:6px}
-.rl-sum{color:var(--rl-strong);font-weight:550}
-.rl-chart{display:block;width:100%;height:120px;border:1px solid var(--rl-line);border-radius:8px;background:var(--rl-bg)}
+.rl-chart{display:block;width:100%;height:110px}
 .rl-chart g:hover rect[fill=transparent]{fill:var(--rl-hover)}
-.rl-axis{display:flex;justify-content:space-between;color:var(--rl-weak);font-size:11px}
 .rl-legend{display:flex;flex-wrap:wrap;gap:4px 10px;color:var(--rl-weak);font-size:11px}
 .rl-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:baseline}
-.rl-grid{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
-.rl-grid th{position:sticky;top:0;background:var(--rl-bg);padding:5px 6px;text-align:left;font-weight:600;color:var(--rl-weak)}
-.rl-grid td{padding:5px 6px;border-top:1px solid var(--rl-line)}
-.rl-grid td+td,.rl-grid th+th{text-align:right}
-.rl-grid tbody tr:hover{background:var(--rl-hover)}
-.rl-row{cursor:pointer}
-.rl-sort{appearance:none;border:0;background:none;padding:0;color:inherit;font:inherit;cursor:pointer}
+.rl-u-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rl-u-tile{display:grid;gap:1px;align-content:start;min-width:0;padding:10px 12px;border:1px solid var(--rl-line);border-radius:12px;background:var(--rl-card)}
+.rl-u-big{color:var(--rl-strong);font-size:22px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.rl-u-plot{position:relative;padding-top:16px;border:1px solid var(--rl-line);border-radius:8px;background:var(--rl-bg);overflow:hidden}
+.rl-u-scale{position:absolute;top:2px;left:6px;color:var(--rl-weak);font-size:10.5px;font-variant-numeric:tabular-nums}
+.rl-u-days{display:grid;margin-top:3px;color:var(--rl-weak);font-size:10px;text-align:center;white-space:nowrap}
+.rl .rl-u-list{margin:0;padding:0;list-style:none;border:1px solid var(--rl-line);border-radius:10px;background:var(--rl-bg);overflow:hidden}
+.rl-u-list>li+li{border-top:1px solid var(--rl-line)}
+.rl-u-item{display:grid;gap:1px;width:100%;min-width:0;padding:7px 10px;border:0;background:none;color:inherit;font:inherit;text-align:left}
+button.rl-u-item{cursor:pointer}
+button.rl-u-item:hover{background:var(--rl-hover)}
+.rl-u-line{display:flex;align-items:baseline;gap:8px;min-width:0}
+.rl-u-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--rl-strong);font-weight:550}
+.rl-u-money{flex:none;margin-left:auto;color:var(--rl-strong);font-weight:650;font-variant-numeric:tabular-nums}
+.rl-u-when{flex:none;color:var(--rl-weak);font-size:11.5px;font-variant-numeric:tabular-nums}
+.rl-u-small{color:var(--rl-weak);font-size:11.5px;overflow-wrap:anywhere}
+.rl-u-badge{padding:0 7px;border-radius:99px;background:var(--rl-inset);color:var(--rl-strong);font-size:11px;font-weight:600}
 `;
