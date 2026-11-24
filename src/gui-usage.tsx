@@ -1,24 +1,24 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js';
+import { For, Show, batch, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { MountedSession } from '@opencode/plugin/gui';
 import { RelayRpc } from './contract.js';
 import { formatUsd, parseUsd } from './costs.js';
 import type { UsageRow } from './relay-store.js';
 import { describeError } from './router.js';
 import type { UsageKind, UsageRecord, UsageSummary, UsageTotal } from './usage-log.js';
-import { chartOf, METRICS, PAGE, RANGES, rangeOf, recordCells, refreshLimit, sortTotals, type Metric, type Range } from './usage-view.js';
+import { chartOf, dayLabels, METRICS, money, PAGE, RANGES, rangeOf, recordCells, refreshLimit, scaleLabel, short, sortTotals, totalCells, type Metric, type Range } from './usage-view.js';
 import { usageCells } from './relay-view.js';
 
-// The Relay usage tab (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md): every reply of every chat for a time range, with search,
-// filters, a chart by day, totals by model and the records. The server adds it all up (getUsageLog); this only draws what it gets.
+// The Relay usage tab (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md, and its fix of the same day,
+// 2026-11-24-relay-usage-tab-fix-design.md): every reply of every chat for a time range. Spent and tokens come first, then a chart by day,
+// the models and the records, each a row that fits the side panel. The server adds it all up (getUsageLog); this only draws what it gets.
 
 type Log = { directory: string; before: { since: string | null; rows: UsageRow[] }; credit: string | null; removed: number } & UsageSummary;
-const REFRESH_MS = 30_000, CHART_H = 60, BAR_W = 10;
+const REFRESH_MS = 30_000, CHART_H = 60, BAR_W = 10, MIN_SLOTS = 7;
 const amount = (count: number) => Math.round(count).toLocaleString('en-US');
-const columns: readonly [keyof UsageTotal, string][] = [['model', 'Model'], ['replies', 'Replies'], ['requests', 'Requests'], ['input', 'In'], ['output', 'Out'], ['cacheRead', 'Cache read'], ['cacheWrite', 'Cache written'], ['cost', 'Cost']];
 const kinds: readonly ['any' | UsageKind, string][] = [['any', 'All kinds'], ['chat', 'Chats'], ['helper', 'Helpers'], ['summary', 'Summaries']];
 const relays: readonly ['any' | 'on' | 'off', string][] = [['any', 'Relay on or off'], ['on', 'Relay on'], ['off', 'Relay off']];
 const folderOf = (path: string) => path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
-const sumCost = (costs: readonly (string | null)[]) => { const known = costs.filter((cost): cost is string => cost !== null); return known.length ? `$${formatUsd(known.reduce((sum, cost) => sum + parseUsd(cost), 0n))}` : 'no price'; };
+const plural = (count: number, one: string, many: string) => `${amount(count)} ${count === 1 ? one : many}`;
 
 /** A list filter: "All …" or one value the range has. */
 const Pick = (props: { label: string; all: string; values: readonly string[]; value: string | null; set: (value: string | null) => void; name?: (value: string) => string }) =>
@@ -33,7 +33,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   const [provider, setProvider] = createSignal<string | null>(null), [effort, setEffort] = createSignal<string | null>(null);
   const [mode, setMode] = createSignal<string | null>(null), [project, setProject] = createSignal<string | null>(null);
   const [relay, setRelay] = createSignal<'any' | 'on' | 'off'>('any'), [kind, setKind] = createSignal<'any' | UsageKind>('any');
-  const [metric, setMetric] = createSignal<Metric>('cost'), [order, setOrder] = createSignal<{ by: keyof UsageTotal; down: boolean }>({ by: 'cost', down: true });
+  const [metric, setMetric] = createSignal<Metric>('cost');
   const [log, setLog] = createSignal<{ session: MountedSession; value: Log; more: UsageRecord[] }>();
   const [error, setError] = createSignal(''), [loading, setLoading] = createSignal(false);
   const view = createMemo(() => log()?.session === props.session ? log() : undefined);
@@ -64,79 +64,108 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   createEffect(() => { const text = typed(); const timer = setTimeout(() => setSearch(text.trim()), 300); onCleanup(() => clearTimeout(timer)); });
   const timer = setInterval(() => { if (!loading() && !document.hidden) void load(true); }, REFRESH_MS); onCleanup(() => clearInterval(timer));
 
+  const filtersOn = () => [provider(), effort(), mode(), project()].filter(value => value !== null).length + (relay() === 'any' ? 0 : 1) + (kind() === 'any' ? 0 : 1);
+  const clear = () => batch(() => { setTyped(''); setSearch(''); setProvider(null); setEffort(null); setMode(null); setProject(null); setRelay('any'); setKind('any'); });
   const chart = createMemo(() => { const shown = view(); return shown ? chartOf(shown.value.days, metric()) : undefined; });
-  const totals = createMemo(() => { const shown = view(); return shown ? sortTotals(shown.value.totals, order().by, order().down) : []; });
+  const slots = () => Math.max(MIN_SLOTS, chart()?.bars.length ?? 0), offset = () => Math.floor((slots() - (chart()?.bars.length ?? 0)) / 2);
+  const labels = createMemo(() => dayLabels(view()?.value.days.map(day => day.day) ?? []));
+  const totals = createMemo(() => { const shown = view(); return shown ? sortTotals(shown.value.totals, 'cost', true) : []; });
   const records = createMemo(() => { const shown = view(); return shown ? [...shown.value.records, ...shown.more] : []; });
-  const summary = createMemo(() => {
-    const all = view()?.value.totals ?? [], add = (pick: (total: UsageTotal) => number) => amount(all.reduce((sum, total) => sum + pick(total), 0));
-    return `${sumCost(all.map(total => total.cost))} · ${add(total => total.replies)} replies · ${add(total => total.requests)} requests · in ${add(total => total.input)} · out ${add(total => total.output + total.reasoning)} · cache read ${add(total => total.cacheRead)} · cache written ${add(total => total.cacheWrite)}`;
+  /** The tiles: what the range cost where a price is known, how many replies have none, and every token in and out. */
+  const sums = createMemo(() => {
+    const all = view()?.value.totals ?? [], add = (pick: (total: UsageTotal) => number) => all.reduce((sum, total) => sum + pick(total), 0);
+    const priced = all.flatMap(total => total.cost === null ? [] : [parseUsd(total.cost)]);
+    return {
+      spent: priced.length || !all.length ? money(formatUsd(priced.reduce((sum, cost) => sum + cost, 0n))) : 'no price', aa: all.some(total => total.cost !== null && total.aaPriced),
+      unpriced: add(total => total.cost === null ? total.replies : 0), replies: add(total => total.replies), requests: add(total => total.requests),
+      in: add(total => total.input + total.cacheRead + total.cacheWrite), out: add(total => total.output + total.reasoning),
+    };
   });
-  const sortBy = (by: keyof UsageTotal) => setOrder(now => ({ by, down: now.by === by ? !now.down : by !== 'model' }));
+  const relayText = (record: UsageRecord) => record.relay ? (record.relay.note ? `Relay: ${record.relay.note}` : 'Relay on') : 'Relay off';
 
   return <section class="rl" aria-label="Relay usage">
     <style>{props.css}</style>
     <header class="rl-top">
-      <div class="rl-brand"><span class="rl-logo" aria-hidden="true">R</span><h2 class="rl-name">Relay usage</h2><span class="rl-tag">every reply of every chat</span></div>
+      <div class="rl-brand"><span class="rl-logo" aria-hidden="true">R</span><h2 class="rl-name">Relay usage</h2>
+        <button type="button" class="rl-btn sm rl-right" disabled={loading()} onClick={() => void load(true)}>{loading() ? 'Loading…' : 'Refresh'}</button></div>
     </header>
     <div class="rl-body">
       <div class="rl-seg" role="group" aria-label="Time range">
         <For each={RANGES}>{item => <button type="button" class="rl-btn sm" aria-pressed={range() === item.id} onClick={() => setRange(item.id)}>{item.label}</button>}</For>
-        <button type="button" class="rl-btn sm rl-right" disabled={loading()} onClick={() => void load(true)}>{loading() ? 'Loading…' : 'Refresh'}</button>
       </div>
-      <input class="rl-in" type="search" aria-label="Search models" placeholder="Search models, e.g. kimi or opencode-go" value={typed()} onInput={event => setTyped(event.currentTarget.value)} />
-      <div class="rl-filters">
-        <Pick label="Provider" all="All providers" values={view()?.value.options.providers ?? []} value={provider()} set={setProvider} />
-        <Pick label="Effort" all="All efforts" values={view()?.value.options.efforts ?? []} value={effort()} set={setEffort} />
-        <Pick label="Mode or agent" all="All modes" values={view()?.value.options.modes ?? []} value={mode()} set={setMode} />
-        <Pick label="Project" all="All projects" values={view()?.value.options.projects ?? []} value={project()} set={setProject} name={folderOf} />
-        <select class="rl-in" aria-label="Relay on or off" onChange={event => setRelay(event.currentTarget.value as 'any' | 'on' | 'off')}><For each={relays}>{([value, label]) => <option value={value} selected={relay() === value}>{label}</option>}</For></select>
-        <select class="rl-in" aria-label="Kind" onChange={event => setKind(event.currentTarget.value as 'any' | UsageKind)}><For each={kinds}>{([value, label]) => <option value={value} selected={kind() === value}>{label}</option>}</For></select>
-      </div>
+      <Show when={search() || filtersOn()}>
+        <div class="rl-note n-warn"><div class="rl-row"><span>Filtered{search() ? `: "${search()}"` : ''}{filtersOn() ? `${search() ? ' and' : ':'} ${plural(filtersOn(), 'filter', 'filters')}` : ''}</span>
+          <button type="button" class="rl-btn sm" onClick={clear}>Clear</button></div></div>
+      </Show>
       <Show when={error()}><div class="rl-note n-bad" role="alert">{error()}</div></Show>
       <Show when={view()} fallback={<p class="rl-hint">{loading() ? 'Loading…' : ''}</p>}>{shown => <>
-        <p class="rl-sum" aria-live="polite">{summary()}</p>
+        <div class="rl-u-tiles" aria-live="polite">
+          <div class="rl-u-tile"><span class="rl-hint">Spent</span><span class="rl-u-big">{sums().spent}{sums().aa ? '*' : ''}</span>
+            <span class="rl-hint">{plural(sums().replies, 'reply', 'replies')} · {plural(sums().requests, 'request', 'requests')}</span>
+            <Show when={sums().unpriced}><span class="rl-hint">{plural(sums().unpriced, 'reply has', 'replies have')} no price</span></Show></div>
+          <div class="rl-u-tile"><span class="rl-hint">Tokens</span><span class="rl-u-big">{short(sums().in + sums().out)}</span>
+            <span class="rl-hint">{short(sums().in)} in · {short(sums().out)} out</span></div>
+        </div>
         <div class="rl-card">
-          <div class="rl-seg" role="group" aria-label="Chart shows">
-            <For each={METRICS}>{item => <button type="button" class="rl-btn sm" aria-pressed={metric() === item.id} onClick={() => setMetric(item.id)}>{item.label}</button>}</For>
+          <div class="rl-row"><strong class="rl-role">{METRICS.find(item => item.id === metric())!.label} by day</strong>
+            <div class="rl-seg" role="group" aria-label="Chart shows"><For each={METRICS}>{item => <button type="button" class="rl-btn sm" aria-pressed={metric() === item.id} onClick={() => setMetric(item.id)}>{item.label}</button>}</For></div>
           </div>
-          <svg class="rl-chart" viewBox={`0 0 ${Math.max(1, chart()!.bars.length) * BAR_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={`${METRICS.find(item => item.id === metric())!.label} by day`}>
-            <For each={chart()!.bars}>{(bar, at) => {
-              let top = CHART_H;
-              return <g><title>{bar.title}</title><rect x={at() * BAR_W} y={0} width={BAR_W} height={CHART_H} fill="transparent" />
-                <For each={bar.parts}>{part => { const height = chart()!.max ? part.value / chart()!.max * (CHART_H - 2) : 0; top -= height; return <rect x={at() * BAR_W + 1.5} y={top} width={BAR_W - 3} height={height} fill={part.color} />; }}</For>
-              </g>;
-            }}</For>
-          </svg>
-          <div class="rl-axis"><span>{shown().value.days[0]?.day ?? ''}</span><span>{shown().value.days.at(-1)?.day ?? ''}</span></div>
+          <div>
+            <div class="rl-u-plot">
+              <Show when={chart()!.max > 0}><span class="rl-u-scale">{scaleLabel(metric(), chart()!.max)}</span></Show>
+              <svg class="rl-chart" viewBox={`0 0 ${slots() * BAR_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={`${METRICS.find(item => item.id === metric())!.label} by day`}>
+                <For each={chart()!.bars}>{(bar, at) => {
+                  let top = CHART_H; const x = (offset() + at()) * BAR_W;
+                  return <g><title>{bar.title}</title><rect x={x} y={0} width={BAR_W} height={CHART_H} fill="transparent" />
+                    <For each={bar.parts}>{part => { const height = chart()!.max ? part.value / chart()!.max * (CHART_H - 2) : 0; top -= height; return <rect x={x + 1.5} y={top} width={BAR_W - 3} height={height} fill={part.color} />; }}</For>
+                  </g>;
+                }}</For>
+              </svg>
+            </div>
+            <div class="rl-u-days" style={{ 'grid-template-columns': `repeat(${slots()}, minmax(0, 1fr))` }}>
+              {/* Beyond ten days only three dates show, each wider than its day: the first and last keep inside the chart's edges. */}
+              <For each={labels()}>{(label, at) => <span style={{ 'grid-column': `${offset() + at() + 1}`, 'justify-self': labels().length <= 10 ? 'center' : at() === 0 ? 'start' : at() === labels().length - 1 ? 'end' : 'center' }}>{label}</span>}</For>
+            </div>
+          </div>
           <div class="rl-legend"><For each={chart()!.legend}>{item => <span><i class="rl-dot" style={{ background: item.color }} />{item.model}</span>}</For></div>
         </div>
-        <Show when={shown().value.matching} fallback={<p class="rl-hint">No replies in this range{search() || provider() || effort() || mode() || project() || relay() !== 'any' || kind() !== 'any' ? ' with these filters' : ''}. Relay counts every chat from the version that brought this tab on.</p>}>
-          <strong class="rl-role">By model</strong>
-          <div class="rl-table-wrap"><table class="rl-grid">
-            <thead><tr><For each={columns}>{([key, label]) => <th scope="col" aria-sort={order().by === key ? (order().down ? 'descending' : 'ascending') : 'none'}><button type="button" class="rl-sort" onClick={() => sortBy(key)}>{label}{order().by === key ? (order().down ? ' ↓' : ' ↑') : ''}</button></th>}</For></tr></thead>
-            <tbody><For each={totals()}>{total => <tr class="rl-row" title="Show only this model" onClick={() => setTyped(total.model)}>
-              <td>{total.model}</td><td>{amount(total.replies)}</td><td>{amount(total.requests)}</td><td>{amount(total.input)}</td><td>{amount(total.output + total.reasoning)}</td>
-              <td>{amount(total.cacheRead)}</td><td>{amount(total.cacheWrite)}</td><td>{total.cost === null ? 'not listed' : `$${total.cost}${total.aaPriced ? '*' : ''}`}</td>
-            </tr>}</For></tbody>
-          </table></div>
-          <strong class="rl-role">Records</strong>
-          <div class="rl-table-wrap"><table class="rl-grid">
-            <thead><tr><th scope="col">Time</th><th scope="col">Project</th><th scope="col">Chat</th><th scope="col">Kind</th><th scope="col">Mode</th><th scope="col">Model</th><th scope="col">Relay</th><th scope="col">Tokens</th><th scope="col">Cost</th></tr></thead>
-            <tbody><For each={records()}>{record => { const cell = recordCells(record); return <tr>
-              <td>{cell.time}</td><td title={record.project}>{cell.project}</td><td title={record.sessionID}>{cell.chat}</td><td>{cell.kind}</td><td>{cell.mode}</td><td>{cell.model}</td><td>{cell.relay}</td><td>{cell.tokens}</td><td>{cell.cost}</td>
-            </tr>; }}</For></tbody>
-          </table></div>
+        <Show when={shown().value.matching} fallback={<p class="rl-hint">No replies in this range{search() || filtersOn() ? ' with these filters' : ''}. Relay counts every chat from the version that brought this tab on.</p>}>
+          <div class="rl-row"><strong class="rl-role">By model</strong><span class="rl-hint">most spent first · click to show one</span></div>
+          <ol class="rl-u-list"><For each={totals()}>{total => { const cell = totalCells(total); return <li>
+            <button type="button" class="rl-u-item" title={`${total.model}: show only this model`} onClick={() => setTyped(total.model)}>
+              <span class="rl-u-line"><span class="rl-u-name">{cell.name}</span><span class="rl-u-money">{cell.cost}</span></span>
+              <span class="rl-u-small">{cell.detail}</span>
+            </button>
+          </li>; }}</For></ol>
+        </Show>
+        <input class="rl-in" type="search" aria-label="Search models" placeholder="Search models, e.g. kimi or opencode-go" value={typed()} onInput={event => setTyped(event.currentTarget.value)} />
+        <details class="rl-acc"><summary>Filters<Show when={filtersOn()}><span class="rl-u-badge">{filtersOn()} on</span></Show><span class="rl-sub">provider, effort, mode, project, Relay, kind</span></summary>
+          <div class="rl-acc-body"><div class="rl-filters">
+            <Pick label="Provider" all="All providers" values={shown().value.options.providers} value={provider()} set={setProvider} />
+            <Pick label="Effort" all="All efforts" values={shown().value.options.efforts} value={effort()} set={setEffort} />
+            <Pick label="Mode or agent" all="All modes" values={shown().value.options.modes} value={mode()} set={setMode} />
+            <Pick label="Project" all="All projects" values={shown().value.options.projects} value={project()} set={setProject} name={folderOf} />
+            <select class="rl-in" aria-label="Relay on or off" onChange={event => setRelay(event.currentTarget.value as 'any' | 'on' | 'off')}><For each={relays}>{([value, label]) => <option value={value} selected={relay() === value}>{label}</option>}</For></select>
+            <select class="rl-in" aria-label="Kind" onChange={event => setKind(event.currentTarget.value as 'any' | UsageKind)}><For each={kinds}>{([value, label]) => <option value={value} selected={kind() === value}>{label}</option>}</For></select>
+          </div></div>
+        </details>
+        <Show when={shown().value.matching}>
+          <div class="rl-row"><strong class="rl-role">Records</strong><span class="rl-hint">{amount(shown().value.matching)}, newest first</span></div>
+          <ol class="rl-u-list"><For each={records()}>{record => { const cell = recordCells(record); return <li class="rl-u-item" title={`${cell.model} · chat ${record.sessionID}`}>
+            <span class="rl-u-line"><span class="rl-u-when">{cell.time}</span><span class="rl-u-name">{cell.name}</span><span class="rl-u-money">{cell.cost}</span></span>
+            <span class="rl-u-small">{[cell.kind, cell.mode, cell.tokens, cell.project, relayText(record)].join(' · ')}</span>
+          </li>; }}</For></ol>
           <div class="rl-inline">
-            <span class="rl-hint">{amount(records().length)} of {amount(shown().value.matching)} records, newest first.</span>
+            <span class="rl-hint">{amount(records().length)} of {amount(shown().value.matching)} shown.</span>
             <Show when={records().length < shown().value.matching}><button type="button" class="rl-btn sm" onClick={() => void showMore()}>Show more</button></Show>
           </div>
         </Show>
-        <span class="rl-hint">
-          {shown().value.first ? `History since ${new Date(shown().value.first!).toLocaleDateString()}; records older than 90 days are removed. ` : ''}
-          {shown().value.totals.some(total => total.aaPriced) || shown().value.records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') ? '* at Artificial Analysis prices, all or in part. ' : ''}
-          Out counts reasoning too. Go is billed by allowance, so its cost is its list price.
-        </span>
-        <Show when={shown().value.credit}>{credit => <span class="rl-hint">{credit()}</span>}</Show>
+        <p class="rl-hint">
+          Every reply of every chat, Relay on or off. {shown().value.first ? `History since ${new Date(shown().value.first!).toLocaleDateString()}; records older than 90 days are removed. ` : ''}
+          {sums().aa || shown().value.records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') ? '* at Artificial Analysis prices, all or in part. ' : ''}
+          In counts tokens read new and from a cache; out counts reasoning too. Go is billed by allowance, so its cost is its list price.
+        </p>
+        <Show when={shown().value.credit}>{credit => <p class="rl-hint">{credit()}</p>}</Show>
         <details class="rl-acc"><summary>Before this history<span class="rl-sub">Relay's own messages since 19 Nov</span></summary><div class="rl-acc-body">
           <Show when={shown().value.before.rows.length} fallback={<p class="rl-hint">Nothing counted before this history.</p>}>
             <ol class="rl-plain"><For each={shown().value.before.rows}>{row => { const cell = usageCells(row); return <li class="rl-hint">
