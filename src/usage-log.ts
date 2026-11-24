@@ -3,6 +3,9 @@ import { agentOf, newestAnchors, replyOf } from './chat-facts.js';
 import { costOf, formatUsd, parseUsd, storedUsd } from './costs.js';
 import type { ListedModel } from './inventory.js';
 import { modes, type Decision, type Mode, type PriceSource, type Prices, type Totals } from './relay-store.js';
+import { shownCost } from './usage-view.js';
+
+export { shownCost };
 
 // Usage records (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md): one dated record for each message of every chat, with what
 // its reply took. Numbers, models, ids and the project's folder only: never the text of a message, a reply, a file name or a chat's title.
@@ -139,11 +142,6 @@ export type UsageTotal = { model: string; replies: number; requests: number; inp
 /** `first` is the oldest record given. `matching` counts every record the filters keep; `records` is one page of them, newest first. */
 export type UsageSummary = { days: UsageDay[]; totals: UsageTotal[]; options: { providers: string[]; efforts: string[]; modes: string[]; projects: string[] }; records: UsageRecord[]; matching: number; first: string | null };
 
-/** The cost the tab shows: by price when the model has one, else OpenCode's own when it is more than $0, else none. */
-export function shownCost(record: UsageRecord): string | null {
-  if (record.costByPrice !== null) return record.costByPrice;
-  return record.openCodeUsd !== null && parseUsd(record.openCodeUsd) > 0n ? record.openCodeUsd : null;
-}
 const nameOf = (record: UsageRecord) => record.model ?? 'unknown model';
 const providerOf = (record: UsageRecord) => record.model?.split('/', 1)[0] ?? 'unknown';
 const effortOf = (record: UsageRecord) => { const hash = record.model?.lastIndexOf('#') ?? -1; return hash < 0 ? 'default' : record.model!.slice(hash + 1); };
