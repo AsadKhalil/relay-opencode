@@ -24,7 +24,41 @@ export function shownCost(record: Pick<UsageRecord, 'costByPrice' | 'openCodeUsd
 }
 
 const amount = (count: number) => Math.round(count).toLocaleString('en-US');
+const SCALE = parseUsd('1'), DIME = SCALE / 10n;
+/** Money as the tab shows it: to the cent from $0.10 up, else two significant digits ($0.069, $0.0021); rounded with bigint, never a float. */
+export function money(usd: string | null): string {
+  if (usd === null) return 'no price';
+  const value = parseUsd(usd);
+  if (value === 0n) return '$0';
+  if (value < DIME) {
+    const decimals = Math.min(12, 14 - value.toString().length), unit = 10n ** BigInt(12 - decimals), rounded = (value + unit / 2n) / unit;
+    if (rounded * unit < DIME) return `$0.${rounded.toString().padStart(decimals, '0').replace(/0+$/, '').padEnd(2, '0')}`;
+  }
+  const cents = (value + SCALE / 200n) / (SCALE / 100n);
+  return `$${(cents / 100n).toLocaleString('en-US')}.${(cents % 100n).toString().padStart(2, '0')}`;
+}
+const SHORT = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+/** A count as the tab shows it: 950, 15.8K, 2.3M. */
+export const short = (count: number) => SHORT.format(Math.round(count));
 export type Metric = 'cost' | 'tokens' | 'requests';
+/** The chart's top value, the tallest bar's; `max` is in millionths of a dollar for cost, as `chartOf` gives it. */
+export const scaleLabel = (metric: Metric, max: number) => metric === 'cost' ? money(formatUsd(BigInt(Math.round(max)) * 1_000_000n)) : short(max);
+const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'], MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** The names under the chart's bars (days as YYYY-MM-DD): a weekday and date each for up to ten days, else the first, middle and last dates. */
+export function dayLabels(days: readonly string[]): string[] {
+  const at = (day: string) => new Date(`${day}T12:00:00Z`);
+  if (days.length <= 10) return days.map(day => `${WEEKDAYS[at(day).getUTCDay()]} ${at(day).getUTCDate()}`);
+  const kept = new Set([0, Math.floor(days.length / 2), days.length - 1]);
+  return days.map((day, n) => kept.has(n) ? `${at(day).getUTCDate()} ${MONTHS[at(day).getUTCMonth()]}` : '');
+}
+const nameOf = (model: string) => model.slice(model.indexOf('/') + 1);
+/** One model's row in By model: its name and cost, then its provider, replies and every kind of token. */
+export function totalCells(total: UsageTotal) {
+  const slash = total.model.indexOf('/'), provider = slash < 0 ? '' : total.model.slice(0, slash);
+  const tokens = short(total.input + total.output + total.reasoning + total.cacheRead + total.cacheWrite);
+  return { name: nameOf(total.model), provider, cost: `${money(total.cost)}${total.cost !== null && total.aaPriced ? '*' : ''}`, tokens,
+    detail: [provider, `${amount(total.replies)} ${total.replies === 1 ? 'reply' : 'replies'}`, `${tokens} tokens`].filter(Boolean).join(' · ') };
+}
 export const METRICS: readonly { id: Metric; label: string }[] = [{ id: 'cost', label: 'Cost' }, { id: 'tokens', label: 'Tokens' }, { id: 'requests', label: 'Requests' }];
 const COLORS = ['#4f7cff', '#2ea36a', '#d99a1c', '#9b6bff', '#e05a8a'], OTHER = '#8b949e';
 type Part = { model: string; value: number; color: string };
@@ -32,8 +66,8 @@ type Part = { model: string; value: number; color: string };
 const micro = (cost: string | null) => cost === null ? 0 : Number(parseUsd(cost) / 1_000_000n);
 const valueOf = (metric: Metric, model: UsageDay['models'][number]) => metric === 'cost' ? micro(model.cost) : metric === 'tokens' ? model.tokens : model.requests;
 const labelOf = (metric: Metric, models: UsageDay['models']) => {
-  if (metric === 'cost') { const known = models.flatMap(model => model.cost === null ? [] : [parseUsd(model.cost)]); return known.length ? `$${formatUsd(known.reduce((sum, cost) => sum + cost, 0n))}` : 'no price'; }
-  return metric === 'tokens' ? `${amount(models.reduce((sum, model) => sum + model.tokens, 0))} tokens` : `${amount(models.reduce((sum, model) => sum + model.requests, 0))} requests`;
+  if (metric === 'cost') { const known = models.flatMap(model => model.cost === null ? [] : [parseUsd(model.cost)]); return known.length ? money(formatUsd(known.reduce((sum, cost) => sum + cost, 0n))) : 'no price'; }
+  return metric === 'tokens' ? `${short(models.reduce((sum, model) => sum + model.tokens, 0))} tokens` : `${short(models.reduce((sum, model) => sum + model.requests, 0))} requests`;
 };
 
 /** One bar a day, split by model: the `top` largest models of the range by `metric`, and the rest as "other". `max` is the tallest bar. */
@@ -57,10 +91,10 @@ export function recordCells(record: UsageRecord) {
   const cost = shownCost(record), folder = record.project.split(/[\\/]/).filter(Boolean).at(-1) ?? record.project;
   return {
     time: new Date(record.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), project: folder, chat: record.sessionID.slice(-6), kind: record.kind,
-    mode: record.relay?.mode ?? record.agent ?? '-', model: record.model ?? 'unknown model',
+    mode: record.relay?.mode ?? record.agent ?? '-', model: record.model ?? 'unknown model', name: record.model ? nameOf(record.model) : 'unknown model',
     relay: record.relay ? `${record.relay.mode ?? 'no mode'}${record.relay.note ? `: ${record.relay.note}` : ''}` : 'off',
-    tokens: `${amount(record.input + record.cacheRead + record.cacheWrite)} in · ${amount(record.output + record.reasoning)} out`,
-    cost: cost === null ? 'not listed' : `$${cost}${record.costByPrice !== null && record.pricesFrom === 'artificial-analysis' ? '*' : ''}`,
+    tokens: `${short(record.input + record.cacheRead + record.cacheWrite)} in · ${short(record.output + record.reasoning)} out`,
+    cost: cost === null ? 'no price' : `${money(cost)}${record.costByPrice !== null && record.pricesFrom === 'artificial-analysis' ? '*' : ''}`,
   };
 }
 
