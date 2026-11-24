@@ -202,6 +202,8 @@ export function getUsage(store: Pick<RelayStore, 'get'>): Promise<Usage> {
 }
 /** Newest first, at most 20. Older records that still wait for their reply are kept for the totals and not shown. */
 export function recentDecisions(store: Pick<RelayStore, 'get'>): Promise<Decision[]> { return serial(async () => (await stored(store)).slice(-KEEP).reverse()); }
+/** Every stored record of one chat, so its usage records can carry the Relay part of the messages Relay placed. */
+export function decisionsOf(store: Pick<RelayStore, 'get'>, sessionID: string): Promise<Decision[]> { return serial(async () => (await stored(store)).filter(item => item.sessionID === sessionID)); }
 
 // The switch: whether every message in one chat goes through Relay. One key per chat, so turning it on or off is one write and needs no queue.
 const switchKey = (sessionID: string) => `relay/on/${encodeURIComponent(sessionID)}`;
