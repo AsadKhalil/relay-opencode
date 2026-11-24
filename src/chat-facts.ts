@@ -8,10 +8,37 @@ import type { ChatFacts } from './router.js';
 // No model is asked, and no text of a message is read. The messages come from the host, so every field is checked before it is used.
 
 type Message = {
-  id?: unknown; type?: unknown; status?: unknown; cost?: unknown; time?: { created?: unknown; firstToken?: unknown; completed?: unknown };
+  id?: unknown; type?: unknown; status?: unknown; cost?: unknown; agent?: unknown; time?: { created?: unknown; firstToken?: unknown; completed?: unknown };
   model?: { providerID?: unknown; id?: unknown; variant?: unknown }; tokens?: { input?: unknown; output?: unknown; reasoning?: unknown; cache?: { read?: unknown; write?: unknown } };
 };
 const list = (messages: unknown): Message[] => Array.isArray(messages) ? messages.filter(message => message && typeof message === 'object') : [];
+/** A finished compaction: the host's summary of a long chat. It is a request of its own, and the chat is listed from it on. */
+const isSummary = (message: Message) => message.type === 'compaction' && message.status === 'completed';
+/** What a usage record hangs on: a person's message (or a helper's task), or a finished compaction. */
+const isAnchor = (message: Message) => message.type === 'user' || isSummary(message);
+/** The answers to an anchor: its requests up to the next anchor. A summary's own request comes first. */
+function answersTo(all: Message[], anchorID: string): { anchor: Message; answers: Message[] } | null {
+  const at = all.findIndex(message => isAnchor(message) && message.id === anchorID);
+  if (at < 0) return null;
+  const rest = all.slice(at + 1), next = rest.findIndex(isAnchor), anchor = all[at];
+  // The host keeps one assistant message for each request to the model (a reply with one tool call gave two, on 2.3.0).
+  const answers = (next < 0 ? rest : rest.slice(0, next)).filter(message => message.type === 'assistant');
+  return { anchor, answers: isSummary(anchor) ? [{ ...anchor, type: 'assistant' }, ...answers] : answers };
+}
+
+/** The chat's newest anchors, oldest first: at most `count`, however long the chat. */
+export function newestAnchors(messages: unknown, count: number): { id: string; created: number; summary: boolean }[] {
+  return list(messages).flatMap(message => isAnchor(message) && typeof message.id === 'string' && typeof message.time?.created === 'number' && Number.isFinite(message.time.created)
+    ? [{ id: message.id, created: message.time.created, summary: isSummary(message) }] : []).slice(-count);
+}
+/** The agent that answered an anchor: its first answer's, or `compaction` for a summary; null with no answer. */
+export function agentOf(messages: unknown, anchorID: string): string | null {
+  const found = answersTo(list(messages), anchorID);
+  if (!found) return null;
+  if (isSummary(found.anchor)) return 'compaction';
+  const agent = found.answers[0]?.agent;
+  return typeof agent === 'string' && agent ? agent : null;
+}
 const count = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 /**
  * What one answer read and wrote, or null when it carries no counts (an answer that was stopped). The host's `input` leaves out the tokens
@@ -26,13 +53,12 @@ const counts = (message: Message) => message.type === 'assistant' && message.tok
  * if it has the model; otherwise the prices are unknown.
  */
 export function replyOf(messages: unknown, messageID: string, models: readonly (Pick<ListedModel, 'providerID' | 'id' | 'cost'> & { name?: string })[] | null = null, borrowed: readonly AaModel[] | null = null): Reply | null {
-  const all = list(messages), at = all.findIndex(message => message.type === 'user' && message.id === messageID);
-  if (at < 0) return null;
-  const rest = all.slice(at + 1), next = rest.findIndex(message => message.type === 'user');
-  // The host keeps one assistant message for each request to the model (a reply with one tool call gave two, on 2.3.0).
-  const answers = (next < 0 ? rest : rest.slice(0, next)).filter(message => message.type === 'assistant'), first = answers[0], read = first && counts(first);
+  // A finished compaction's id works too: its own request, then the rest of the reply it cut (2026-11-24 usage records).
+  const found = answersTo(list(messages), messageID);
+  if (!found) return null;
+  const { anchor, answers } = found, first = answers[0], read = first && counts(first);
   if (!read) return null;
-  const asked = all[at].time?.created, word = first.time?.firstToken;
+  const asked = anchor.time?.created, word = first.time?.firstToken;
   const { providerID, id, variant } = first.model ?? {}, named = typeof providerID === 'string' && typeof id === 'string';
   const listed = named ? models?.find(model => model.providerID === providerID && model.id === id) : undefined;
   const add = (pick: (tokens: NonNullable<Message['tokens']>) => unknown) => answers.reduce((sum, answer) => sum + (answer.tokens ? count(pick(answer.tokens)) : 0), 0);

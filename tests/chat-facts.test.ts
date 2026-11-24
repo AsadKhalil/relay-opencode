@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chatFacts, replyOf } from '../src/chat-facts.js';
+import { agentOf, chatFacts, newestAnchors, replyOf } from '../src/chat-facts.js';
 
 // Messages shaped as OpenCode 2.3.0 gives them from `session.context` (read on an isolated host with a mock model, 18 Nov 2026).
 const user = (id: string, created: number) => ({ id, type: 'user', time: { created }, text: 'never read' });
@@ -92,4 +92,39 @@ test('a new chat and a chat that was just compacted have nothing to lose; an ans
   assert.deepEqual(chatFacts([...compacted, user('m2', 4000), answer('a2', 'big', 4020, { input: 4000 })], 5000), { tokens: 4005, answered: [{ providerID: 'p', id: 'big', tokens: 4005, agoMs: 980 }] }, 'the next answer gives the new size');
   assert.deepEqual(chatFacts([...before, user('m2', 4000), answer('a2', 'small', 4020, { input: 99_999 }, { time: { created: 4020 } })], 5000), kept, 'not completed yet');
   assert.deepEqual(chatFacts([...before, null, 7, {}] as never, 5000), kept);
+});
+
+// Usage records (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md): each person's message, and each finished compaction, anchors one record.
+const summary = (id: string, created: number, status = 'completed') => ({ id, type: 'compaction', status, reason: 'auto', time: { created }, model: { id: 'big', providerID: 'p', variant: 'default' }, cost: 0.008281, tokens: { input: 495, output: 5, reasoning: 0, cache: { read: 31005, write: 0 } } });
+const compactedChat = [
+  user('m1', 1000), answer('a1', 'big', 1020, { input: 100 }), user('m2', 2000), answer('a2', 'big', 2020, { input: 200 }),
+  summary('c1', 3000), answer('a3', 'big', 3020, { input: 300 }), user('m3', 4000), answer('a4', 'big', 4020, { input: 400 }),
+];
+
+test('the newest anchors are the last person messages and finished compactions, oldest first', () => {
+  const anchors = [{ id: 'm2', created: 2000, summary: false }, { id: 'c1', created: 3000, summary: true }, { id: 'm3', created: 4000, summary: false }];
+  assert.deepEqual(newestAnchors(compactedChat, 3), anchors);
+  assert.deepEqual(newestAnchors([...compactedChat, summary('c2', 5000, 'pending')], 3), anchors, 'a compaction still running is not an anchor');
+  assert.deepEqual(newestAnchors([...compactedChat, null, 7, {}] as never, 3), anchors);
+});
+
+test("a summary's reply is its own request and the answers after it, up to the next message", () => {
+  const reply = replyOf(compactedChat, 'c1');
+  assert.equal(reply?.requests, 2);
+  assert.equal(reply?.total?.input, 495 + 300);
+  assert.equal(reply?.model, 'p/big');
+  assert.equal(replyOf(compactedChat, 'm2')?.total?.input, 200, "a person's message reads as before");
+  assert.equal(replyOf([...compactedChat, summary('c2', 5000, 'pending')], 'c2'), null, 'a compaction still running anchors nothing');
+});
+
+test("the agent is the first answer's", () => {
+  assert.equal(agentOf(compactedChat, 'm2'), 'build');
+  assert.equal(agentOf(compactedChat, 'c1'), 'compaction');
+  assert.equal(agentOf([user('m9', 9000)], 'm9'), null);
+  assert.equal(agentOf(compactedChat, 'nope'), null);
+});
+
+test('only the newest anchors are returned however long the chat', () => {
+  const long = Array.from({ length: 150 }, (_, at) => [user(`u${at}`, at * 10), answer(`r${at}`, 'big', at * 10 + 5, { input: 10 })]).flat();
+  assert.deepEqual(newestAnchors(long, 3).map(anchor => anchor.id), ['u147', 'u148', 'u149']);
 });
