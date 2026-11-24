@@ -77,12 +77,14 @@ export function grown(old: UsageRecord | null, next: UsageRecord): UsageRecord |
 const text = (value: unknown) => typeof value === 'string' ? value : null;
 const amount = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 /** A stored record, or null when the value is not one (another build's, or damaged). */
+const LAST_TIME = 8.64e15 - 2 * DAY_MS;
 function readable(value: unknown): UsageRecord | null {
   const item = value as Partial<Record<keyof UsageRecord, unknown>> | null;
   if (!item || typeof item !== 'object') return null;
   const at = text(item.at), sessionID = text(item.sessionID), messageID = text(item.messageID), project = text(item.project);
   const counts = [item.requests, item.input, item.output, item.reasoning, item.cacheRead, item.cacheWrite].map(amount);
-  if (!at || Number.isNaN(Date.parse(at)) || !sessionID || !messageID || project === null || !kinds.includes(item.kind as UsageKind) || counts.some(count => count === null)) return null;
+  // A date near the end of JavaScript's time range would make every day count of its range throw.
+  if (!at || !(Math.abs(Date.parse(at)) < LAST_TIME) || !sessionID || !messageID || project === null || !kinds.includes(item.kind as UsageKind) || counts.some(count => count === null)) return null;
   const relay = item.relay as { mode?: unknown; note?: unknown } | null | undefined;
   const [requests, input, output, reasoning, cacheRead, cacheWrite] = counts as number[];
   return {
@@ -144,6 +146,8 @@ export async function readRecords(store: Pick<LogStore, 'scan'>, from: string, t
 export type UsageQuery = {
   from: string; to: string; tzOffsetMinutes: number; search: string; provider: string | null; effort: string | null; mode: string | null;
   relay: 'any' | 'on' | 'off'; kind: 'any' | UsageKind; project: string | null; offset: number; limit: number;
+  /** The panel's IANA time zone: days follow its clock changes. Without it, every day uses `tzOffsetMinutes`. */
+  timeZone: string | null;
 };
 /** One local day, with each model's cost (null when none of it has a price), tokens of every kind, and requests. */
 export type UsageDay = { day: string; models: { model: string; cost: string | null; tokens: number; requests: number }[] };
@@ -161,7 +165,8 @@ const sorted = (values: Iterable<string>) => [...new Set(values)].sort();
 
 /** The days, totals, filter lists and one page of records for a range. The filter lists come from every record given, so a filter never hides its own choices. */
 export function summarize(records: readonly UsageRecord[], query: UsageQuery): UsageSummary {
-  const dayOf = (time: string | number) => new Date((typeof time === 'number' ? time : Date.parse(time)) + query.tzOffsetMinutes * 60_000).toISOString().slice(0, 10);
+  const zoned = query.timeZone ? new Intl.DateTimeFormat('en-CA', { timeZone: query.timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }) : null;
+  const dayOf = (time: string | number) => { const ms = typeof time === 'number' ? time : Date.parse(time); return zoned ? zoned.format(ms) : new Date(ms + query.tzOffsetMinutes * 60_000).toISOString().slice(0, 10); };
   const search = query.search.trim().toLowerCase();
   const kept = records.filter(record => (!search || nameOf(record).toLowerCase().includes(search))
     && (query.provider === null || providerOf(record) === query.provider) && (query.effort === null || effortOf(record) === query.effort)
@@ -212,9 +217,11 @@ export function usageQueryOf(input: unknown): UsageQuery {
   if (typeof item.search !== 'string' || item.search.length > 200) throw new Error('The search is at most 200 characters.');
   if (item.relay !== 'any' && item.relay !== 'on' && item.relay !== 'off') throw new Error('The Relay filter is any, on or off.');
   if (item.kind !== 'any' && !kinds.includes(item.kind as UsageKind)) throw new Error('The kind filter is any, chat, helper or summary.');
+  const timeZone = item.timeZone === undefined || item.timeZone === null ? null : item.timeZone;
+  if (timeZone !== null) { try { if (typeof timeZone !== 'string' || timeZone.length > 64) throw new Error(); new Intl.DateTimeFormat('en-CA', { timeZone }); } catch { throw new Error('The time zone is not one.'); } }
   return {
     from: new Date(from).toISOString(), to: new Date(to).toISOString(), tzOffsetMinutes: whole(item.tzOffsetMinutes, -840, 840, 'The time zone offset'), search: item.search,
     provider: choice(item.provider, 'provider'), effort: choice(item.effort, 'effort'), mode: choice(item.mode, 'mode'), relay: item.relay, kind: item.kind as UsageQuery['kind'],
-    project: choice(item.project, 'project'), offset: whole(item.offset, 0, 1_000_000, 'The offset'), limit: whole(item.limit, 1, LIMIT, 'The page size'),
+    project: choice(item.project, 'project'), offset: whole(item.offset, 0, 1_000_000, 'The offset'), limit: whole(item.limit, 1, LIMIT, 'The page size'), timeZone: timeZone as string | null,
   };
 }

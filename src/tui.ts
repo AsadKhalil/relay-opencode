@@ -4,8 +4,8 @@ import type { UsageRow } from './relay-store.js';
 import { usageText } from './relay-view.js';
 import { describeError } from './router.js';
 
-// Relay's part in OpenCode's terminal app: `/relay-stats` shows Usage by model in a dialog, as the panel shows it. The server part keeps the
-// totals; this only asks for them. Only types come from `@opencode/plugin/tui`: its index loads the terminal's Solid runtime, which this does not need.
+// Relay's part in OpenCode's terminal app: `/relay-stats` shows, in a dialog, the totals Relay kept of its own messages before the usage tab
+// (the tab's "Before this history"). The server part keeps the totals; this only asks for them. Only types come from `@opencode/plugin/tui`: its index loads the terminal's Solid runtime, which this does not need.
 
 const TITLE = 'Relay: usage by model';
 type UsageView = { since: string | null; rows: UsageRow[]; credit: string | null };

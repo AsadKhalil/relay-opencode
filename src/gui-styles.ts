@@ -56,12 +56,12 @@ display:flex;flex-direction:column;height:100%;min-height:0;color:var(--rl-fg);f
 .rl-picker{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
 .rl-table-wrap{max-height:320px;overflow:auto;border:1px solid var(--rl-line);border-radius:8px;background:var(--rl-bg)}
 .rl-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
-.rl-table th:nth-child(2){width:74px}.rl-table th:nth-child(3){width:46px}.rl-table th:nth-child(4){width:42px}.rl-table th:nth-child(5){width:46px}
+.rl-table th:nth-child(2){width:74px}.rl-table th:nth-child(3){width:46px;text-align:right;white-space:nowrap}.rl-table th:nth-child(4){width:42px;text-align:right;white-space:nowrap}.rl-table th:nth-child(5){width:46px}
 .rl-table th{position:sticky;top:0;z-index:1;padding:5px 4px;border-bottom:1px solid var(--rl-line2);background:var(--rl-bg);color:var(--rl-weak);font-size:11px;font-weight:600;text-align:left;vertical-align:bottom}
 .rl-table td{padding:5px 4px;border-top:1px solid var(--rl-line);vertical-align:middle;overflow-wrap:anywhere}
 .rl-table tbody tr:first-child td{border-top:0}
 .rl-table tbody tr:hover{background:var(--rl-hover)}
-.rl-table th:nth-child(3),.rl-table td:nth-child(3),.rl-table th:nth-child(4),.rl-table td:nth-child(4){text-align:right;white-space:nowrap}
+.rl-table td:nth-child(3),.rl-table td:nth-child(4){text-align:right;white-space:nowrap}
 .rl-table td:last-child{text-align:right}
 .rl-table small{display:block;color:var(--rl-weak);font-size:11px;font-weight:400}
 .rl-t-name{color:var(--rl-strong);font-weight:550}
@@ -79,6 +79,7 @@ display:flex;flex-direction:column;height:100%;min-height:0;color:var(--rl-fg);f
 .rl-u-big{color:var(--rl-strong);font-size:22px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .rl-u-plot{position:relative;padding-top:16px;border:1px solid var(--rl-line);border-radius:8px;background:var(--rl-bg);overflow:hidden}
 .rl-u-scale{position:absolute;top:2px;left:6px;color:var(--rl-weak);font-size:10.5px;font-variant-numeric:tabular-nums}
+.rl-u-empty{position:absolute;inset:0;display:grid;place-items:center;padding:0 12px;color:var(--rl-weak);font-size:11.5px;text-align:center}
 .rl-u-days{display:grid;margin-top:3px;color:var(--rl-weak);font-size:10px;text-align:center;white-space:nowrap}
 .rl .rl-u-list{margin:0;padding:0;list-style:none;border:1px solid var(--rl-line);border-radius:10px;background:var(--rl-bg);overflow:hidden}
 .rl-u-list>li+li{border-top:1px solid var(--rl-line)}

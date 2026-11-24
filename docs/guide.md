@@ -74,7 +74,7 @@ The **Relay usage** tab shows every reply of every chat: with Relay on or off, `
 - **Chart:** one bar a day, split by model (the five largest, the rest as "other"), for cost, tokens or requests, with the tallest bar's value at the top and the days beneath. Hover over a bar for that day's numbers.
 - **By model:** one row a model, most spent first: its cost, provider, replies and tokens. Click a row to show only that model.
 - **Search and filters:** search by model. Under **Filters**: provider, effort, mode (or the agent, for a chat Relay did not place), Relay on or off, chat, helper or summary, and project. A note at the top says when the numbers are filtered, with **Clear**.
-- **Records:** one row a reply: time, model and cost, then kind, mode, tokens in and out, project, and what Relay decided (or "Relay off"). **Show more** adds 50.
+- **Records:** one row a reply: time, model and cost, then provider, kind and chat, mode, tokens in and out, project, and what Relay decided (or "Relay off"). **Show more** adds 50.
 - **Cost:** each kind of token times its price for a million tokens. Reasoning is priced as output. The prices are OpenCode's own when it lists them, which is what you pay; otherwise Artificial Analysis's, marked `*`, once you have saved a key (below); otherwise OpenCode's own cost when it is more than $0. Go is billed by allowance, so its cost is the list price. Amounts under $0.10 show two significant digits, such as $0.069.
 - **Before this history:** the totals Relay counted before this tab, of its own messages only (since 19 Nov).
 

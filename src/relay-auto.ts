@@ -37,10 +37,11 @@ export function relayAutoHook(deps: RelayDeps) {
 }
 
 /**
- * What a reply took. When a chat has finished its work, the host runs this just before the chat goes idle. For each record of that chat
+ * What a reply took. When a chat has finished its work, the host runs this just before the chat goes idle. With `log`, it writes or grows the
+ * usage records of the chat's newest messages (src/usage-log.ts), for every chat. For each record of that chat
  * that still waits, the reply is read from the chat's own messages and kept with the record, with the prices the model list gives for the
  * model that answered, or else Artificial Analysis's from the copy kept in storage (`borrowedPrices`; never a request). No model is asked.
- * It never throws, and it holds the chat for one second at most; a chat with no waiting record costs one read of storage.
+ * It never throws, and it holds the chat for one second at most; one read of the chat serves both jobs.
  */
 type ReplyDeps = Pick<RelayDeps, 'session' | 'store' | 'readMs' | 'chatModels'> & {
   borrowedPrices?: () => Promise<AaModel[]>;

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUsd } from '../src/costs.js';
 import { decisionsOf, type Decision } from '../src/relay-store.js';
-import { buildRecords, grown, KEEP_DAYS, LOG_PREFIX, logKey, pruneRecords, readRecords, saveRecords, shownCost, summarize, type LogStore, type UsageQuery, type UsageRecord } from '../src/usage-log.js';
+import { buildRecords, grown, KEEP_DAYS, LOG_PREFIX, logKey, pruneRecords, readRecords, saveRecords, shownCost, summarize, usageQueryOf, type LogStore, type UsageQuery, type UsageRecord } from '../src/usage-log.js';
 
 // Usage records (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). Messages are shaped as OpenCode 2.3 gives them from `session.context`.
 const user = (id: string, created: number) => ({ id, type: 'user', time: { created }, text: 'never read' });
@@ -120,7 +120,7 @@ test('the Relay records of one chat are listed for the idle hook', async () => {
 });
 
 // Adding up for the tab: what the panel shows for a range and its filters.
-const query = (extra: Partial<UsageQuery> = {}): UsageQuery => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, ...extra });
+const query = (extra: Partial<UsageQuery> = {}): UsageQuery => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, timeZone: null, ...extra });
 const at = (time: string, extra: Partial<UsageRecord> = {}) => record(Date.parse(time), extra);
 const kimi = at('2026-11-23T15:00:00Z', { model: 'opencode-go/kimi-k3.1-pro', costByPrice: '0.1', relay: { mode: 'plan', note: null } });
 const flash = at('2026-11-23T16:00:00Z', { model: 'opencode-go/glm-5.3-flash#high', costByPrice: '0.2', agent: 'build', kind: 'helper', project: 'C:/work/other' });
@@ -222,4 +222,29 @@ test('with nothing old enough, removing old records looks at the oldest key only
   const counting: LogStore = { ...store, scan: options => { limits.push(options.limit); return store.scan(options); } };
   assert.equal(await pruneRecords(counting, now), 0);
   assert.deepEqual(limits, [1]);
+});
+
+// The minor issues, fixed on 24 Nov: a clock change inside the range, and a damaged date.
+test('with a time zone, days follow its clock changes: 90 days across the end of summer time are 90 bars', () => {
+  const range = query({ from: '2026-08-27T04:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, timeZone: 'America/New_York' });
+  const late = at('2026-09-01T04:30:00Z'), summed = summarize([late], range);
+  assert.deepEqual([summed.days.length, summed.days[0].day, summed.days.at(-1)!.day], [90, '2026-08-27', '2026-11-24']);
+  assert.equal(summed.days.find(day => day.models.length)?.day, '2026-09-01', 'half past midnight in summer time is that day, not the one before');
+  assert.equal(summarize([late], { ...range, timeZone: null }).days[0].day, '2026-08-26', 'one offset for the whole range still shifts summer days');
+});
+
+test('the query takes an optional time zone, and refuses one that is not', () => {
+  const base = { from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50 };
+  assert.equal(usageQueryOf(base).timeZone, null);
+  assert.equal(usageQueryOf({ ...base, timeZone: 'America/New_York' }).timeZone, 'America/New_York');
+  assert.throws(() => usageQueryOf({ ...base, timeZone: 'Not/AZone' }), /The time zone is not one\./);
+});
+
+test('a stored record with an impossible date is skipped, so the range still reads', async () => {
+  const { data, store } = memoryStore();
+  data.set(`${LOG_PREFIX}${iso(2000)}/ses-1/far`, record(2000, { at: '+275760-09-13T00:00:00.000Z', messageID: 'far' }));
+  data.set(logKey(record(3000)), record(3000));
+  const found = await readRecords(store, iso(1000), iso(4000));
+  assert.deepEqual(found.map(made => made.messageID), ['m3000']);
+  assert.doesNotThrow(() => summarize(found, query({ from: iso(0), to: iso(86_400_000) })));
 });

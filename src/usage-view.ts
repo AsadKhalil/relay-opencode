@@ -8,9 +8,9 @@ export type Range = 'today' | '7d' | '30d' | '90d';
 export const RANGES: readonly { id: Range; label: string }[] = [{ id: 'today', label: 'Today' }, { id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }, { id: '90d', label: '90 days' }];
 const DAYS_BACK: Record<Range, number> = { today: 0, '7d': 6, '30d': 29, '90d': 89 };
 /** A range in the panel's own days: from local midnight (today, or that many days before) to now, with the offset the server counts days by. */
-export function rangeOf(range: Range, now: Date): { from: string; to: string; tzOffsetMinutes: number } {
+export function rangeOf(range: Range, now: Date): { from: string; to: string; tzOffsetMinutes: number; timeZone: string } {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - DAYS_BACK[range]);
-  return { from: start.toISOString(), to: now.toISOString(), tzOffsetMinutes: -now.getTimezoneOffset() };
+  return { from: start.toISOString(), to: now.toISOString(), tzOffsetMinutes: -now.getTimezoneOffset(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
 }
 
 /** The records one page holds, and how many a refresh asks for: as many as are shown (up to the server's 200), so a refresh keeps Show more. */
@@ -86,20 +86,22 @@ export function chartOf(days: readonly UsageDay[], metric: Metric, top = 5): { b
   return { bars, legend: [...kept.map(model => ({ model, color: colorOf(model) })), ...(rest ? [{ model: 'other', color: OTHER }] : [])], max: bars.reduce((most, bar) => Math.max(most, bar.total), 0) };
 }
 
-/** One line of the records list. In counts what was read new and from a cache; out counts reasoning too. */
+/** One row of the records list: time, model and cost, then provider, kind and chat, mode, tokens, project and what Relay did. In counts what was read
+ *  new, from a cache and into a cache; out counts reasoning too. */
 export function recordCells(record: UsageRecord) {
-  const cost = shownCost(record), folder = record.project.split(/[\\/]/).filter(Boolean).at(-1) ?? record.project;
+  const cost = shownCost(record), folder = record.project.split(/[\\/]/).filter(Boolean).at(-1) ?? record.project, model = record.model ?? 'unknown model';
+  const provider = model.includes('/') ? model.slice(0, model.indexOf('/')) : '', mode = record.relay?.mode ?? record.agent ?? '';
+  const relay = record.relay ? (record.relay.note ? `Relay: ${record.relay.note}` : 'Relay on') : 'Relay off';
+  const tokens = `${short(record.input + record.cacheRead + record.cacheWrite)} in · ${short(record.output + record.reasoning)} out`;
   return {
-    time: new Date(record.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), project: folder, chat: record.sessionID.slice(-6), kind: record.kind,
-    mode: record.relay?.mode ?? record.agent ?? '-', model: record.model ?? 'unknown model', name: record.model ? nameOf(record.model) : 'unknown model',
-    relay: record.relay ? `${record.relay.mode ?? 'no mode'}${record.relay.note ? `: ${record.relay.note}` : ''}` : 'off',
-    tokens: `${short(record.input + record.cacheRead + record.cacheWrite)} in · ${short(record.output + record.reasoning)} out`,
+    time: new Date(record.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), model, name: record.model ? nameOf(record.model) : model,
     cost: cost === null ? 'no price' : `${money(cost)}${record.costByPrice !== null && record.pricesFrom === 'artificial-analysis' ? '*' : ''}`,
+    detail: [provider, `${record.kind} ${record.sessionID.slice(-6)}`, mode, tokens, folder, relay].filter(Boolean).join(' · '),
   };
 }
 
-/** The by-model table in the order a header asks for. Costs compare as USD amounts; a total with no price sorts below any price. */
-export function sortTotals(totals: readonly UsageTotal[], by: keyof UsageTotal, down: boolean): UsageTotal[] {
-  const key = (total: UsageTotal): bigint | number | string => by === 'cost' ? (total.cost === null ? -1n : parseUsd(total.cost)) : by === 'aaPriced' ? Number(total.aaPriced) : total[by];
-  return [...totals].sort((a, b) => { const x = key(a), y = key(b), order = x < y ? -1 : x > y ? 1 : 0; return down ? -order : order; });
+/** Show more's rows: the next page without those already shown, since a reply that arrives meanwhile moves every offset by one. */
+export function appendNew(shown: readonly UsageRecord[], next: readonly UsageRecord[]): UsageRecord[] {
+  const key = (record: UsageRecord) => `${record.sessionID}/${record.messageID}`, seen = new Set(shown.map(key));
+  return [...shown, ...next.filter(record => !seen.has(key(record)))];
 }

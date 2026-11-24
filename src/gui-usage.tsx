@@ -5,7 +5,7 @@ import { formatUsd, parseUsd } from './costs.js';
 import type { UsageRow } from './relay-store.js';
 import { describeError } from './router.js';
 import type { UsageKind, UsageRecord, UsageSummary, UsageTotal } from './usage-log.js';
-import { chartOf, dayLabels, METRICS, money, PAGE, RANGES, rangeOf, recordCells, refreshLimit, scaleLabel, short, sortTotals, totalCells, type Metric, type Range } from './usage-view.js';
+import { appendNew, chartOf, dayLabels, METRICS, money, PAGE, RANGES, rangeOf, recordCells, refreshLimit, scaleLabel, short, totalCells, type Metric, type Range } from './usage-view.js';
 import { usageCells } from './relay-view.js';
 
 // The Relay usage tab (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md, and its fix of the same day,
@@ -55,7 +55,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   };
   const showMore = async () => {
     const shown = view(); if (!shown) return;
-    try { const next = await ask(shown.session, shown.value.records.length + shown.more.length); if (log() === shown) setLog({ ...shown, more: [...shown.more, ...next.records] }); }
+    try { const next = await ask(shown.session, shown.value.records.length + shown.more.length); if (log() === shown) setLog({ ...shown, more: appendNew([...shown.value.records, ...shown.more], next.records).slice(shown.value.records.length) }); }
     catch (failure) { setError(describeError(failure, 'Could not load more records.')); }
   };
   // Asked for when the tab opens, when the range or a filter changes, and every 30 seconds while it is open. The search waits for a pause in typing.
@@ -69,7 +69,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   const chart = createMemo(() => { const shown = view(); return shown ? chartOf(shown.value.days, metric()) : undefined; });
   const slots = () => Math.max(MIN_SLOTS, chart()?.bars.length ?? 0), offset = () => Math.floor((slots() - (chart()?.bars.length ?? 0)) / 2);
   const labels = createMemo(() => dayLabels(view()?.value.days.map(day => day.day) ?? []));
-  const totals = createMemo(() => { const shown = view(); return shown ? sortTotals(shown.value.totals, 'cost', true) : []; });
+  const totals = () => view()?.value.totals ?? [];   // most spent first, as the server sorts them
   const records = createMemo(() => { const shown = view(); return shown ? [...shown.value.records, ...shown.more] : []; });
   /** The tiles: what the range cost where a price is known, how many replies have none, and every token in and out. */
   const sums = createMemo(() => {
@@ -81,7 +81,6 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
       in: add(total => total.input + total.cacheRead + total.cacheWrite), out: add(total => total.output + total.reasoning),
     };
   });
-  const relayText = (record: UsageRecord) => record.relay ? (record.relay.note ? `Relay: ${record.relay.note}` : 'Relay on') : 'Relay off';
 
   return <section class="rl" aria-label="Relay usage">
     <style>{props.css}</style>
@@ -113,6 +112,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
           <div>
             <div class="rl-u-plot">
               <Show when={chart()!.max > 0}><span class="rl-u-scale">{scaleLabel(metric(), chart()!.max)}</span></Show>
+              <Show when={metric() === 'cost' && !chart()!.max && shown().value.matching}><span class="rl-u-empty">No price in this range: see Tokens or Requests.</span></Show>
               <svg class="rl-chart" viewBox={`0 0 ${slots() * BAR_W} ${CHART_H}`} preserveAspectRatio="none" role="img" aria-label={`${METRICS.find(item => item.id === metric())!.label} by day`}>
                 <For each={chart()!.bars}>{(bar, at) => {
                   let top = CHART_H; const x = (offset() + at()) * BAR_W;
@@ -153,7 +153,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
           <div class="rl-row"><strong class="rl-role">Records</strong><span class="rl-hint">{amount(shown().value.matching)}, newest first</span></div>
           <ol class="rl-u-list"><For each={records()}>{record => { const cell = recordCells(record); return <li class="rl-u-item" title={`${cell.model} · chat ${record.sessionID}`}>
             <span class="rl-u-line"><span class="rl-u-when">{cell.time}</span><span class="rl-u-name">{cell.name}</span><span class="rl-u-money">{cell.cost}</span></span>
-            <span class="rl-u-small">{[cell.kind, cell.mode, cell.tokens, cell.project, relayText(record)].join(' · ')}</span>
+            <span class="rl-u-small">{cell.detail}</span>
           </li>; }}</For></ol>
           <div class="rl-inline">
             <span class="rl-hint">{amount(records().length)} of {amount(shown().value.matching)} shown.</span>
@@ -163,7 +163,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
         <p class="rl-hint">
           Every reply of every chat, Relay on or off. {shown().value.first ? `History since ${new Date(shown().value.first!).toLocaleDateString()}; records older than 90 days are removed. ` : ''}
           {sums().aa || shown().value.records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') ? '* at Artificial Analysis prices, all or in part. ' : ''}
-          In counts tokens read new and from a cache; out counts reasoning too. Go is billed by allowance, so its cost is its list price.
+          In counts tokens read new, from a cache and into a cache; out counts reasoning too. Go is billed by allowance, so its cost is its list price.
         </p>
         <Show when={shown().value.credit}>{credit => <p class="rl-hint">{credit()}</p>}</Show>
         <details class="rl-acc"><summary>Before this history<span class="rl-sub">Relay's own messages since 19 Nov</span></summary><div class="rl-acc-body">

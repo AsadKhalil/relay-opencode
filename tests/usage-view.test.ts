@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { UsageDay, UsageRecord, UsageTotal } from '../src/usage-log.js';
-import { chartOf, dayLabels, money, rangeOf, recordCells, refreshLimit, scaleLabel, short, sortTotals, totalCells } from '../src/usage-view.js';
+import { appendNew, chartOf, dayLabels, money, rangeOf, recordCells, refreshLimit, scaleLabel, short, totalCells } from '../src/usage-view.js';
 
 // The Relay usage tab's sums and texts (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). The panel only draws these.
 const day = (date: string, models: [string, string | null, number, number][]): UsageDay => ({ day: date, models: models.map(([model, cost, tokens, requests]) => ({ model, cost, tokens, requests })) });
@@ -13,7 +13,7 @@ const total = (model: string, cost: string | null, extra: Partial<UsageTotal> = 
 
 test('today runs from local midnight to now; 7 days starts six midnights earlier', () => {
   const now = new Date(2026, 10, 24, 15, 30);
-  assert.deepEqual(rangeOf('today', now), { from: new Date(2026, 10, 24).toISOString(), to: now.toISOString(), tzOffsetMinutes: -now.getTimezoneOffset() });
+  assert.deepEqual(rangeOf('today', now), { from: new Date(2026, 10, 24).toISOString(), to: now.toISOString(), tzOffsetMinutes: -now.getTimezoneOffset(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
   assert.equal(rangeOf('7d', now).from, new Date(2026, 10, 18).toISOString());
   assert.equal(rangeOf('90d', now).from, new Date(2026, 7, 27).toISOString());
 });
@@ -45,20 +45,14 @@ test('an empty range gives empty bars, not an error', () => {
 
 test('a record shows the folder name, a short chat id, its Relay part or off, and its cost with * at Artificial Analysis prices', () => {
   const plain = recordCells(record());
-  assert.deepEqual([plain.project, plain.chat, plain.kind, plain.mode, plain.model, plain.relay, plain.cost], ['app', 'abcdef', 'chat', 'build', 'opencode-go/kimi-k3.1-pro', 'off', '$0.12']);
-  assert.equal(plain.tokens, '5K in · 250 out', 'in counts what was read new and from a cache; out counts reasoning too');
+  assert.deepEqual([plain.model, plain.cost], ['opencode-go/kimi-k3.1-pro', '$0.12']);
+  assert.match(plain.detail, / · 5K in · 250 out · /, 'in counts what was read new and from a cache; out counts reasoning too');
   assert.equal(plain.name, 'kimi-k3.1-pro', 'the row shows the name; the provider is in the model');
   const placed = recordCells(record({ relay: { mode: 'execute', note: 'small work, so the cheapest' }, costByPrice: '0.5', pricesFrom: 'artificial-analysis', project: '/home/someone/site' }));
-  assert.deepEqual([placed.project, placed.mode, placed.relay, placed.cost], ['site', 'execute', 'execute: small work, so the cheapest', '$0.50*']);
+  assert.equal(placed.cost, '$0.50*');
+  assert.match(placed.detail, / · execute · .* · site · Relay: small work, so the cheapest$/);
   assert.equal(recordCells(record({ costByPrice: null, openCodeUsd: '0' })).cost, 'no price');
   assert.equal(recordCells(record({ model: null, agent: null })).model, 'unknown model');
-});
-
-test('sorting by cost uses the USD amounts exactly', () => {
-  const totals = [total('p/a', '0.25'), total('p/b', null), total('p/c', '1'), total('p/d', '0.3')];
-  assert.deepEqual(sortTotals(totals, 'cost', true).map(item => item.model), ['p/c', 'p/d', 'p/a', 'p/b']);
-  assert.deepEqual(sortTotals(totals, 'model', false).map(item => item.model), ['p/a', 'p/b', 'p/c', 'p/d']);
-  assert.deepEqual(sortTotals([total('p/x', null, { requests: 5 }), total('p/y', null, { requests: 9 })], 'requests', true).map(item => item.model), ['p/y', 'p/x']);
 });
 
 test('a refresh asks for as many rows as are shown, up to 200, so Show more is kept', () => {
@@ -98,4 +92,17 @@ test("a model's row: its name and cost, then provider, replies and all its token
   assert.equal(totalCells(total('p/none', null, { replies: 3, unpriced: 3 })).detail, 'p · 3 replies · 2 tokens', 'no price at all is said by the cost');
   assert.equal(totalCells(total('p/aa', '0.2', { aaPriced: true })).cost, '$0.20*');
   assert.deepEqual(totalCells(total('bare', '0.1')), { name: 'bare', provider: '', cost: '$0.10', tokens: '2', detail: '1 reply · 2 tokens' });
+});
+
+test("a record's second line names its provider and chat, leaves out a missing mode, and says what Relay did", () => {
+  assert.equal(recordCells(record()).detail, 'opencode-go · chat abcdef · build · 5K in · 250 out · app · Relay off');
+  assert.equal(recordCells(record({ agent: null, relay: { mode: 'execute', note: 'small work, so the cheapest' } })).detail, 'opencode-go · chat abcdef · execute · 5K in · 250 out · app · Relay: small work, so the cheapest');
+  assert.equal(recordCells(record({ agent: null, relay: null, kind: 'helper' })).detail, 'opencode-go · helper abcdef · 5K in · 250 out · app · Relay off', 'no mode and no agent: no "-"');
+  assert.equal(recordCells(record({ relay: { mode: 'plan', note: null } })).detail, 'opencode-go · chat abcdef · plan · 5K in · 250 out · app · Relay on');
+});
+
+test('Show more adds only records not shown yet, so a new reply arriving meanwhile repeats none', () => {
+  const one = record({ messageID: 'm1' }), two = record({ messageID: 'm2' }), three = record({ messageID: 'm3' });
+  assert.deepEqual(appendNew([one, two], [two, three]).map(made => made.messageID), ['m1', 'm2', 'm3']);
+  assert.deepEqual(appendNew([one], [record({ messageID: 'm1', sessionID: 'ses_other' })]).length, 2, 'the same message id in another chat is another record');
 });

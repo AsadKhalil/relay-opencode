@@ -62,7 +62,7 @@ const usageTotal = { type: 'object', properties: {
 }, required: ['model', 'replies', 'requests', 'input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'cost', 'aaPriced', 'unpriced'], additionalProperties: false } as const;
 /** What the usage tab asks for: a range of at most 92 days, the panel's offset from UTC, the filters, and a page of at most 200 records. */
 const usageQuery = { type: 'object', properties: {
-  from: { type: 'string' }, to: { type: 'string' }, tzOffsetMinutes: { type: 'integer', minimum: -840, maximum: 840 }, search: { type: 'string', maxLength: 200 },
+  from: { type: 'string' }, to: { type: 'string' }, tzOffsetMinutes: { type: 'integer', minimum: -840, maximum: 840 }, timeZone: { anyOf: [{ type: 'string', maxLength: 64 }, { type: 'null' }] }, search: { type: 'string', maxLength: 200 },
   provider: nullableString, effort: nullableString, mode: nullableString, relay: { type: 'string', enum: ['any', 'on', 'off'] }, kind: { type: 'string', enum: ['any', 'chat', 'helper', 'summary'] },
   project: nullableString, offset: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 200 },
 }, required: ['from', 'to', 'tzOffsetMinutes', 'search', 'provider', 'effort', 'mode', 'relay', 'kind', 'project', 'offset', 'limit'], additionalProperties: false } as const;
