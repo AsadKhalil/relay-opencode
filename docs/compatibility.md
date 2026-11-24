@@ -1429,3 +1429,31 @@ Asked how Relay could cost less than one model a mode, the owner chose "Both, as
 - The other 9 chats of the cost test.
 - Relay on 2.4.1 beyond those calls: the isolated smoke has not run on the 2.4.1 CLI.
 - What made the 2.3.2 service grow to 51 GB.
+
+## 2026-11-24 (night) — The cost test, finished on Desktop 2.4.1 (Windows 11; the owner's Relay copy, 0.1.0 built from `43dd264`)
+
+The owner: "yes do it. you can use open code go". First the isolated smoke on the 2.4.1 CLI, then the minor fixes in their copy, then the rest of the cost test.
+
+- **The smoke on 2.4.1 fails before Relay matters.** After `/relay` the mock model got its request, but the chat never finished and the host's wait for idle timed out. The same happens on an isolated 2.4.1 host with no Relay at all: the mock's reply is never recorded. The smoke's mock needs a change for 2.4.1; on 2.3.2 it passes.
+- **The update.** At 21:04 UTC Desktop was closed, `43dd264` installed into the fixed copy (the files match the build by hash), and Desktop opened again. The service answered within seconds, booted both folders in 2 s, and loaded Relay with no warning.
+- **What killed the runner, twice.** In both `variable-length-quantity` chats on `on-size`, Flash used OpenCode's `execute` tool, which runs a model's JavaScript inside the service, and through it `pty_spawn` from the owner's `opencode-pty-v2` plugin.
+  - At 19:27 UTC an `execute` call stayed running for 25 minutes, while the service grew to 51 GB.
+  - Both runner deaths came seconds after a `pty_spawn` that started Python. The plugin asks for the shell permission only when it is told the chat, which a call from `execute` does not do, so the folder's shell denial did not stop it.
+  - Test chats now refuse `execute` and the pty tools (`9aad0f0`). The rerun from 21:40 UTC finished with no death.
+
+| Exercise | Low effort for Plan and Review | Relay sizes Plan and Review | One model a mode (second run) |
+|---|---|---|---|
+| `affine-cipher` | passed, $0.1310 | passed, $0.0349 | passed, $0.1167 |
+| `variable-length-quantity` | passed, $0.0599 | passed, $0.0208 | passed, $0.1530 |
+| `wordy` | 23 of 25, $0.0850 | passed, $0.0240 | 22 of 25, $0.1524 |
+| `book-store` | passed, $0.0683 | 1 of 20, $0.0244 | passed, $0.1936 |
+| `bowling` | passed, $0.1270 | 26 of 31, $0.0262 | passed, $0.1295 |
+| `forth` | 51 of 54, $0.1702 | 49 of 54, $0.0188 | passed, $0.1938 |
+| **Total** | **4 of 6, $0.6414** | **3 of 6, $0.1492** | **5 of 6, $0.9391** |
+
+- **Low effort:** 31.7% less than one model a mode, one exercise fewer passed. Kimi's reasoning fell by about 80%; once, in `affine-cipher`, its cache was missed.
+- **Relay sizing Plan and Review:** 84.1% less, but Relay judged all 12 plans and reviews small work, so every chat ran on Flash alone. It failed the three harder exercises. The size question reads the message, and these messages are short ("Review the implementation for mistakes and missed cases"), whatever the exercise.
+- One run each: one exercise either way is within the spread seen on 23 and 24 Nov.
+- **Use of Go:** the 12 chats an estimated 21.0% of a 5-hour window and 8.4% of the weekly limit, $0.79 at list price.
+
+**Not tested.** The smoke on 2.4.1 (its mock first); more than one run of each setup; real tasks whose messages say how big they are.

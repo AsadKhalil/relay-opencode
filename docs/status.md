@@ -31,6 +31,7 @@ Details are in the [compatibility findings](compatibility.md) and the [change lo
     - One failure came with the same choices that passed elsewhere. The other followed a step up to Kimi, which also failed that exercise on its own.
   - A second run (24 Nov): Relay chooses passed 3 of 6 for $1.02, one model a mode 5 of 6 for $0.94. Relay sent 10 of its 12 builds to Flash, so most chats ran the same models; Flash failed `book-store` on one side and passed it on the other.
   - So far, Relay's own choice inside Execute has not saved money or passed more than Flash alone for Execute: 7 of 12 over the two runs.
+  - A cost test (24 Nov, one run each, against one model a mode at 5 of 6 for $0.94): Kimi on low effort for Plan and Review passed 4 of 6 for $0.64; Relay sizing Plan and Review passed 3 of 6 for $0.15, because it judged every plan and review small and Flash did everything.
   - Not yet run: Desktop's panel showing the parts, helpers on a real host, and more than two runs of each exercise.
 - **Renamed on 17 Nov 2026:** the package, the plugin id and the GitHub repository are now `relay-opencode` (they were `feature-pilot` and `orchestrator-plugin`; the old repository address forwards to the new one). Settings saved under the old name are not carried over. The renamed package passed the isolated real-host check on Windows.
 - **Removed on 17 Nov 2026:** the older feature pipeline in the side panel (the Run, Spend and More tabs). Anything it saved is left in place and ignored.
