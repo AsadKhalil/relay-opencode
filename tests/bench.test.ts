@@ -119,6 +119,18 @@ test('"On, Relay chooses" starts only when Relay gives big work to the strong mo
   assert.equal(ownChoiceProblem({ kind: 'ranked', strongest: cheap, cheapest: cheap }, strong, cheap), `Relay gives big work to ${cheap} and small work to ${cheap}`);
 });
 
+// The cost test of 24 Nov: Kimi on low effort for Plan and Review, and Relay sizing Plan and Review between Flash and Kimi.
+test('the two cost-test setups have columns of their own', () => {
+  const printed = table(sideTotals([chat('wordy', 'on-one', true, '0.1'), chat('wordy', 'on-low', true, '0.08'), chat('wordy', 'on-size', true, '0.05')]));
+  assert.ok(printed.includes('| | On, one model a mode | On, low effort for Plan and Review | On, Relay sizes Plan and Review |'), printed);
+});
+
+test('the size check is asked of the mode it is for', () => {
+  const strong = 'opencode-go/kimi-k3.1-pro', cheap = 'opencode-go/glm-5.3-flash';
+  assert.equal(ownChoiceProblem(null, strong, cheap, 'Review'), 'Relay does not choose by itself in Review');
+  assert.equal(ownChoiceProblem({ kind: 'unranked', reason: 'no index' }, strong, cheap, 'Plan'), "Relay can't rank Plan: no index");
+});
+
 // The test folder is emptied before each chat. Only a folder whose opencode.json is the test's own may be emptied, and that file stays.
 test('resetting the test folder keeps opencode.json, removes the rest and writes the task files', () => {
   const folder = mkdtempSync(join(tmpdir(), 'relay-bench-test-')), config = JSON.stringify(TEST_CONFIG, null, 2);
