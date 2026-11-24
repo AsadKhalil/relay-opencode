@@ -1405,3 +1405,27 @@ The whole second run, this morning's finished chats included (in brackets, where
 - More than two runs of each exercise; with one run a day, a single exercise can go either way.
 - On a real host: chats with Relay off, helpers, and summaries of long chats.
 - Relay on Desktop 2.4.1.
+
+## 2026-11-24 (evening) — The cost test, cut short by OpenCode's service; Desktop updated to 2.4.1 (Windows 11; the owner's Relay copy, 0.1.0 built from `26aa4df`)
+
+Asked how Relay could cost less than one model a mode, the owner chose "Both, as two setups": Kimi K3.1 Pro on `low` effort for Plan and Review (`on-low`), and Flash and Kimi in Plan and Review with no lines, so Relay sizes them (`on-size`). Execute held Flash alone in both. In the second run, Kimi doing Plan and Review was 89% of one model a mode's cost, and 83% of its output was reasoning.
+
+**The run.** `scripts/bench/run.ts --plan go --sides on-low,on-size --budget 50`, started through WMI at 19:19 UTC.
+
+| Exercise | Low effort for Plan and Review | Relay sizes Plan and Review | One model a mode (second run) |
+|---|---|---|---|
+| `affine-cipher` | passed, $0.1310 | passed, $0.0349 (plan and review judged small: Flash) | passed, $0.1167 |
+| `variable-length-quantity` | passed, $0.0599 | not finished | passed, $0.1530 |
+
+- On `low`, Kimi's reasoning in `affine-cipher` fell from 4,950 tokens to 985, but its cache was missed: 49K tokens read new against 8K, and 12K from the cache against 46K. In `variable-length-quantity` the low setting cost 61% less.
+- **What stopped it.** At about 19:27 UTC, as the `variable-length-quantity` chat on `on-size` began, the runner died. OpenCode's service (2.3.2, started 18:11 UTC after a reboot at 18:07) grew to 51 GB committed and 17 GB in memory, used up what Windows could commit, and died at about 19:54 UTC. The leftover chat had 19 messages and 27 KB.
+- From then on each new service hung about a minute after loading its plugins, busy on the CPU, and Desktop replaced it, more than 15 times.
+  - Relay is unlikely to cause the hang: at start it only registers its command, its hooks and its RPC, and its stored values are small (decisions 12.7 KB, index 6.9 KB). The largest stored value is OpenCode's own copy of the models.dev catalog, 13.7 MB.
+  - The memory growth is not explained.
+- **The update.** The owner updated Desktop to 2.4.1 (service started 20:12 UTC). Its second service failed with "Failed to configure database (... SQLiteError: disk I/O error)", answered only `/api/info`, and was not replaced. It was ended at 20:26:55 UTC with the owner's yes. The next service took about five minutes to answer (20:35:55 UTC).
+- After that, on 2.4.1: Relay loaded with no warning, `getRelay` answered in 237 ms, the leftover chat was stopped with its switch off, and Relay's settings were put back from the runner's copy (revision 63).
+
+**Not tested.**
+- The other 9 chats of the cost test.
+- Relay on 2.4.1 beyond those calls: the isolated smoke has not run on the 2.4.1 CLI.
+- What made the 2.3.2 service grow to 51 GB.
