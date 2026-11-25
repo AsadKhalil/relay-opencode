@@ -54,7 +54,7 @@ Add models to **Plan**, **Execute** and **Review**: press **+ Add a model** unde
   - "Cheapest" is a typical request at the model's prices, counting how much that model itself writes once it has three replies Relay counted.
   - In Review, a reviewer with a lower index than the model that wrote the work is not used.
   - The decision model judges the size by your message, the end of the chat's last reply, and the chat's first message, which says what the task is. Work with many rules or edge cases to get right counts as big, even in one file.
-  - When it is not sure how big the work is, the model with the highest index is used: unclear work counts as big. When a model has no index or no price, the first model is used. The panel says why under the list.
+  - When it is not sure how big the work is, the model with the highest index is used: unclear work counts as big. When it gives no size at all, or a model has no index or no price, the first model is used. The panel says why under the list.
   - The panel shows each model's part: "Relay: big work", "small work" or "all work". It reads only what Relay has stored, so the index list must have been loaded once (the model tables load it).
   - Two rows of one model need an effort on each; "default effort" can't be ranked against the same model's named effort.
 

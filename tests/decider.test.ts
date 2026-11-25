@@ -217,6 +217,9 @@ test('the task a chat works on is its first message, with the home folder hidden
   assert.equal(MAX_TASK_CHARS, 1500);
   assert.equal(firstRequest([{ type: 'user', id: '1', text: 'b'.repeat(2000) }]), 'b'.repeat(1500));
   for (const messages of [[], null, [{ type: 'user', id: '1', text: '   ' }], [answered]]) assert.equal(firstRequest(messages), null);
+  const long = `Fix C:\\Users\\someone\\app.py ${'c'.repeat(2000)}`;
+  assert.equal(firstRequest([{ type: 'user', id: '1', text: long }], 'C:\\Users\\someone', long), null, 'the message itself is no task, even when hiding and the cap change it');
+  assert.equal(firstRequest([{ type: 'user', id: '1', text: 'Build a scorer.' }, { type: 'user', id: '2', text: 'Implement it.' }], null, 'Implement it.'), 'Build a scorer.');
 });
 
 test('with a size asked, the decider is told the task, and the size question judges by it', () => {

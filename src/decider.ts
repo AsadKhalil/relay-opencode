@@ -6,8 +6,8 @@ import type { ModelChoice } from './settings.js';
 
 // One request to a decision model: which mode fits the text, and, for each mode that has a choice to make, which "use it for" line fits it.
 // The decider is given the text, the names and sizes of attached files and the lines, and for a chat message the end of the chat's last reply
-// (its text only; the owner chose this on 19 Nov, so that "Implement it." can be placed by the plan before it). Never file contents, pictures,
-// other earlier messages, the model's reasoning or tools, model names or prices.
+// (its text only; the owner chose this on 19 Nov, so that "Implement it." can be placed by the plan before it). With a size question it also
+// gets the start of the chat's first message, the task (25 Nov). Never file contents, pictures, other earlier messages, the model's reasoning or tools, model names or prices.
 // Its requests are not reserved in the budget ledger (the owner, 2026-11-14); what is sent is capped instead. Nothing here may import from `node:`.
 
 export const MAX_CHARS = 4000;
@@ -48,23 +48,25 @@ export function withoutHome(text: string, home: string): string {
 type Part = { type?: unknown; text?: unknown };
 type Entry = { type?: unknown; content?: unknown };
 /**
+ * The task a chat is working on: the text of its first person's message as `session.context` lists it, at most its first MAX_TASK_CHARS
+ * characters, with `home` hidden first. Null when there is none, or when that message is `current`, the message being placed: compared before
+ * hiding and the cap, so the message is never sent again as its own task.
+ * shortcut: a compacted chat is listed from its summary on, so its task is the first message after the summary, not the one that began it.
+ */
+export function firstRequest(messages: unknown, home: string | null = null, current: string | null = null): string | null {
+  const first = (Array.isArray(messages) ? messages : []).find((item): item is { type: 'user'; text: string } => item !== null && typeof item === 'object' && item.type === 'user' && typeof item.text === 'string' && item.text.trim() !== '');
+  if (!first) return null;
+  const text = first.text.trim();
+  if (current !== null && text === current.trim()) return null;
+  return safeHead(home ? withoutHome(text, home) : text, MAX_TASK_CHARS);
+}
+
+/**
  * The end of the chat's latest reply, from `session.context`: the text the model wrote over all of that reply's requests, joined, at most its
  * last MAX_REPLY_CHARS characters. Never its reasoning, tool calls or tool output, and never an earlier reply: a latest reply with no text
  * gives null. The person's new message may already be listed after the reply. `home` is hidden as `~` before the cut, so a cut can never
  * leave part of it.
  */
-/**
- * The task a chat is working on: the text of its first person's message as `session.context` lists it, at most its first MAX_TASK_CHARS
- * characters, with `home` hidden first. Null when there is none.
- * shortcut: a compacted chat is listed from its summary on, so its task is the first message after the summary, not the one that began it.
- */
-export function firstRequest(messages: unknown, home: string | null = null): string | null {
-  const first = (Array.isArray(messages) ? messages : []).find((item): item is { type: 'user'; text: string } => item !== null && typeof item === 'object' && item.type === 'user' && typeof item.text === 'string' && item.text.trim() !== '');
-  if (!first) return null;
-  const text = first.text.trim();
-  return safeHead(home ? withoutHome(text, home) : text, MAX_TASK_CHARS);
-}
-
 export function lastReply(messages: unknown, home: string | null = null): string | null {
   const all: Entry[] = Array.isArray(messages) ? messages.filter((item): item is Entry => item !== null && typeof item === 'object') : [];
   let newest = all.length - 1;

@@ -260,13 +260,14 @@ const twoPlan = withPlan(entry('plan'), entry('deep'));
 const ranks = new Map([['p/plan', standing(30, '0.15', '0.5')], ['p/deep', standing(60, '2', '10')]]);
 const sizedAs = (size: string, confidence = 0.9) => ({ ...sure('plan'), sizes: { plan: { size, confidence } } }) as never;
 
-// Since 25 Nov an unsure or missing size takes the strongest too: unclear work counts as big (the owner, after the size measurements).
-test('big takes the strongest, small the cheapest, and an unsure or missing size the strongest, each with its note', () => {
+// Since 25 Nov an unsure size takes the strongest too: unclear work counts as big (the owner, after the size measurements).
+test('big takes the strongest, small the cheapest, an unsure size the strongest, and no size answer the first model, each with its note', () => {
   assert.deepEqual(route(sizedAs('big'), twoPlan, models, nothing, null, 'plan', ranks), { switch: true, mode: 'plan', agent: 'plan', model: pick('deep'), fit: 0.9, note: 'big work, so the highest index' });
   assert.deepEqual(route(sizedAs('small', 0.8), twoPlan, models, nothing, null, 'plan', ranks), { switch: true, mode: 'plan', agent: 'plan', model: pick('plan'), fit: 0.8, note: 'small work, so the cheapest' });
   const unsure = { switch: true, mode: 'plan', agent: 'plan', model: pick('deep'), fit: null, note: 'not sure how big the work is, so the highest index' };
   assert.deepEqual(route(sizedAs('big', 0.49), twoPlan, models, nothing, null, 'plan', ranks), unsure);
-  assert.deepEqual(route(sure('plan'), twoPlan, models, nothing, null, 'plan', ranks), unsure, 'no size answer');
+  // A decider that gives no size (none asked back, or a malformed one) does not make every message buy the dearest model.
+  assert.deepEqual(route(sure('plan'), twoPlan, models, nothing, null, 'plan', ranks), { ...unsure, model: pick('plan'), note: 'no size answer, so the first model is picked' }, 'no size answer');
 });
 
 test('with no standings given a mode keeps today’s rule; with unread standings, the first model and a note', () => {

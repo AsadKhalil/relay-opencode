@@ -1,7 +1,7 @@
 import type { ModelCostView } from './inventory.js';
 import { modelName, type Decision, type Prices, type Reply, type UsageRow } from './relay-store.js';
 import { modeLabel } from './router.js';
-import { MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS } from './decider.js';
+import { MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS, MAX_TASK_CHARS } from './decider.js';
 import { costOf, formatUsd, parseUsd } from './costs.js';
 import type { ModelChoice } from './settings.js';
 
@@ -138,8 +138,8 @@ export function tryLine(result: Shown & Pick<Decision, 'costUsd'>): string {
   return noted(`${facts({ ...result, mode }, result.model ?? 'no model')}, cost ${result.costUsd === null ? 'not reported' : `$${result.costUsd}`}`, result.note);
 }
 
-/** Under a list of several models. Lines win; with none, Relay chooses by itself (src/ranking.ts); unsure, the first model is used (19 Nov), so the order matters. */
-export const severalModelsHint = 'Several models: write a line for each and the decider follows your lines. Write none and Relay chooses by itself: the highest index for big, unclear or risky work, the cheapest for small, clear work. When it is not sure, the first model in this list is used.';
+/** Under a list of several models. Lines win; with none, Relay chooses by itself (src/ranking.ts): an unsure size takes the highest index (25 Nov), no size the first model. */
+export const severalModelsHint = 'Several models: write a line for each and the decider follows your lines. Write none and Relay chooses by itself: the highest index for big, unclear or risky work, the cheapest for small, clear work. When it is not sure how big the work is, the highest index is used; when the decider gives no size, the first model in this list.';
 
 /** Relay's own choice for one mode, as `getOwnChoice` gives it: null when the mode is not Relay's to choose (it has lines, or one usable model). */
 export type OwnChoicePart = null | { kind: 'unranked'; reason: string } | { kind: 'ranked'; strongest: string; cheapest: string };
@@ -154,7 +154,7 @@ export const ownChoiceNote = (part: OwnChoicePart): string | null => part?.kind 
 
 /** What leaves the machine to make a choice, and to whom. It names everything `describe` in `decider.ts` puts in a request, with that file's own limits. */
 export const privacyNote = (providerID: string | null) =>
-  `To choose, Relay sends to ${providerID ?? "the decider's provider"}: your message text (at most ${MAX_CHARS.toLocaleString('en-US')} characters), the end of the chat's last reply when it must choose between your models (at most ${MAX_REPLY_CHARS.toLocaleString('en-US')} characters of its text, with your home folder as ~), the names and sizes of attached files (the first ${MAX_FILE_NAMES}), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures, the model's reasoning or tool output, other earlier messages, or model names, prices or scores. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.`;
+  `To choose, Relay sends to ${providerID ?? "the decider's provider"}: your message text (at most ${MAX_CHARS.toLocaleString('en-US')} characters), the end of the chat's last reply when it must choose between your models (at most ${MAX_REPLY_CHARS.toLocaleString('en-US')} characters of its text, with your home folder as ~), the start of the chat's first message when Relay asks how big the work is (at most ${MAX_TASK_CHARS.toLocaleString('en-US')} characters, with your home folder as ~), the names and sizes of attached files (the first ${MAX_FILE_NAMES}), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures, the model's reasoning or tool output, other earlier messages, or model names, prices or scores. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.`;
 
 /**
  * The model to put in Desktop's model picker after Relay switched a chat. Desktop sends the picker's model with every message (seen on

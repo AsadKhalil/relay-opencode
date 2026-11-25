@@ -1492,5 +1492,5 @@ The owner chose "Show it the task", then "Reword 'big' and re-measure". `scripts
 | 10 with a task (bar: 8) | 6 right, 2 wrong, 2 unsure (task left out) | 7 right, 1 wrong, 2 unsure | 7 right, 0 wrong, 3 unsure: missed |
 
 - The new wording: small is "A quick question or a simple edit in one or two files, with nothing tricky to get right"; big adds "many rules or edge cases to get right".
-- The three unsure answers are the one-file puzzles that Flash failed on 24 Nov: Forth (big, 30%), book-store (big, 10%), bowling (small, 6%). An unsure size takes the mode's first model.
+- The three unsure answers are the one-file puzzles that Flash failed on 24 Nov: Forth (big, 30%), book-store (big, 10%), bowling (small, 6%). An unsure size took the mode's first model then; since `a12aad8` it takes the highest index.
 - One run of each set, one decision model, made-up cases.

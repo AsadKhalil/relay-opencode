@@ -32,7 +32,7 @@ test('a try in the test box reads as one line, with the cost', () => {
 });
 
 test('the panel says what is sent to the decider and to whom, with the limits the decider really has', () => {
-  assert.equal(privacyNote('opencode'), "To choose, Relay sends to opencode: your message text (at most 4,000 characters), the end of the chat's last reply when it must choose between your models (at most 1,500 characters of its text, with your home folder as ~), the names and sizes of attached files (the first 10), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures, the model's reasoning or tool output, other earlier messages, or model names, prices or scores. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.");
+  assert.equal(privacyNote('opencode'), "To choose, Relay sends to opencode: your message text (at most 4,000 characters), the end of the chat's last reply when it must choose between your models (at most 1,500 characters of its text, with your home folder as ~), the start of the chat's first message when Relay asks how big the work is (at most 1,500 characters, with your home folder as ~), the names and sizes of attached files (the first 10), how many pictures are attached, whether the chat's agent can change files, and the lines you wrote above. Never the contents of files, pictures, the model's reasoning or tool output, other earlier messages, or model names, prices or scores. While a decider and a Review model are chosen, the task text of each helper that a model starts is sent the same way — written by the calling model, so it may itself quote code, files or earlier chat, and the person does not see it before it goes out.");
   assert.match(privacyNote(null), /^To choose, Relay sends to the decider's provider: your message text/);
   assert.deepEqual([MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS], [4000, 10, 1500]);
   // Everything the request carries is something the sentence names: the text, file names with sizes, a count of pictures, what the agent can do and the lines.
@@ -46,7 +46,7 @@ test('the panel says what is sent to the decider and to whom, with the limits th
 });
 
 test('under a list of several models, the panel says the first model is the default when no line fits', () => {
-  assert.equal(severalModelsHint, 'Several models: write a line for each and the decider follows your lines. Write none and Relay chooses by itself: the highest index for big, unclear or risky work, the cheapest for small, clear work. When it is not sure, the first model in this list is used.');
+  assert.equal(severalModelsHint, 'Several models: write a line for each and the decider follows your lines. Write none and Relay chooses by itself: the highest index for big, unclear or risky work, the cheapest for small, clear work. When it is not sure how big the work is, the highest index is used; when the decider gives no size, the first model in this list.');
 });
 
 test('the pill says whether every message in this chat goes through Relay, offers to turn it, and shows the last choice there', () => {
