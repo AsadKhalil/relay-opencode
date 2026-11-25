@@ -25,7 +25,8 @@ import { LINE_UNSURE_BELOW } from '../src/router.js';
 import type { Size } from '../src/ranking.js';
 import { modelRefusal } from './decider-examples.js';
 
-export type SizeCase = { id: string; expect: Size; tag: string; agent: 'plan' | 'build' | null; text: string; reply: string | null };
+/** `task` is the chat's first message, for the cases of 25 Nov (scripts/decider-size-task-cases.json); the 23 Nov cases have none. */
+export type SizeCase = { id: string; expect: Size; tag: string; agent: 'plan' | 'build' | null; text: string; reply: string | null; task?: string | null };
 export type SizeOutcome = { id: string; expect: Size; tag: string; reply: boolean; mode: string | null; modeSure: number | null; size: Size | null; sizeSure: number | null; verdict: 'right' | 'wrong' | 'unsure'; ms: number; costUsd: string | null; note: string | null };
 
 const MAX_REQUESTS = 30, BAR = 24;
@@ -112,7 +113,7 @@ async function main() {
     let silent = 0;
     for (const item of cases) {
       // Relay's own request for a chat message whose Execute list has no lines.
-      const request = buildDecisionRequest(decider, { kind: 'chat', text: item.text, agent: item.agent, files: [], images: 0, lines: {}, sizes: ['execute'], reply: item.reply });
+      const request = buildDecisionRequest(decider, { kind: 'chat', text: item.text, agent: item.agent, files: [], images: 0, lines: {}, sizes: ['execute'], reply: item.reply, task: item.task ?? null });
       const began = Date.now();
       let result: unknown = null, note: string | null = null;
       try { const got = await within(() => ask(request), TIMEOUT_MS); if (got === LATE) note = `no answer within ${TIMEOUT_MS} ms`; else result = got; }

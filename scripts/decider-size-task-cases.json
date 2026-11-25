@@ -1,0 +1,92 @@
+[
+ {
+  "id": "t01",
+  "expect": "big",
+  "tag": "hard task, short review",
+  "agent": "build",
+  "text": "Review the implementation for mistakes and missed cases. Don't change anything.",
+  "reply": "Done. forth.py now evaluates the stack words, arithmetic and user-defined words; I ran a few examples by hand.",
+  "task": "Implement an evaluator for a small Forth: integer arithmetic, DUP DROP SWAP OVER, user-defined words with : and ;, redefinition of built-in words, and the right errors for an empty stack, an unknown word and a number as a word name."
+ },
+ {
+  "id": "t02",
+  "expect": "big",
+  "tag": "hard task, short go-ahead",
+  "agent": "plan",
+  "text": "Implement it.",
+  "reply": "Plan: keep a list of rolls, then walk the frames: a strike takes the next two rolls, a spare the next one; the tenth frame has its own fill balls. Raise errors for bad pin counts and for rolls after the game is over.",
+  "task": "Score a game of ten-pin bowling: strikes, spares, the special tenth frame, and errors for impossible rolls or scoring an unfinished game."
+ },
+ {
+  "id": "t03",
+  "expect": "big",
+  "tag": "hard task, short fix",
+  "agent": "plan",
+  "text": "Fix what the review found.",
+  "reply": "Review: total() groups greedily into the largest sets, but two sets of four can be cheaper than a five and a three. The basket [1,1,2,2,3,3,4,5] gives the wrong price.",
+  "task": "Work out the cheapest price for a basket of five book titles with discounts for sets of different books (5% for two, 10% for three, 20% for four, 25% for five)."
+ },
+ {
+  "id": "t04",
+  "expect": "big",
+  "tag": "hard task, short plan request",
+  "agent": null,
+  "text": "Plan this.",
+  "reply": null,
+  "task": "Add sign-in with Google to the web app: the OAuth flow, refresh tokens stored encrypted, a session cookie, and logout across tabs."
+ },
+ {
+  "id": "t05",
+  "expect": "big",
+  "tag": "hard task, short review",
+  "agent": "build",
+  "text": "Review it.",
+  "reply": "Migration written: adds the column, backfills it from the old field in batches of 1,000, and drops the old field.",
+  "task": "Move the customers table from a text address field to structured address columns, backfilling 2 million rows without downtime."
+ },
+ {
+  "id": "t06",
+  "expect": "small",
+  "tag": "easy task, short review",
+  "agent": "build",
+  "text": "Review the implementation for mistakes and missed cases. Don't change anything.",
+  "reply": "Done: renamed cnt to count in utils.py, three places.",
+  "task": "Rename the variable cnt to count in utils.py."
+ },
+ {
+  "id": "t07",
+  "expect": "small",
+  "tag": "easy task, short go-ahead",
+  "agent": "plan",
+  "text": "Implement it.",
+  "reply": "Plan: README.md line 1 says \"Wellcome\"; change it to \"Welcome\". Nothing else changes.",
+  "task": "Fix the typo in the README title."
+ },
+ {
+  "id": "t08",
+  "expect": "small",
+  "tag": "easy task, short review",
+  "agent": "build",
+  "text": "Review it.",
+  "reply": "Added a docstring to parse_date describing the accepted formats and the ValueError it raises.",
+  "task": "Add a docstring to parse_date in dates.py."
+ },
+ {
+  "id": "t09",
+  "expect": "small",
+  "tag": "easy task, short go-ahead",
+  "agent": "plan",
+  "text": "Implement it.",
+  "reply": "Plan: in header.css, change the .button color from #333 to #1e6bd6.",
+  "task": "Make the header button blue."
+ },
+ {
+  "id": "t10",
+  "expect": "small",
+  "tag": "easy task, short fix",
+  "agent": "plan",
+  "text": "Fix what the review found.",
+  "reply": "Review: the version in package.json says 1.2.0 but the changelog says 1.2.1.",
+  "task": "Bump the version to 1.2.1 in package.json and the changelog."
+ }
+]

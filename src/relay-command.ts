@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Plugin } from '@opencode/plugin';
 import type { PromptInput } from '@opencode/schema/prompt-input';
 import type { Session } from '@opencode/schema/session';
-import { LATE, lastReply, within, type DecideInput } from './decider.js';
+import { firstRequest, LATE, lastReply, within, type DecideInput } from './decider.js';
 import type { ListedModel } from './inventory.js';
 import { chatFacts } from './chat-facts.js';
 import { getRelaySettings, hostVariant, modelName, modes, recentDecisions, recordDecision, setChatSwitch, type Decision, type RelayStore } from './relay-store.js';
@@ -110,9 +110,11 @@ export async function placeMessage(deps: RelayDeps, timing: Timing, input: { rea
     const current = chat.model ? { providerID: chat.model.providerID, id: chat.model.id, variant: hostVariant(chat.model.variant) } : null;
     // The end of the last reply lets the decider place a short follow-up ("Implement it.") by the plan or review before it; the home folder is hidden.
     const reply = messages === null ? null : lastReply(messages, homedir());
+    // The chat's first message tells the size question how hard the task is, when a short follow-up does not (25 Nov).
+    const task = messages === null ? null : firstRequest(messages, homedir());
     // Relay's own choice in a mode with no lines reads only stored copies; when they are late, the mode gets its first model and a note.
     const standings = stored === null ? null : standingsOf(stored, models, [...modes.flatMap(mode => settings.modes[mode]), ...(current ? [current] : [])]);
-    const answer = await deps.decide(settings.decider, { kind: 'chat', text: prompt.text, agent: chat.agent ?? null, files: facts, images: pictures, lines: linesFor(settings, models, attachment, current), reply, sizes: sizesFor(settings, models, attachment, current, standings) });
+    const answer = await deps.decide(settings.decider, { kind: 'chat', text: prompt.text, agent: chat.agent ?? null, files: facts, images: pictures, lines: linesFor(settings, models, attachment, current), reply, task, sizes: sizesFor(settings, models, attachment, current, standings) });
     const result = route(answer, settings, models, attachment, current, input.unsure, standings);
     Object.assign(outcome, { mode: result.mode, ms: answer.ms }, answer.kind === 'answer' ? { confidence: answer.confidence, costUsd: answer.costUsd } : {});
     if (result.note !== null) notes.push(result.note);

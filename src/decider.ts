@@ -12,13 +12,16 @@ import type { ModelChoice } from './settings.js';
 
 export const MAX_CHARS = 4000;
 export const MAX_REPLY_CHARS = 1500;
+/** How much of the chat's first message the size question sees: its start, where a task is stated. */
+export const MAX_TASK_CHARS = 1500;
 export const TIMEOUT_MS = 5000;
 export const MAX_FILE_NAMES = 10;
 const MAX_NAME = 80;
 
 export type FileFact = { name: string; bytes: number | null };
 /** `reply` is the end of the chat's last reply, for a chat message (see `lastReply`). `sizes` are the modes Relay chooses for by itself, asked how big the work is. */
-export type DecideInput = { kind: 'chat' | 'helper'; text: string; agent: string | null; files: readonly FileFact[]; images: number; lines: Partial<Record<Mode, readonly string[]>>; reply?: string | null; sizes?: readonly Mode[] };
+/** `task` is the chat's first message (see `firstRequest`): told only with a size question, since a short follow-up says nothing of how hard the task is. */
+export type DecideInput = { kind: 'chat' | 'helper'; text: string; agent: string | null; files: readonly FileFact[]; images: number; lines: Partial<Record<Mode, readonly string[]>>; reply?: string | null; sizes?: readonly Mode[]; task?: string | null };
 export type DecisionsRequest = { model: { providerID: string; id: string; variant?: string }; input: { type: 'text'; text: string }[]; questions: { type: 'choice'; name: string; instructions: string; choices: { value: string; description: string }[] }[] };
 export type DecisionsHost = { decisions(request: DecisionsRequest): Promise<unknown> };
 
@@ -50,6 +53,18 @@ type Entry = { type?: unknown; content?: unknown };
  * gives null. The person's new message may already be listed after the reply. `home` is hidden as `~` before the cut, so a cut can never
  * leave part of it.
  */
+/**
+ * The task a chat is working on: the text of its first person's message as `session.context` lists it, at most its first MAX_TASK_CHARS
+ * characters, with `home` hidden first. Null when there is none.
+ * shortcut: a compacted chat is listed from its summary on, so its task is the first message after the summary, not the one that began it.
+ */
+export function firstRequest(messages: unknown, home: string | null = null): string | null {
+  const first = (Array.isArray(messages) ? messages : []).find((item): item is { type: 'user'; text: string } => item !== null && typeof item === 'object' && item.type === 'user' && typeof item.text === 'string' && item.text.trim() !== '');
+  if (!first) return null;
+  const text = first.text.trim();
+  return safeHead(home ? withoutHome(text, home) : text, MAX_TASK_CHARS);
+}
+
 export function lastReply(messages: unknown, home: string | null = null): string | null {
   const all: Entry[] = Array.isArray(messages) ? messages.filter((item): item is Entry => item !== null && typeof item === 'object') : [];
   let newest = all.length - 1;
@@ -70,6 +85,9 @@ const replied = (input: DecideInput): input is DecideInput & { reply: string } =
   input.kind === 'chat' && typeof input.reply === 'string' && input.reply.trim() !== '' && (modes.some(mode => (input.lines[mode]?.length ?? 0) > 0) || sized(input).length > 0);
 /** The modes asked about the size of the work: those Relay chooses for by itself, which never have lines. */
 const sized = (input: DecideInput): Mode[] => modes.filter(mode => input.sizes?.includes(mode) && !input.lines[mode]?.length);
+/** Whether the task goes to the decider: only with a size question, and only when it is not the message itself (a chat's first message). */
+const tasked = (input: DecideInput): input is DecideInput & { task: string } =>
+  input.kind === 'chat' && sized(input).length > 0 && typeof input.task === 'string' && input.task.trim() !== '' && input.task.trim() !== input.text.trim();
 
 const flat = (text: string, max: number) => safeHead(text.replace(/[\s\x00-\x1f\x7f]+/g, ' ').trim(), max);
 /** Only the last part of a path is sent, so the name of a home folder never leaves the machine. */
@@ -87,7 +105,8 @@ function describe(input: DecideInput): string {
   const shown = input.files.slice(0, MAX_FILE_NAMES).map(file => `${fileName(file.name)} (${size(file.bytes)})`).join(', '), more = input.files.length - MAX_FILE_NAMES;
   const files = input.files.length ? `${shown}${more > 0 ? ` and ${more} more` : ''}` : 'none';
   const reply = replied(input) ? `The end of the chat's last reply: "${endOf(input.reply.trim(), MAX_REPLY_CHARS)}"\n` : '';
-  return `The person's message: "${text}"\n${reply}${agentLine(input.agent)}Attached files: ${files}. Attached pictures: ${input.images}.`;
+  const task = tasked(input) ? `The task the chat is working on: "${safeHead(input.task.trim(), MAX_TASK_CHARS)}"\n` : '';
+  return `The person's message: "${text}"\n${reply}${task}${agentLine(input.agent)}Attached files: ${files}. Attached pictures: ${input.images}.`;
 }
 
 // With a reply in the input, the questions say which text to judge, so the reply cannot pull the mode (a plan that says "I will change"
@@ -113,9 +132,12 @@ const lineQuestion = (mode: Mode, lines: readonly string[], reply: boolean) => (
 // Both instructions word for word as measured on 23 Nov: the first for the 15 cases with the end of a reply, the second for the 15 first
 // messages (27 of 30 right in all, docs/compatibility.md). A change is measured again with scripts/decider-size.ts before it ships.
 // The decider is asked about the work, never about models, prices or scores.
-const sizeQuestion = (mode: Mode, reply: boolean) => ({
+// With the task (25 Nov), the size is judged by it too; without, the question is word for word as measured on 23 Nov.
+const sizeQuestion = (mode: Mode, reply: boolean, task: boolean) => ({
   type: 'choice' as const, name: `${mode}_size`,
-  instructions: reply ? "How big is the work? Judge by the person's message and the end of the chat's last reply." : 'How big is the work the text asks for?',
+  instructions: task
+    ? (reply ? "How big is the work? Judge by the task the chat is working on, the person's message and the end of the chat's last reply." : "How big is the work? Judge by the task the chat is working on and the person's message.")
+    : reply ? "How big is the work? Judge by the person's message and the end of the chat's last reply." : 'How big is the work the text asks for?',
   choices: [
     { value: 'small', description: 'Small and clear. One or two files, a quick question, a simple edit.' },
     { value: 'big', description: 'Big, unclear or risky. Several files, a new feature, a hard bug, data, money or security, or the last reply shows a failed try.' },
@@ -127,7 +149,7 @@ export function buildDecisionRequest(decider: ModelChoice, input: DecideInput): 
   return {
     model: { providerID: decider.providerID, id: decider.id, ...(decider.variant === null ? {} : { variant: decider.variant }) },
     input: [{ type: 'text', text: describe(input) }],
-    questions: [modeQuestion(reply), ...modes.flatMap(mode => input.lines[mode]?.length ? [lineQuestion(mode, input.lines[mode], reply)] : []), ...sized(input).map(mode => sizeQuestion(mode, reply))],
+    questions: [modeQuestion(reply), ...modes.flatMap(mode => input.lines[mode]?.length ? [lineQuestion(mode, input.lines[mode], reply)] : []), ...sized(input).map(mode => sizeQuestion(mode, reply, tasked(input)))],
   };
 }
 

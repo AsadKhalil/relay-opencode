@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDecisionRequest, capText, decide, lastReply, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS, TIMEOUT_MS, withoutHome, type DecideInput, type FileFact } from '../src/decider.js';
+import { buildDecisionRequest, capText, decide, firstRequest, lastReply, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS, MAX_TASK_CHARS, TIMEOUT_MS, withoutHome, type DecideInput, type FileFact } from '../src/decider.js';
 
 const judge = { providerID: 'd', id: 'judge', variant: null };
 const chat: DecideInput = { kind: 'chat', text: 'fix the login test', agent: 'plan', files: [{ name: 'a.txt', bytes: 2048 }], images: 0, lines: {} };
@@ -205,4 +205,30 @@ test('a malformed size answer is left out', async () => {
     const answer = await decide({ decisions: async () => reply('execute', 0.95, bad) }, judge, { ...chat, sizes: ['execute'] });
     assert.deepEqual((answer as { sizes?: unknown }).sizes, {});
   }
+});
+
+// 25 Nov: the size question also sees the task the chat is working on, since a short follow-up ("Review the implementation") says
+// nothing of how hard the task is (docs/superpowers/specs/2026-11-25-relay-size-sees-the-task-design.md).
+test('the task a chat works on is its first message, with the home folder hidden, at most its first 1,500 characters', () => {
+  const answered = { type: 'assistant', content: [{ type: 'text', text: 'Plan: one file.' }] };
+  assert.equal(firstRequest([{ type: 'synthetic', text: 'host text' }, user('1'), answered, { type: 'user', id: '2', text: 'Implement it.' }]), 'a message');
+  const hidden = firstRequest([{ type: 'user', id: '1', text: 'Fix C:\\Users\\someone\\app\\x.py please' }], 'C:\\Users\\someone') ?? '';
+  assert.ok(hidden.includes('~\\app\\x.py') && !hidden.includes('someone'), hidden);
+  assert.equal(MAX_TASK_CHARS, 1500);
+  assert.equal(firstRequest([{ type: 'user', id: '1', text: 'b'.repeat(2000) }]), 'b'.repeat(1500));
+  for (const messages of [[], null, [{ type: 'user', id: '1', text: '   ' }], [answered]]) assert.equal(firstRequest(messages), null);
+});
+
+test('with a size asked, the decider is told the task, and the size question judges by it', () => {
+  const request = buildDecisionRequest(judge, { kind: 'chat', text: 'Review the implementation.', agent: 'build', files: [], images: 0, lines: {}, sizes: ['review'], reply: 'Done: forth.py written.', task: 'Implement a Forth interpreter with user-defined words.' });
+  assert.ok(request.input[0].text.includes('The task the chat is working on: "Implement a Forth interpreter with user-defined words."'), request.input[0].text);
+  assert.equal(request.questions[1].instructions, "How big is the work? Judge by the task the chat is working on, the person's message and the end of the chat's last reply.");
+  const first = buildDecisionRequest(judge, { ...chat, text: 'Plan it.', sizes: ['plan'], task: 'Build a bowling scorer.' });
+  assert.equal(first.questions[1].instructions, "How big is the work? Judge by the task the chat is working on and the person's message.");
+});
+
+test('the task is not told when no size is asked, or when it is the message itself, so those requests stay as measured', () => {
+  const inputs: DecideInput[] = [{ ...chat, task: 'Build a bowling scorer.' }, { ...chat, sizes: ['plan'], task: ` ${chat.text} ` }, { ...chat, sizes: ['plan'], task: null }];
+  for (const input of inputs) assert.doesNotMatch(buildDecisionRequest(judge, input).input[0].text, /task the chat/);
+  assert.equal(buildDecisionRequest(judge, { ...chat, sizes: ['review'], task: chat.text }).questions[1].instructions, 'How big is the work the text asks for?');
 });
