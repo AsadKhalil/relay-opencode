@@ -3,7 +3,7 @@
 // per token to their Ollama account). Run it only with the owner's yes.
 // It works in one test folder that the owner has opened in Desktop (RELAY_BENCH_DIR, by default relay-bench in the home folder), and sends the
 // service no request about any other folder. It sets Relay's settings for each side and puts back the ones it found, even after an error.
-// Usage: npx tsx scripts/bench/run.ts --plan go|go-plus|ollama --out <folder> [--tasks a,b] [--sides off,on-one,on-two,on-own,on-low,on-size,cheap] [--check]
+// Usage: npx tsx scripts/bench/run.ts --plan go|go-plus|ollama --out <folder> [--tasks a,b] [--sides off,on-one,on-two,on-own,on-low,on-size,on-claude,cheap] [--check]
 //   [--budget <percent of a 5-hour window>, on Go; default 100] [--cap <US dollars>, on Ollama; default 2]
 import { execFile as execFileCallback } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -48,6 +48,8 @@ const PLANS: Record<'go' | 'go-plus' | 'ollama', { strong: Choice; cheap: Choice
   ollama: { strong: choice('ollama-cloud', 'glm-5.3'), cheap: choice('ollama-cloud', 'glm-5.3-flash'), monthly: null },
 };
 const { strong: STRONG, cheap: CHEAP, monthly: MONTHLY } = PLANS[plan], DECIDER = choice('opencode', 'jev-1.13-free');
+// Claude Sonnet through the owner's Claude login (the `claude-agent` provider): no list price, the Claude plan's limits.
+const SONNET = choice('claude-agent', 'sonnet');
 const SETTINGS = {
   'on-one': { plan: [STRONG], execute: [CHEAP], review: [STRONG] },
   'on-two': { plan: [STRONG], execute: [{ ...CHEAP, useFor: 'small edits in one or two files' }, { ...STRONG, useFor: 'bigger changes across several files' }], review: [STRONG] },
@@ -57,6 +59,8 @@ const SETTINGS = {
   // Review between the two models (no lines: small work to the cheapest, big to the highest index, unsure to the first).
   'on-low': { plan: [{ ...STRONG, variant: 'low' }], execute: [CHEAP], review: [{ ...STRONG, variant: 'low' }] },
   'on-size': { plan: [CHEAP, STRONG], execute: [CHEAP], review: [CHEAP, STRONG] },
+  // The mixed setup (owner, 25 Nov): Claude plans and reviews on the Claude plan, and the cheap Go model builds.
+  'on-claude': { plan: [SONNET], execute: [CHEAP], review: [SONNET] },
 };
 const MESSAGE_LIMIT_MS = 15 * 60_000, TEST_LIMIT_MS = 120_000;
 const messages = (module: string) => [
@@ -99,7 +103,7 @@ async function check(): Promise<void> {
   else {
     // Only now, with the folder known to the service, is it asked anything about it.
     const models = items((await rpc.listModels({}, options)).models);
-    for (const wanted of [STRONG, CHEAP]) {
+    for (const wanted of sides.includes('on-claude') ? [STRONG, CHEAP, SONNET] : [STRONG, CHEAP]) {
       const found = models.find(model => model.providerID === wanted.providerID && model.id === wanted.id);
       if (!found?.enabled) problems.push(`${wanted.providerID}/${wanted.id} is ${found ? `listed but ${found.status}` : 'not listed'}`);
     }
@@ -161,7 +165,7 @@ async function runChat(task: string, side: Side, prices: Map<string, Cost>, left
   const own = side === 'on-own' || side === 'on-size' ? (await rpc.getOwnChoice({}, options)).modes : null, ids = [`${STRONG.providerID}/${STRONG.id}`, `${CHEAP.providerID}/${CHEAP.id}`] as const;
   const problem = side === 'on-own' ? ownChoiceProblem(own.execute, ...ids) : side === 'on-size' ? ownChoiceProblem(own.plan, ...ids, 'Plan') ?? ownChoiceProblem(own.review, ...ids, 'Review') : null;
   if (problem) throw new Error(problem);
-  const start = side === 'cheap' ? CHEAP : STRONG;
+  const start = side === 'cheap' ? CHEAP : side === 'on-claude' ? SONNET : STRONG;
   // The owner's Plannotator plugin watches the `plan` agent and makes each plan wait for a person's approval (`submit_plan`), which an
   // unattended test cannot give: each test chat is created with that tool denied, so a call fails at once and the chat goes on.
   // The folder's opencode.json must stay the test's own; resetFolder refuses a changed one before the next chat, and this asks the host not to allow the edit at all.

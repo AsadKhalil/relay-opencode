@@ -137,6 +137,14 @@ test('a test chat refuses the code runner, the pty tools and the plan approval',
   for (const tool of ['execute', 'pty_spawn', 'pty_write', 'pty_read', 'pty_list', 'pty_kill', 'submit_plan']) assert.ok(DENIED_TOOLS.includes(tool), tool);
 });
 
+// The mixed setup (25 Nov): Claude through the owner's Claude login lists no price; its use is the Claude plan's, not Go's or dollars.
+test('a reply on a Claude-login model goes on; any other model with no price still stops the chat', () => {
+  assert.equal(stopReason([{ model: 'claude-agent/sonnet', error: null, priced: false }]), null);
+  assert.match(stopReason([{ model: 'opencode-go/some-model', error: null, priced: false }]) ?? '', /has no list price/);
+  const printed = table(sideTotals([chat('wordy', 'on-one', true, '0.1'), chat('wordy', 'on-claude', true, '0.01')]));
+  assert.ok(printed.includes('| | On, one model a mode | On, Claude plans and reviews |'), printed);
+});
+
 // The test folder is emptied before each chat. Only a folder whose opencode.json is the test's own may be emptied, and that file stays.
 test('resetting the test folder keeps opencode.json, removes the rest and writes the task files', () => {
   const folder = mkdtempSync(join(tmpdir(), 'relay-bench-test-')), config = JSON.stringify(TEST_CONFIG, null, 2);

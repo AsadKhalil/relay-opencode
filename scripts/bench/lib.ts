@@ -1,9 +1,9 @@
 // The proof test's arithmetic and its table (docs/superpowers/specs/2026-11-18-relay-proof-design.md). Money is whole trillionths of a dollar.
 import { parseUsd } from '../../src/costs.js';
 
-export type Side = 'off' | 'on-one' | 'on-two' | 'on-own' | 'on-low' | 'on-size' | 'cheap';
-export const SIDES: readonly Side[] = ['off', 'on-one', 'on-two', 'on-own', 'on-low', 'on-size', 'cheap'];
-const LABELS: Record<Side, string> = { off: 'Off', 'on-one': 'On, one model a mode', 'on-two': 'On, two for Execute', 'on-own': 'On, Relay chooses', 'on-low': 'On, low effort for Plan and Review', 'on-size': 'On, Relay sizes Plan and Review', cheap: 'Cheap only' };
+export type Side = 'off' | 'on-one' | 'on-two' | 'on-own' | 'on-low' | 'on-size' | 'on-claude' | 'cheap';
+export const SIDES: readonly Side[] = ['off', 'on-one', 'on-two', 'on-own', 'on-low', 'on-size', 'on-claude', 'cheap'];
+const LABELS: Record<Side, string> = { off: 'Off', 'on-one': 'On, one model a mode', 'on-two': 'On, two for Execute', 'on-own': 'On, Relay chooses', 'on-low': 'On, low effort for Plan and Review', 'on-size': 'On, Relay sizes Plan and Review', 'on-claude': 'On, Claude plans and reviews', cheap: 'Cheap only' };
 
 /** Why "On, Relay chooses" would not test Relay's own choice, from the Execute part of Relay's getOwnChoice answer; null when big work goes to `strong` and small work to `cheap`. */
 /**
@@ -61,7 +61,8 @@ export type SideTotal = { passed: number; tasks: number; cost: bigint; month: bi
  * OpenCode retried after a dropped connection (19 Nov), does not stop the run.
  */
 export function stopReason(entries: readonly { model: string; error: unknown; priced: boolean }[]): string | null {
-  const failed = entries.at(-1)?.error ? entries.at(-1) : undefined, unpriced = entries.find(entry => !entry.priced);
+  // Claude through the owner's Claude login lists no price: its use counts against the Claude plan, so it is $0 here and the chat goes on.
+  const failed = entries.at(-1)?.error ? entries.at(-1) : undefined, unpriced = entries.find(entry => !entry.priced && !entry.model.startsWith('claude-agent/'));
   if (failed) return `a request failed: ${JSON.stringify(failed.error).slice(0, 300)}`;
   return unpriced ? `${unpriced.model} has no list price, so a request on it would count as $0` : null;
 }
