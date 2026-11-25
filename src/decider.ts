@@ -132,15 +132,16 @@ const lineQuestion = (mode: Mode, lines: readonly string[], reply: boolean) => (
 // Both instructions word for word as measured on 23 Nov: the first for the 15 cases with the end of a reply, the second for the 15 first
 // messages (27 of 30 right in all, docs/compatibility.md). A change is measured again with scripts/decider-size.ts before it ships.
 // The decider is asked about the work, never about models, prices or scores.
-// With the task (25 Nov), the size is judged by it too; without, the question is word for word as measured on 23 Nov.
+// With the task (25 Nov), the size is judged by it too. The answers count a one-file task with many rules as big (25 Nov), measured again with
+// scripts/decider-size.ts on the 30 cases of 23 Nov and the 10 with a task.
 const sizeQuestion = (mode: Mode, reply: boolean, task: boolean) => ({
   type: 'choice' as const, name: `${mode}_size`,
   instructions: task
     ? (reply ? "How big is the work? Judge by the task the chat is working on, the person's message and the end of the chat's last reply." : "How big is the work? Judge by the task the chat is working on and the person's message.")
     : reply ? "How big is the work? Judge by the person's message and the end of the chat's last reply." : 'How big is the work the text asks for?',
   choices: [
-    { value: 'small', description: 'Small and clear. One or two files, a quick question, a simple edit.' },
-    { value: 'big', description: 'Big, unclear or risky. Several files, a new feature, a hard bug, data, money or security, or the last reply shows a failed try.' },
+    { value: 'small', description: 'Small and clear. A quick question or a simple edit in one or two files, with nothing tricky to get right.' },
+    { value: 'big', description: 'Big, unclear or risky. Several files, a new feature, a hard bug, many rules or edge cases to get right, data, money or security, or the last reply shows a failed try.' },
   ],
 });
 

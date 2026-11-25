@@ -177,8 +177,8 @@ test('it gives up after the time limit and ignores a late answer and a late fail
 });
 
 const SIZE_CHOICES = [
-  { value: 'small', description: 'Small and clear. One or two files, a quick question, a simple edit.' },
-  { value: 'big', description: 'Big, unclear or risky. Several files, a new feature, a hard bug, data, money or security, or the last reply shows a failed try.' },
+  { value: 'small', description: 'Small and clear. A quick question or a simple edit in one or two files, with nothing tricky to get right.' },
+  { value: 'big', description: 'Big, unclear or risky. Several files, a new feature, a hard bug, many rules or edge cases to get right, data, money or security, or the last reply shows a failed try.' },
 ];
 
 test('a mode whose size is asked gets the size question word for word, and the reply goes with it', () => {

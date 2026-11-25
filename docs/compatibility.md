@@ -1481,3 +1481,16 @@ The owner: "yes do the next steps". Asked about the Go weekly limit (an estimate
 - One run of each, and the 24 Nov columns ran a day earlier: one exercise either way is within the spread seen before.
 
 **Not tested.** The Claude plan's meter during the run; Opus or Haiku in place of Sonnet; more than one run.
+
+## 2026-11-25 (later) — The size question with the task, and with "big" reworded, asked of a real decision model (Windows 11; OpenCode 2.3.0 CLI from npm, isolated)
+
+The owner chose "Show it the task", then "Reword 'big' and re-measure". `scripts/decider-size.ts` asked `opencode/jev-1.13-free` from an isolated OpenCode with no login, no plugin and a scratch root. The 2.4.1 CLI that Desktop now holds lists no decision model in isolation, so the public 2.3.0 CLI from npm (as in CI) was used.
+
+| Cases | Before | With the task | With the task and the new wording |
+|---|---|---|---|
+| 30 of 23 Nov (bar: 24, and no failed try called small) | 27 right (23 Nov) | not asked (no task: the request is word for word as before) | **29 right**, 1 wrong (b05, money), no failed try called small: passed |
+| 10 with a task (bar: 8) | 6 right, 2 wrong, 2 unsure (task left out) | 7 right, 1 wrong, 2 unsure | 7 right, 0 wrong, 3 unsure: missed |
+
+- The new wording: small is "A quick question or a simple edit in one or two files, with nothing tricky to get right"; big adds "many rules or edge cases to get right".
+- The three unsure answers are the one-file puzzles that Flash failed on 24 Nov: Forth (big, 30%), book-store (big, 10%), bowling (small, 6%). An unsure size takes the mode's first model.
+- One run of each set, one decision model, made-up cases.
