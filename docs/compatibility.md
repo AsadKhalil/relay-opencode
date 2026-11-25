@@ -1494,3 +1494,10 @@ The owner chose "Show it the task", then "Reword 'big' and re-measure". `scripts
 - The new wording: small is "A quick question or a simple edit in one or two files, with nothing tricky to get right"; big adds "many rules or edge cases to get right".
 - The three unsure answers are the one-file puzzles that Flash failed on 24 Nov: Forth (big, 30%), book-store (big, 10%), bowling (small, 6%). An unsure size took the mode's first model then; since `a12aad8` it takes the highest index.
 - One run of each set, one decision model, made-up cases.
+
+## 2026-11-25 (evening) — The smoke's mock model on OpenCode 2.4.1 (Windows 11, isolated, no Relay)
+
+- On the 2.4.1 CLI, a chat with the smoke's mock model never finishes, with Relay and without it: the mock gets one `POST /v1/chat/completions` (`stream: true`, with `stream_options` and `max_completion_tokens`), answers it, and no reply is ever listed in the chat; the host's wait for idle does not return.
+- Ruled out: another request the mock answered wrongly (there is only that one), and the usage chunk's shape (OpenAI's separate final chunk with empty `choices` behaves the same).
+- The isolated host's log says nothing about the chat after booting the folder. Not found: the cause.
+- So the smoke runs on the 2.3.0 CLI (as in CI); in the owner's Desktop 2.4.1, real chats with Relay ran on 24 and 25 Nov.
