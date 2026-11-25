@@ -1,6 +1,6 @@
 # What has been tested, and known limits
 
-Relay is early. It is built for OpenCode 2.3.0. It has run against tests; in an isolated OpenCode with a mock model, on Linux, macOS and Windows, on every push; and in live checks in a full OpenCode Desktop setup on Windows, with Ollama Cloud models (16 Nov 2026) and Claude models (17 Nov 2026).
+Relay is early. It is built for OpenCode 2.3, and since 24 Nov 2026 it runs in the owner's OpenCode Desktop 2.4.1 on Windows, where real chats ran with it (the isolated smoke still needs the 2.3.0 CLI: its mock model's chats never finish on 2.4.1). It has run against tests; in an isolated OpenCode with a mock model, on Linux, macOS and Windows, on every push; and in live checks in a full OpenCode Desktop setup on Windows, with Ollama Cloud models (16 Nov 2026) and Claude models (17 Nov 2026).
 
 Details are in the [compatibility findings](compatibility.md) and the [change log](implementation-progress.md).
 

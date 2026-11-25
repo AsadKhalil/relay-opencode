@@ -4,7 +4,7 @@ What the [README](../README.md) leaves out: installing from source, each setting
 
 ## Install from source
 
-You need OpenCode 2.3.0 (Desktop or the terminal app), and Node.js 24 with npm and git to build Relay.
+The [README](../README.md#install) installs Relay from npm by name, which is the simplest way. To run the code in this repository instead, you need OpenCode 2.3 or newer, and Node.js 24 with npm and git.
 
 1. Get Relay and build it:
 
@@ -15,7 +15,7 @@ You need OpenCode 2.3.0 (Desktop or the terminal app), and Node.js 24 with npm a
    npm run build
    ```
 
-2. Tell OpenCode to load it. Open OpenCode's global config file, `~/.config/opencode/opencode.json` (on Windows, `C:\Users\<you>\.config\opencode\opencode.json`; create it if it does not exist), and add the folder you cloned to `plugins`:
+2. Tell OpenCode to load it. Open OpenCode's global config file, `~/.config/opencode/opencode.json` (on Windows, `C:\Users\<you>\.config\opencode\opencode.json`; create it with `{}` if it does not exist), and add the folder you cloned to `plugins`:
 
    ```json
    {
@@ -25,10 +25,36 @@ You need OpenCode 2.3.0 (Desktop or the terminal app), and Node.js 24 with npm a
 
    On Windows, write the path with forward slashes, for example `"C:/Users/you/code/relay-opencode"`. Keep any plugins that are already in the list.
 
-3. Restart OpenCode. (Desktop usually picks up a change to this file by itself within a minute.)
+3. Quit OpenCode completely and open it again.
 4. Check: type `/` in a chat. `/relay` should be in the list.
 
-To update later: `git pull`, `npm ci`, `npm run build`, then restart OpenCode.
+OpenCode watches the files it loads, so a new build in this folder reloads Relay in a running OpenCode. If you work on Relay itself, use a fixed copy instead.
+
+### Install a fixed copy
+
+A fixed copy is a packed build installed into a folder of its own. Building or changing the repository then does not touch the OpenCode you use every day. This is how the author's own OpenCode loads Relay.
+
+1. In the repository, after `npm ci` and `npm run build`, pack the build: `npm pack`. It writes `relay-opencode-<version>.tgz`.
+2. Make a folder for the copy, for example `~/.config/opencode/relay`, and install the file there:
+
+   ```sh
+   mkdir -p ~/.config/opencode/relay
+   cp relay-opencode-<version>.tgz ~/.config/opencode/relay/
+   cd ~/.config/opencode/relay
+   npm init -y
+   npm install --no-audit --no-fund ./relay-opencode-<version>.tgz
+   ```
+
+3. In `plugins`, name the installed package folder: `"<home>/.config/opencode/relay/node_modules/relay-opencode"` (on Windows with forward slashes, for example `"C:/Users/you/.config/opencode/relay/node_modules/relay-opencode"`).
+4. Quit OpenCode completely and open it again.
+
+## Update
+
+- **Installed by name from npm:** set the new version in `plugins` (`"relay-opencode@<version>"`; `npm view relay-opencode version` prints the newest), then quit and reopen OpenCode. An unpinned `"relay-opencode"` can stay on an older copy that OpenCode keeps in `~/.cache/opencode/npm/`.
+- **From source:** `git pull`, `npm ci`, `npm run build`, then restart OpenCode.
+- **A fixed copy:** quit OpenCode, then in the repository `git pull`, `npm ci`, `npm run build` and `npm pack`, and in the copy's folder `npm install --no-audit --no-fund ./relay-opencode-<version>.tgz` with the new file. Open OpenCode again. Quitting first keeps OpenCode from reloading the plugin while its files change.
+
+Relay keeps its settings, switches and records in OpenCode's own storage under the id `relay-opencode`, so every way of updating keeps them.
 
 ## Set up
 
