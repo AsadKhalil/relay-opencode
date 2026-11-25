@@ -1457,3 +1457,27 @@ The owner: "yes do it. you can use open code go". First the isolated smoke on th
 - **Use of Go:** the 12 chats an estimated 21.0% of a 5-hour window and 8.4% of the weekly limit, $0.79 at list price.
 
 **Not tested.** The smoke on 2.4.1 (its mock first); more than one run of each setup; real tasks whose messages say how big they are.
+
+## 2026-11-25 — Low effort in the owner's settings, and a mixed run: Claude plans and reviews, Go builds (Windows 11; Desktop 2.4.1; the owner's Relay copy, 0.1.0 built from `43dd264`)
+
+The owner: "yes do the next steps". Asked about the Go weekly limit (an estimated 70–74% used by this week's runs), they asked "why are not using mixed like using claude agent used opus, sonnect or haiku and open code go use others", then chose "Sonnet plans and reviews".
+
+- **The owner's settings.** Relay's modes became Kimi K3.1 Pro on `low` for Plan and Review and GLM-5.3 Flash for Execute, with their decider (Gemini Decision 1) kept: revision 77. Before, the modes were empty; that copy is kept.
+- **The mixed setup** (`on-claude`, `96966b3`): Claude Sonnet through the owner's Claude login (`claude-agent/sonnet`) for Plan and Review, Flash on Go for Execute. A reply on `claude-agent` lists no price, so the runner counts it as $0 and goes on; any other model with no price still stops a chat.
+- A pilot (`affine-cipher`) first: Sonnet answered the plan and the review and used only OpenCode's own reading tools (glob, read); Flash wrote and edited. Then the other five, 09:41 to 09:58 UTC.
+
+| Exercise | Claude plans and reviews | One model a mode (24 Nov) | Low effort (24 Nov) |
+|---|---|---|---|
+| `affine-cipher` | passed, Go $0.0119 | passed, $0.1167 | passed, $0.1310 |
+| `variable-length-quantity` | passed, Go $0.0094 | passed, $0.1530 | passed, $0.0599 |
+| `wordy` | passed, Go $0.0183 | 22 of 25, $0.1524 | 23 of 25, $0.0850 |
+| `book-store` | passed, Go $0.0249 | passed, $0.1936 | passed, $0.0683 |
+| `bowling` | passed, Go $0.0226 | passed, $0.1295 | passed, $0.1270 |
+| `forth` | passed, Go $0.0193 | passed, $0.1938 | 51 of 54, $0.1702 |
+| **Total** | **6 of 6, Go $0.1065** | **5 of 6, $0.9391** | **4 of 6, $0.6414** |
+
+- Go paid only for Flash's builds: 88.7% less than one model a mode, an estimated 1% of a 5-hour window.
+- Sonnet made 27 requests: 297,893 tokens read from its cache, 98,989 written to it, 22,862 out. At OpenCode Zen's list price for Sonnet 5.5 ($2 in, $10 out a million; a cache read at a tenth and a write at 1.25 times, Anthropic's usual ratios) that would be about $0.54. Through the login it is the Claude plan's use, which Claude Code shares; the plan's own meter was not read.
+- One run of each, and the 24 Nov columns ran a day earlier: one exercise either way is within the spread seen before.
+
+**Not tested.** The Claude plan's meter during the run; Opus or Haiku in place of Sonnet; more than one run.
