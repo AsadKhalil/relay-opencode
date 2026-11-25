@@ -106,8 +106,8 @@ export function pickModel(usable: readonly ModeChoice[], line: LineAnswer | unde
 
 /**
  * One model out of a mode's usable ones. With no line in the mode's list and two or more usable models, Relay chooses by itself
- * (src/ranking.ts): big work goes to the highest index, small work to the cheapest, and the first model is used when Relay can't rank the
- * list or the size is unsure (the owner's 19 Nov rule). Otherwise the decider's line decides, as `pickModel` says.
+ * (src/ranking.ts): big work goes to the highest index, small work to the cheapest, and so does an unsure or missing size, since unclear
+ * work counts as big (the owner, 25 Nov). The first model is used when Relay can't rank the list (the owner's 19 Nov rule). Otherwise the decider's line decides, as `pickModel` says.
  * `standings` undefined keeps that older rule for every mode; null means the stored copies could not be read in time.
  */
 export function choose(mode: Mode, list: readonly ModeChoice[], usable: readonly ModeChoice[], answer: Extract<DeciderAnswer, { kind: 'answer' }>, standings: Standings | null | undefined, writer: ModelChoice | null): { model: ModelChoice; fit: number | null; note: string | null } {
@@ -123,7 +123,7 @@ export function choose(mode: Mode, list: readonly ModeChoice[], usable: readonly
   if (size && size.confidence >= LINE_UNSURE_BELOW) {
     return size.size === 'big' ? { model: ranked.strongest, fit: size.confidence, note: 'big work, so the highest index' } : { model: ranked.cheapest, fit: size.confidence, note: 'small work, so the cheapest' };
   }
-  return first('not sure how big the work is');
+  return { model: ranked.strongest, fit: null, note: 'not sure how big the work is, so the highest index' };
 }
 
 /** The modes whose size the decider is asked: those Relay ranks by itself, where the strongest is not also the cheapest. */

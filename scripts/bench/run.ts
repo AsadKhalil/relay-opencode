@@ -53,10 +53,11 @@ const SONNET = choice('claude-agent', 'sonnet');
 const SETTINGS = {
   'on-one': { plan: [STRONG], execute: [CHEAP], review: [STRONG] },
   'on-two': { plan: [STRONG], execute: [{ ...CHEAP, useFor: 'small edits in one or two files' }, { ...STRONG, useFor: 'bigger changes across several files' }], review: [STRONG] },
-  // No lines: Relay chooses by itself, the highest index for big work and the cheapest for small (Relay 23 Nov); unsure takes the first.
+  // No lines: Relay chooses by itself, the highest index for big work and the cheapest for small (Relay 23 Nov); unsure takes the highest
+  // index since 25 Nov.
   'on-own': { plan: [STRONG], execute: [CHEAP, STRONG], review: [STRONG] },
   // The cost test (24 Nov): one model a mode with the strong model thinking less in Plan and Review, and with Relay sizing Plan and
-  // Review between the two models (no lines: small work to the cheapest, big to the highest index, unsure to the first).
+  // Review between the two models (no lines: small work to the cheapest, big or unsure to the highest index).
   'on-low': { plan: [{ ...STRONG, variant: 'low' }], execute: [CHEAP], review: [{ ...STRONG, variant: 'low' }] },
   'on-size': { plan: [CHEAP, STRONG], execute: [CHEAP], review: [CHEAP, STRONG] },
   // The mixed setup (owner, 25 Nov): Claude plans and reviews on the Claude plan, and the cheap Go model builds.
