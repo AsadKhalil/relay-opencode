@@ -43,6 +43,8 @@ Or add it by hand: in OpenCode's global config file (`~/.config/opencode/opencod
 }
 ```
 
+Then quit OpenCode completely and open it again. Added by hand, Relay is downloaded on that first start and loaded on the next, so if `/relay` is not listed yet, wait a minute, then quit and open OpenCode once more (OpenCode 2.4.2, 26 Nov 2026). `opencode plugin add` downloads it at once, so one restart is enough there.
+
 Other ways to install, from source or as a fixed copy, are in the [guide](docs/guide.md#install-from-source).
 
 ## Install with an AI agent
@@ -78,7 +80,7 @@ Follow these steps in order. Stop and ask the user when a step says so. Never pr
       - The key is `plugins` (plural): never add a second `plugins` key or a singular `plugin` key, and do not touch any other key, such as `permissions`.
 6. **Check the file.** For `.json`, it must parse: `node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" <path>`. For `.jsonc`, a strict JSON check fails even on a good file, so check instead that the comments are still there and the brackets balance, or use a JSONC parser. If the file is broken, restore the backup and stop.
 7. **Restart OpenCode.** Ask the user to quit OpenCode completely and open it again; if you run inside OpenCode yourself, or are not sure, do not restart it yourself. Do not end OpenCode's processes yourself.
-8. **Verify** after the restart. The first start downloads Relay, which can take a minute or two.
+8. **Verify** after the restart. After `plugin add`, Relay is already downloaded. After an edit by hand, the first start only downloads it (a minute or two) and the next start loads it: if Relay is not loaded after the first restart, ask the user to quit and open OpenCode once more.
    - In OpenCode's log (`~/.local/share/opencode/log/opencode.log`; Windows: `%USERPROFILE%\.local\share\opencode\log\opencode.log`) there is a `loading plugin` line naming `relay-opencode`, and no `failed to load plugin` line for it.
    - Or ask the user to type `/` in a chat: `/relay` is listed.
 9. **Tell the user what to do next.** Relay's settings are made in OpenCode Desktop's Relay panel, and an agent cannot click there:

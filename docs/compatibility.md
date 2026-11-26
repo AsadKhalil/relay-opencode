@@ -1554,3 +1554,28 @@ The owner asked to redesign the plugin with the Impeccable skill. Product brief:
 - Built: both panels (`src/gui.tsx`, `src/gui-usage.tsx`, `src/gui-styles.ts`, new `src/gui-parts.tsx`). Each mode is a bay; each model a paper strip with a coded slot block, its model and provider, printed fields for price (input over output), index and context, its effort, a stamp for Relay's own part, its "use it for" line. The decider is a strip with slot D; a 7-day cost strip opens the usage tab; the explanations moved into drawers and small disclosures; Recent choices became aligned lines. Day and night lights follow OpenCode's background with the panel's own colours. No web fonts, no new network request. Every behaviour, request and fact stayed.
 - Checked in a dev preview (`npm run preview:panel`, Playwright Chromium, sample data): side panel and usage tab, day and night, first run, an open rack, and a model OpenCode no longer offers. A fresh reviewer agent judged the screenshots against the brief: two fix rounds (night strips, slide-in timing, chart colours, Recent choices, day contrast, a font shorthand the browser dropped, overflowing fields, an unavailable model's recovery, then three smaller items), then ship. The design detector found nothing.
 - Not tested: the panels inside OpenCode Desktop (the owner's copy is `43dd264`); there the host's own fonts, widths and theme variables apply. The pill above the chat box is drawn by OpenCode and did not change.
+
+## 2026-11-26 (evening) — Relay 0.2.2 from npm in the owner's OpenCode; the mid-session check (Windows 11; Desktop 2.4.1, then 2.4.2)
+
+**Leave given.** The owner said "create release install it": install the published 0.2.2 in their OpenCode. It covers that step only.
+
+- The owner's global config loaded Relay from the fixed copy (`.config/opencode/relay/node_modules/relay-opencode`, built from `43dd264`). Backed up to `opencode.json.before-relay-2`; the entry was replaced with `relay-opencode@0.2.2`, the other six plugins untouched. The background service then started again (16:54 UTC) without Relay, and nothing was downloaded within a minute. `opencode-cli plugin remove relay-opencode@0.2.2` and `plugin add relay-opencode@0.2.2` (Desktop's 2.4.1 CLI) installed it into OpenCode's npm cache (finished 16:58 UTC, after the service's 16:56 start, which therefore skipped it). After the owner restarted Desktop (17:04 UTC, now 2.4.2, updated by itself) the log shows `loading plugin id=relay-opencode@0.2.2` from the npm cache.
+- Also seen: from 16:46 to 16:56 UTC the service (`serve --service`) started again about every minute, before any change was made, with no error logged; it was steady after.
+- **By hand on 2.4.2, isolated** (scratch profile, the config naming `relay-opencode@0.2.2`, no `plugin add`): the first server start downloaded Relay into the npm cache but did not load it within three minutes; a second start on the same profile loaded it. The README now says so.
+
+**The mid-session check** (owner: "test with mock models on the relay in mid session how it work"). An isolated OpenCode with scratch folders and a loopback mock provider; Relay 0.2.2 packed from this repository; settings as the owner described: Plan = a "planner" mock, Execute = a "builder" mock, Review empty, a mock decider. The same results on OpenCode 2.3.0 and on 2.4.2 (Desktop's own CLI, isolated); this mock, unlike the smoke's, finishes chats on 2.4.2.
+
+| Message | Answered by | Relay's record |
+| --- | --- | --- |
+| Two messages before Relay is on | the default model | none |
+| Relay turned on mid-chat (setRelayChat, as the pill) | | |
+| "Make a plan for a login page." (Plan, 93%) | planner, `plan` agent | plan, switched |
+| "Implement it." (Execute, 95%) | builder, `build` agent | execute, switched |
+| "hmm ok" (Plan, 45%) | builder (stayed) | "not sure, so the chat stays as it is" |
+| "Review what you changed." (Review, no model) | builder (stayed) | "no model chosen for Review" |
+| A message sent while a slow Execute reply runs (Plan) | builder (stayed) | "the chat was still busy after 0.3 seconds" |
+| `/brainstorm a sign-up page` (a markdown command in `.opencode/command`) | planner | plan, switched: the hook does fire for a person's own markdown commands |
+| `/relay Make a plan …` | planner | plan, switched, one record |
+| Relay turned off, "Thanks!" | planner (the last model stays) | none |
+
+- Not tested: a skill picked from the chat box's menu, a plugin's own command (the 16 Nov probe saw no hook for a plugin command's invocation), Desktop's own screen.
