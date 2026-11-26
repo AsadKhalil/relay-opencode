@@ -25,21 +25,23 @@
 
 You need OpenCode 2.3 or newer: OpenCode Desktop or the terminal app.
 
-1. Open OpenCode's global config file:
-   - macOS and Linux: `~/.config/opencode/opencode.json`
-   - Windows: `C:\Users\<you>\.config\opencode\opencode.json`
+1. Run:
 
-   If there is an `opencode.jsonc` there instead, use that. If neither exists, create `opencode.json` containing `{}`.
-2. Add Relay to the `plugins` list. Keep any plugins that are already in it. Use the newest version, which `npm view relay-opencode version` prints. Pinning it makes updates predictable.
-
-   ```json
-   {
-     "plugins": ["relay-opencode@0.2.0"]
-   }
+   ```sh
+   opencode plugin add relay-opencode@0.2.0
    ```
 
-3. Quit OpenCode completely and open it again. The first start downloads Relay from npm, so it can take a minute or two.
-4. Type `/` in a chat. `/relay` should be in the list.
+   It downloads Relay from npm and adds it to the `plugins` list of your global config, keeping the plugins already there. Use the newest version, which `npm view relay-opencode version` prints. With OpenCode Desktop only, run Desktop's own command-line binary the same way: on Windows `%APPDATA%\ai.opencode.desktop\cli\<version>-x64\opencode-cli.exe plugin add relay-opencode@0.2.0`.
+2. Quit OpenCode completely and open it again.
+3. Type `/` in a chat. `/relay` should be in the list.
+
+Or add it by hand: in OpenCode's global config file (`~/.config/opencode/opencode.json`; on Windows `C:\Users\<you>\.config\opencode\opencode.json`; or `opencode.jsonc` if that is the one you have), add `"relay-opencode@0.2.0"` to the `plugins` list, keeping any plugins already in it:
+
+```json
+{
+  "plugins": ["relay-opencode@0.2.0"]
+}
+```
 
 Other ways to install, from source or as a fixed copy, are in the [guide](docs/guide.md#install-from-source).
 
@@ -60,7 +62,11 @@ Follow these steps in order. Stop and ask the user when a step says so. Never pr
 2. **Find the newest Relay version.** Run `npm view relay-opencode version`. Call the result `<version>`. If npm is not available, or it prints nothing or something that is not a plain version like `0.2.0` (for example `0.0.0-stage`, a placeholder npm shows while a release is held for review), use `latest` as `<version>`.
 3. **Find the config file.** The global config folder is `~/.config/opencode` (Windows: `%USERPROFILE%\.config\opencode`). Use `opencode.jsonc` if it exists there, else `opencode.json`. Never create a second config file next to an existing one. If neither exists, create `opencode.json` with the content `{}` and skip step 4.
 4. **Back it up.** Copy the file to `opencode.json.before-relay` (or `opencode.jsonc.before-relay`) in the same folder. If that name is taken, an earlier backup holds the original, so keep it and use `.before-relay-2` (then `-3`, and so on).
-5. **Add Relay.** Edit the file's text in place: never rewrite it from parsed JSON, which would drop the comments, trailing commas and formatting of a `.jsonc` file. Change only the `plugins` list:
+5. **Add Relay.** First try the command: `opencode plugin add relay-opencode@<version>` (with Desktop only, its `opencode-cli` binary from step 1). It adds the entry to the global config itself and keeps the other plugins.
+   - If an entry `relay-opencode@<another version>` is already there, remove it first with `opencode plugin remove relay-opencode@<another version>`: `plugin add` adds a second entry instead of replacing the first.
+   - If the command works, go to step 6. If it is not available or fails, edit the file by hand as follows.
+
+   By hand, edit the file's text in place: never rewrite it from parsed JSON, which would drop the comments, trailing commas and formatting of a `.jsonc` file. Change only the `plugins` list:
    - If `plugins` is missing, add `"plugins": ["relay-opencode@<version>"]` as a new top-level key.
    - If an entry is exactly `"relay-opencode"` or starts with `"relay-opencode@"`, replace that one entry with `"relay-opencode@<version>"`.
    - If an entry is a folder path ending in `relay-opencode` (an install from source or a fixed copy), stop and ask the user whether to replace it.
@@ -77,11 +83,18 @@ Follow these steps in order. Stop and ask the user when a step says so. Never pr
    3. Press **+ Choose a decider** and pick a decision model.
    4. Type `/relay on` in a chat, or use the Relay pill above the chat box.
 
-To remove Relay, delete its entry from `plugins` and restart OpenCode. Relay's saved settings stay in OpenCode's storage and come back if it is added again.
+To remove Relay, run `opencode plugin remove relay-opencode@<version>` (or delete its entry from `plugins`) and restart OpenCode. Relay's saved settings stay in OpenCode's storage and come back if it is added again.
 
 ## Update
 
-- **Installed by name from npm:** change the version in `plugins` to the new one (`npm view relay-opencode version` prints it), then quit and reopen OpenCode. With an unpinned `"relay-opencode"`, OpenCode can keep an older copy in `~/.cache/opencode/npm/`.
+- **Installed from npm:** remove the old version and add the new one, then quit and reopen OpenCode:
+
+  ```sh
+  opencode plugin remove relay-opencode@0.1.0
+  opencode plugin add relay-opencode@0.2.0
+  ```
+
+  `plugin add` on its own adds a second entry next to the old one. By hand, change the version in the `plugins` entry instead.
 - **From source or as a fixed copy:** see [the guide](docs/guide.md#update).
 
 Your settings are kept across updates.

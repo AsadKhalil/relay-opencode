@@ -50,7 +50,7 @@ A fixed copy is a packed build installed into a folder of its own. Building or c
 
 ## Update
 
-- **Installed by name from npm:** set the new version in `plugins` (`"relay-opencode@<version>"`; `npm view relay-opencode version` prints the newest), then quit and reopen OpenCode. An unpinned `"relay-opencode"` can stay on an older copy that OpenCode keeps in `~/.cache/opencode/npm/`.
+- **Installed by name from npm:** `opencode plugin remove relay-opencode@<old version>`, then `opencode plugin add relay-opencode@<new version>` (`npm view relay-opencode version` prints the newest), then quit and reopen OpenCode. `plugin add` on its own adds a second entry. By hand, set the new version in the `plugins` entry instead. An unpinned `"relay-opencode"` can stay on an older copy that OpenCode keeps in `~/.cache/opencode/npm/`.
 - **From source:** `git pull`, `npm ci`, `npm run build`, then restart OpenCode.
 - **A fixed copy:** quit OpenCode, then in the repository `git pull`, `npm ci`, `npm run build` and `npm pack`, and in the copy's folder `npm install --no-audit --no-fund ./relay-opencode-<version>.tgz` with the new file. Open OpenCode again. Quitting first keeps OpenCode from reloading the plugin while its files change.
 

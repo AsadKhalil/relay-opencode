@@ -1501,3 +1501,13 @@ The owner chose "Show it the task", then "Reword 'big' and re-measure". `scripts
 - Ruled out: another request the mock answered wrongly (there is only that one), and the usage chunk's shape (OpenAI's separate final chunk with empty `choices` behaves the same).
 - The isolated host's log says nothing about the chat after booting the folder. Not found: the cause.
 - So the smoke runs on the 2.3.0 CLI (as in CI); in the owner's Desktop 2.4.1, real chats with Relay ran on 24 and 25 Nov.
+
+## 2026-11-26 — `opencode plugin add relay-opencode@0.2.0`, on isolated OpenCode 2.3.0 and 2.4.1 (Windows 11)
+
+Config, data, cache, state, home, app data and temp folders all in a scratch base; no service of its own and none of the owner's used.
+
+- `plugin add relay-opencode@0.2.0` downloaded 0.2.0 from npm and wrote `"plugins": ["relay-opencode@0.2.0"]` into the scratch global config (2.3.0 and 2.4.1). A server on that scratch profile then listed Relay as an active package plugin, version 0.2.0, with its server, terminal and Desktop parts, and `/relay` among the commands (4 s on 2.4.1, 5 s on 2.3.0).
+- In an existing `opencode.jsonc` it kept the other plugin, the theme and most comments; it dropped a comment inside the `plugins` list.
+- Adding another version adds a second entry (`relay-opencode@0.1.0` and `relay-opencode@0.2.0` side by side). `plugin remove relay-opencode@0.1.0` removed that one entry. So an update is remove, then add.
+- `plugin list` and `plugin update` need OpenCode's managed service. In the scratch profile they tried to start one on the default port 28894, which the owner's own service holds, and stopped; they did not use the owner's service. Not tested: `plugin update` with a service running.
+- The README's install and the agent instructions now start with `plugin add`.
