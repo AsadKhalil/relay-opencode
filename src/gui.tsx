@@ -3,9 +3,9 @@ import { Command, ComposerPill, Panel, Plugin, type MountedSession, type PanelTa
 import { RelayRpc } from './contract.js';
 import { offered, type ModelChoice } from './settings.js';
 import type { ListedModel } from './inventory.js';
-import { USE_FOR_MAX, type Decision, type Mode, type ModeChoice, type RelaySettings } from './relay-store.js';
+import { USE_FOR_MAX, type Decision, type Mode, type ModeChoice, type Prices, type RelaySettings } from './relay-store.js';
 import { describeError, modeLabel, reviewRules } from './router.js';
-import { checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, ownChoiceNote, ownChoicePart, pickerModel, pillView, priceCell, priceLabel, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, type OwnChoicePart, type TableOrder } from './relay-view.js';
+import { borrowedNote, checksLine, contextLabel, decisionLine, indexLabel, indexTip, modelFacts, modelRows, nextEffort, noDeciderNote, ownChoiceNote, ownChoicePart, pickerModel, pillView, priceCell, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, type OwnChoicePart, type TableOrder } from './relay-view.js';
 import { panelCss } from './gui-styles.js';
 import { UsagePanel } from './gui-usage.js';
 
@@ -25,7 +25,9 @@ const Acc = (props: { title: string; sub?: string; children: JSX.Element }) => {
  * The table a model is picked from: a search box, a provider filter and an order, then one row per model with its price per 1M tokens and
  * its context size. Each table keeps its own search, filter and order, and starts afresh when it is opened again.
  */
-type Rated = Model & { index: number | null; matched: string | null };
+/** `listIntelligence`'s answer for one model: the index and where it came from, and Artificial Analysis's price when OpenCode lists none. */
+type Score = { providerID: string; id: string; index: number | null; matched: string | null; from: 'artificial-analysis' | 'openrouter' | null; prices: Prices | null };
+type Rated = Model & Pick<Score, 'index' | 'matched' | 'from'> & { borrowed: Prices | null };
 const ModelTable = (props: { label: string; models: Rated[]; source: string; action: string; actionLabel: (model: Rated) => string; can: (model: Rated) => boolean; mark: (model: Rated) => string; tip?: (model: Rated) => string | undefined; pick: (model: Rated) => void; close: () => void }) => {
   const [query, setQuery] = createSignal('');
   const [provider, setProvider] = createSignal('');
@@ -55,14 +57,15 @@ const ModelTable = (props: { label: string; models: Rated[]; source: string; act
         <thead><tr><th scope="col">Model</th><th scope="col">Price per 1M<small>in / out</small></th><th scope="col">Context</th><th scope="col" title="Artificial Analysis Intelligence Index">Index</th><th scope="col"><span class="rl-sr">{props.action}</span></th></tr></thead>
         <tbody><For each={rows()}>{model => <tr>
           <td><span class="rl-t-name">{model.name}</span><small>{model.providerID}{props.mark(model)}</small></td>
-          <td>{priceCell(model.cost)}</td>
+          <td>{priceCell(model.cost, model.borrowed)}</td>
           <td title={model.limit.context > 0 ? undefined : 'Context size not listed'}>{contextLabel(model.limit.context)}</td>
-          <td title={model.matched ? `Artificial Analysis, for ${model.matched} on OpenRouter${model.variants.length ? ', at its highest effort' : ''}` : 'No index found for this model'}>{indexLabel(model.index)}</td>
+          <td title={indexTip(model)}>{indexLabel(model.index)}</td>
           <td><button type="button" class="rl-btn sm" disabled={!props.can(model)} title={props.tip?.(model)} aria-label={props.actionLabel(model)} onClick={() => props.pick(model)}>{props.action}</button></td>
         </tr>}</For></tbody>
       </table>
     </div>
     <span class="rl-hint" aria-live="polite">{rows().length ? `${rows().length} of ${props.models.length} models` : 'No model matches. Try fewer words, or All providers.'}</span>
+    <Show when={rows().some(model => priceCell(model.cost, model.borrowed).endsWith('*'))}><span class="rl-hint">{borrowedNote}</span></Show>
     <span class="rl-hint">{props.source}</span>
   </div>;
 };
@@ -104,7 +107,6 @@ export default Plugin.define({
         const data = createMemo(() => response()?.session === props.session ? response() : undefined);
         const result = createMemo(() => data()?.models);
         // The intelligence index, asked for apart from the models, so a slow or failed fetch never holds the lists up. It never throws.
-        type Score = { providerID: string; id: string; index: number; matched: string };
         const [intel, { refetch: refetchIntel }] = createResource(() => props.session, async session => {
           try {
             const value = await call<{ source: string; note: string | null; scores: Score[] }>(session, ({ rpc, options }) => rpc.listIntelligence({}, options));
@@ -112,8 +114,8 @@ export default Plugin.define({
           } catch (error) { return { session, source: null, note: describeError(error, 'the index could not be loaded'), byModel: new Map<string, Score>() }; }
         });
         const scores = createMemo(() => { const value = intel(); return value?.session === props.session ? value : undefined; });
-        const rated = (model: Model) => { const score = scores()?.byModel.get(`${model.providerID}/${model.id}`); return { ...model, index: score?.index ?? null, matched: score?.matched ?? null }; };
-        const indexText = (model: Model) => { const index = rated(model).index; return index === null ? '' : ` · index ${indexLabel(index)}${model.variants.length ? ' at its highest effort' : ''}`; };
+        const scoreOf = (model: Model) => scores()?.byModel.get(`${model.providerID}/${model.id}`);
+        const rated = (model: Model): Rated => { const score = scoreOf(model); return { ...model, index: score?.index ?? null, matched: score?.matched ?? null, from: score?.from ?? null, borrowed: score?.prices ?? null }; };
         const indexSource = () => {
           const value = scores();
           if (!value) return 'Index: loading…';
@@ -226,7 +228,7 @@ export default Plugin.define({
                         <For each={model().variants}>{variant => <option value={variant} selected={choice.variant === variant} disabled={choice.variant !== variant && taken(mode, choice, variant)}>{variant} effort</option>}</For>
                       </select>
                     </Show>
-                    <span class="rl-hint">{priceLabel(model().cost)}{indexText(model())}</span>
+                    <span class="rl-hint">{modelFacts(model(), scoreOf(model()))}</span>
                   </div>}</Show>
                   <Show when={ownChoicePart(ownPart(mode), choice)}>{part => <span class="rl-hint">{part()}</span>}</Show>
                   <input class="rl-in" type="text" maxlength={USE_FOR_MAX} aria-label={`What ${choice.id} is for in ${modeLabel(mode)}`} placeholder="Use it for… (your own words, optional)" value={choice.useFor} disabled={saving()}
@@ -256,7 +258,7 @@ export default Plugin.define({
                         <For each={model().variants}>{variant => <option value={variant} selected={decider().variant === variant}>{variant} effort</option>}</For>
                       </select>
                     </Show>
-                    <span class="rl-hint">{priceLabel(model().cost)}{indexText(model())}</span>
+                    <span class="rl-hint">{modelFacts(model(), scoreOf(model()))}</span>
                   </div>}</Show>
                 </div>}</Show>
                 <Show when={adding() === 'decider'} fallback={<button type="button" class="rl-btn sm rl-add" disabled={saving() || response.loading} onClick={() => setAdding('decider')}>{data()?.relay.settings.decider ? 'Change the decider' : '+ Choose a decider'}</button>}>

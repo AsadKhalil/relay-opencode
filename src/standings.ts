@@ -1,4 +1,4 @@
-import { aaFor, storedAaModels, type AaModel } from './artificial-analysis.js';
+import { aaFor, aaPricesFor, storedAaModels, type AaModel } from './artificial-analysis.js';
 import { pricesAt } from './costs.js';
 import { indexFor, storedIndexTable, type IndexTable } from './intelligence.js';
 import type { ListedModel } from './inventory.js';
@@ -24,18 +24,20 @@ export async function readStored(store: Pick<RelayStore, 'get'>): Promise<Stored
 
 /**
  * Each choice's standing, by `modelName(choice)`. With Artificial Analysis's list (there is one only while a key is saved) the scores are its
- * entry for the choice's effort, or its plain entry (the highest effort); without it, OpenRouter's index and no Coding index.
+ * entry for the choice's effort, or its plain entry (the highest effort). Where that list gives no index, or there is no list, OpenRouter's
+ * stored copy of the same index, and no Coding index.
  */
 export function standingsOf(stored: Stored, models: readonly ListedModel[], choices: readonly ModelChoice[]): Standings {
   const standings = new Map<string, Standing>();
   for (const choice of choices) {
     const listed = models.find(model => model.providerID === choice.providerID && model.id === choice.id), name = listed?.name ?? choice.id;
-    const hit = stored.aa.length ? aaFor({ providerID: choice.providerID, id: choice.id, name, variant: choice.variant }, stored.aa) : null;
-    const index = stored.aa.length ? hit?.index ?? null : indexFor({ id: choice.id, name }, stored.table)?.index ?? null;
+    const asked = { providerID: choice.providerID, id: choice.id, name, variant: choice.variant };
+    const hit = stored.aa.length ? aaFor(asked, stored.aa) : null;
+    const index = hit?.index ?? indexFor({ id: choice.id, name }, stored.table)?.index ?? null;
     // shortcut: prices at the base size, with no chat counted; a model that charges more above some size is compared at its base price.
     const own = listed?.cost ? pricesAt(listed.cost, 0) : null;
     // Artificial Analysis's price only where OpenCode lists none, as the usage table borrows it; a $0 listing is OpenCode's own answer.
-    const prices = (!own || (own.inputPerMillion === null && own.outputPerMillion === null)) && hit ? hit.prices : own;
+    const prices = !own || (own.inputPerMillion === null && own.outputPerMillion === null) ? aaPricesFor(asked, stored.aa) ?? own : own;
     const row = stored.usage.find(item => item.model === modelName(choice));
     const outPerRequest = row && row.messages >= OWN_REPLIES && row.requests > 0 ? (row.output + row.reasoning) / row.requests : null;
     standings.set(modelName(choice), { index, coding: hit?.coding ?? null, inputPerMillion: prices?.inputPerMillion ?? null, outputPerMillion: prices?.outputPerMillion ?? null, outPerRequest });

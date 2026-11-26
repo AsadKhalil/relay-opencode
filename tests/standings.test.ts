@@ -51,3 +51,13 @@ test('readStored reads storage only, and a broken part counts as empty', async (
   assert.deepEqual([stored.aa.length, stored.aa[0].coding, stored.table.size, stored.usage], [1, 35, 1, []]);
   assert.deepEqual([...new Set(read)].sort(), ['relay/aa-models', 'relay/intelligence', 'relay/usage']);
 });
+
+// 26 Nov: Artificial Analysis's free list has no index for many models OpenRouter's copy scores (12 of the owner's 123), and it is the same index.
+test('a model with no index in Artificial Analysis’s list takes OpenRouter’s stored one; a free copy borrows no price', () => {
+  const aa = [aaEntry('kimi-k3', 'Kimi K3 (Max)', null, null, { inputPerMillion: '3', outputPerMillion: '15' }), aaEntry('deepseek-v4-1-flash', 'DeepSeek V4.1 Flash', 32, null, { inputPerMillion: '0.3', outputPerMillion: '1.2' })];
+  const table = new Map([['kimi-k3', { id: 'moonshotai/kimi-k3', index: 17.4 }], ['qwen3-8-flash', { id: 'qwen/qwen3.8-flash', index: 28.5 }]]);
+  const models = [listed('opencode-go', 'kimi-k3', 'Kimi K3', cost('3', '15')), listed('opencode-go', 'qwen3.8-flash', 'Qwen3.8 Flash', cost('0.15', '0.47')), listed('opencode', 'deepseek-v4.1-flash-free', 'DeepSeek V4.1 Flash Free', cost(null, null))];
+  const s = standingsOf({ aa, table, usage: [] }, models, [pick('opencode-go', 'kimi-k3'), pick('opencode-go', 'qwen3.8-flash'), pick('opencode', 'deepseek-v4.1-flash-free')]);
+  assert.deepEqual([s.get('opencode-go/kimi-k3')?.index, s.get('opencode-go/qwen3.8-flash')?.index], [17.4, 28.5]);
+  assert.deepEqual(s.get('opencode/deepseek-v4.1-flash-free'), { index: 32, coding: null, inputPerMillion: null, outputPerMillion: null, outPerRequest: null });
+});

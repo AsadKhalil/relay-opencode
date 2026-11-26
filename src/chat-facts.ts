@@ -1,4 +1,4 @@
-import { aaFor, type AaModel } from './artificial-analysis.js';
+import { aaPricesFor, type AaModel } from './artificial-analysis.js';
 import { formatUsd, parseUsd, pricesAt, usdString } from './costs.js';
 import type { ListedModel } from './inventory.js';
 import { hostVariant, modelName, type Prices, type Reply } from './relay-store.js';
@@ -68,7 +68,7 @@ export function replyOf(messages: unknown, messageID: string, models: readonly (
   const effort = hostVariant(typeof variant === 'string' ? variant : undefined);
   // Only a model the list was read for and shows no price at all borrows one: $0 can mean free, and an unread list says nothing.
   const unlisted = models !== null && (!prices || Object.values(prices).every(price => price === null));
-  const lent = unlisted && named && borrowed ? aaFor({ providerID, id, name: listed?.name ?? id, variant: effort }, borrowed)?.prices ?? null : null;
+  const lent = unlisted && named && borrowed ? aaPricesFor({ providerID, id, name: listed?.name ?? id, variant: effort }, borrowed) : null;
   return {
     requests: answers.length, fresh: read.fresh, cached: read.cached, costUsd: usdString(first.cost), seconds: typeof asked === 'number' && typeof word === 'number' && word >= asked ? Math.round((word - asked) / 100) / 10 : null,
     model: named ? modelName({ providerID, id, variant: effort }) : null,

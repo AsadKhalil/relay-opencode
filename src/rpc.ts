@@ -8,8 +8,8 @@ import { rank } from './ranking.js';
 import { readStored, standingsOf } from './standings.js';
 import { decide } from './decider.js';
 import { INDEX_SOURCE, indexFor, loadIndexTable } from './intelligence.js';
-import { AA_CREDIT, AA_SOURCE, aaFor, getPriceKey, loadAaModels, setPriceKey } from './artificial-analysis.js';
-import { oldestRecord, pruneRecords, readRecords, summarize, usageQueryOf, type LogStore } from './usage-log.js';
+import { AA_CREDIT, AA_SOURCE, aaFor, aaPricesFor, getPriceKey, loadAaModels, setPriceKey, storedAaModels } from './artificial-analysis.js';
+import { oldestRecord, priceFromList, pruneRecords, readRecords, summarize, usageQueryOf, type LogStore } from './usage-log.js';
 
 const chatID = (input: unknown) => { const id = (input as { sessionID: string }).sessionID.trim(); if (!id) throw new Error('Name the chat'); return id; };
 
@@ -25,18 +25,23 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
   const relayView = async (settings: RelaySettings, chat: Awaited<ReturnType<typeof listProjectModels>>, deciders: Awaited<ReturnType<typeof listProjectModels>>) => ({ directory: context.location.directory, settings, decisions: await recentDecisions(relayStore), deciders, checks: checksStatus(settings, chat), priceKey: (await getPriceKey(relayStore)) !== null });
   return context.rpc.register(RelayRpc, guarded({
     listModels: async () => ({ directory: context.location.directory, models: await listProjectModels(context) }),
-    // With a saved key the index is Artificial Analysis's own; without one, or when its list cannot be had, OpenRouter's copy of it.
+    // With a saved key the index is Artificial Analysis's own, and OpenRouter's copy of the same index where its list has none (26 Nov: 12 of
+    // the owner's 123 models); without a key, or when its list cannot be had, OpenRouter's alone. A model OpenCode lists no price for, such
+    // as Claude through a subscription login, gets Artificial Analysis's price, as its usage records do.
     listIntelligence: async () => {
       const [key, chat, deciders] = await Promise.all([getPriceKey(relayStore), listProjectModels(context), listProjectModels(context, 'decision')]);
       const seen = new Set<string>(), models = [...chat, ...deciders].filter(model => { const name = `${model.providerID}/${model.id}`; return !seen.has(name) && !!seen.add(name); });
-      const aa = key ? await aaModels(key) : null;
-      if (aa?.models.length) {
-        const scores = models.flatMap(model => { const hit = aaFor({ ...model, variant: null }, aa.models); return hit && hit.index !== null ? [{ providerID: model.providerID, id: model.id, index: hit.index, matched: hit.slug }] : []; });
-        return { directory: context.location.directory, source: AA_SOURCE, fetchedAt: aa.fetchedAt, note: aa.note, scores };
-      }
-      const found = await indexTable();
-      const scores = models.flatMap(model => { const hit = indexFor(model, found.table); return hit ? [{ providerID: model.providerID, id: model.id, index: hit.index, matched: hit.matched }] : []; });
-      return { directory: context.location.directory, source: INDEX_SOURCE, fetchedAt: found.fetchedAt, note: [aa?.note, found.note].filter(Boolean).join('; ') || null, scores };
+      const [aa, found] = await Promise.all([key ? aaModels(key) : null, indexTable()]), list = aa?.models ?? [];
+      const scores = models.flatMap(model => {
+        const asked = { ...model, variant: null }, hit = list.length ? aaFor(asked, list) : null, other = hit?.index == null ? indexFor(model, found.table) : null;
+        const prices = model.cost.inputPerMillion === null && model.cost.outputPerMillion === null ? aaPricesFor(asked, list) : null;
+        const index = hit?.index ?? other?.index ?? null;
+        if (index === null && prices === null) return [];
+        const from = hit?.index != null ? 'artificial-analysis' as const : other ? 'openrouter' as const : null;
+        return [{ providerID: model.providerID, id: model.id, index, matched: from === 'artificial-analysis' ? hit!.slug : other?.matched ?? null, from, prices }];
+      });
+      const source = list.length ? `${AA_SOURCE}; where its list has none, OpenRouter's copy of the same index` : INDEX_SOURCE;
+      return { directory: context.location.directory, source, fetchedAt: list.length ? aa!.fetchedAt : found.fetchedAt, note: [aa?.note, found.note].filter(Boolean).join('; ') || null, scores };
     },
     // Usage by model, for the panel and /relay-stats. Storage only, so the panel can ask every few seconds.
     getRelayUsage: async () => {
@@ -49,8 +54,9 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
     getUsageLog: async input => {
       const query = usageQueryOf(input), log = context.storage as unknown as LogStore;
       const removed = await pruneRecords(log, (options.now ?? Date.now)());
-      const [records, oldest, before] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore)]);
-      const summary = summarize(records, query);
+      const [kept, oldest, before, borrowed] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore), storedAaModels(relayStore)]);
+      // A record kept with no price, before a key was saved, is priced as it is read; nothing is written.
+      const records = priceFromList(kept, borrowed), summary = summarize(records, query);
       const credit = summary.totals.some(total => total.aaPriced) || before.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null;
       return { directory: context.location.directory, ...summary, first: oldest ?? summary.first, before, credit, removed };
     },

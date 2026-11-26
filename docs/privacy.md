@@ -8,6 +8,6 @@ To weigh a move and to show what a reply took, Relay reads the chat's token coun
 
 To show the intelligence index, Relay downloads OpenRouter's public model list, at most once a day. It sends no key and nothing about you or your models.
 
-If you save an Artificial Analysis key in the panel, Relay also downloads Artificial Analysis's free model list with it, at most once a day, for prices and the index. It sends the key and nothing else. The key is kept in OpenCode's plugin storage on your machine, sent only to Artificial Analysis, and never shown in the panel again. Remove deletes it. [Data sources](data-sources.md) has the details.
+If you save an Artificial Analysis key in the panel, Relay also downloads Artificial Analysis's free model list with it, at most once a day, for prices and the index; OpenRouter's list is still downloaded, without the key, for the models that list has no index for. It sends the key and nothing else. The key is kept in OpenCode's plugin storage on your machine, sent only to Artificial Analysis, and never shown in the panel again. Remove deletes it. [Data sources](data-sources.md) has the details.
 
 OpenCode makes every model request, with your OpenCode login. Relay never sees your API keys.

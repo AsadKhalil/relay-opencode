@@ -113,6 +113,11 @@ export function aaFor(model: { providerID: string; id: string; name: string; var
   return null;
 }
 
+/** OpenCode's free copies: `modelKey` reads them as the paid model, which is right for the index and wrong for a bill. */
+const isFreeCopy = (model: { id: string; name: string }) => /[-:]free$/i.test(model.id) || /\bfree\b/i.test(model.name);
+/** Artificial Analysis's prices for a model, as `aaFor` matches it; null for a free copy or no match. Callers lend them only where OpenCode lists none. */
+export const aaPricesFor = (model: Parameters<typeof aaFor>[0], models: readonly AaModel[]): Prices | null => isFreeCopy(model) ? null : aaFor(model, models)?.prices ?? null;
+
 const KEY_SHAPE = /^\S{8,200}$/;
 /** The saved key, or null. */
 export async function getPriceKey(store: Pick<Store, 'get'>): Promise<string | null> {

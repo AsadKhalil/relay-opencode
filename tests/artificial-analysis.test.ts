@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AA_LIST_URL, aaFor, fetchAaModels, getPriceKey, loadAaModels, parseAaPage, setPriceKey, storedAaModels } from '../src/artificial-analysis.js';
+import { AA_LIST_URL, aaFor, aaPricesFor, fetchAaModels, getPriceKey, loadAaModels, parseAaPage, setPriceKey, storedAaModels } from '../src/artificial-analysis.js';
 
 // Made-up models shaped like Artificial Analysis's free model list (fields as its key returned them on 19 Nov 2026; no copied data).
 const listed = (slug: string, name: string, creator = 'Z AI', released = '2026-08-01', extra: object = {}) => ({
@@ -95,4 +95,16 @@ test('the Coding index is kept, and a copy stored before it reads as null', asyn
   assert.equal(page.models[0].coding, 35);
   const old = { get: async () => ({ fetchedAt: new Date().toISOString(), models: [{ slug: 'm', name: 'M', creator: '', released: null, index: 40, prices: {} }] }) };
   assert.equal((await storedAaModels(old))[0].coding, null);
+});
+
+// 26 Nov: OpenCode lists its free copies (an id ending -free or :free, a name with Free) with no price, and modelKey reads them as the paid model.
+test('a free copy borrows no price: it shares the paid model’s index, not its bill', () => {
+  const { models } = parseAaPage(page([listed('deepseek-v4-1-flash', 'DeepSeek V4.1 Flash'), listed('claude-sonnet-5-5', 'Claude Sonnet 5.5 (Max)', 'Anthropic', '2026-09-28')], false));
+  const lent = (providerID: string, id: string, name = id) => aaPricesFor({ providerID, id, name, variant: null }, models)?.inputPerMillion ?? null;
+  assert.equal(lent('claude-agent', 'sonnet'), '1.5');
+  assert.equal(lent('opencode', 'deepseek-v4.1-flash'), '1.5');
+  assert.equal(lent('opencode', 'deepseek-v4.1-flash-free', 'DeepSeek V4.1 Flash Free'), null);
+  assert.equal(lent('openrouter', 'deepseek-v4.1-flash:free'), null);
+  assert.equal(lent('opencode', 'deepseek-v4.1-flash', 'DeepSeek V4.1 Flash Free'), null, 'a name that says Free');
+  assert.equal(aaFor({ providerID: 'opencode', id: 'deepseek-v4.1-flash-free', name: 'DeepSeek V4.1 Flash Free', variant: null }, models)?.slug, 'deepseek-v4-1-flash', 'its index is still the paid model’s');
 });

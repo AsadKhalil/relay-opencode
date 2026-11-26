@@ -8,8 +8,14 @@ import type { ModelChoice } from './settings.js';
 // What the Modes tab says in words. Pure, so it runs under node:test; the panel bundles it, so nothing here may import from `node:`.
 
 const usd = (value: string | null) => value === null ? 'not listed' : `$${value}`;
-/** A listed price of 0 can mean free or not known, so it is never called free. */
-export function priceLabel(cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>): string {
+type Borrowed = Pick<Prices, 'inputPerMillion' | 'outputPerMillion'> | null | undefined;
+type Cost = Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion'>;
+/** Artificial Analysis's price, only where OpenCode lists none at all: a $0 listing is OpenCode's own answer (`listIntelligence` in src/rpc.ts). */
+const lent = (cost: Cost, borrowed: Borrowed) => cost.inputPerMillion === null && cost.outputPerMillion === null && borrowed && (borrowed.inputPerMillion !== null || borrowed.outputPerMillion !== null) ? borrowed : null;
+/** A listed price of 0 can mean free or not known, so it is never called free. A borrowed price is the model's API price, which a subscription login does not pay. */
+export function priceLabel(cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>, borrowed?: Borrowed): string {
+  const api = lent(cost, borrowed);
+  if (api) return `${usd(api.inputPerMillion)} in / ${usd(api.outputPerMillion)} out per 1M tokens on the API (Artificial Analysis)`;
   const { inputPerMillion: input, outputPerMillion: output } = cost;
   if (input === null && output === null) return 'price not listed';
   if (input === '0' && output === '0') return '$0 or not listed';
@@ -23,8 +29,10 @@ export function cheapestFirst(a: { name: string; cost: Pick<ModelCostView, 'inpu
   return known(exact(a.cost.inputPerMillion), exact(b.cost.inputPerMillion)) || known(exact(a.cost.outputPerMillion), exact(b.cost.outputPerMillion)) || a.name.localeCompare(b.name);
 }
 
-/** A price in the model table, whose column header says it is per 1M tokens, input / output. */
-export function priceCell(cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>): string {
+/** A price in the model table, whose column header says it is per 1M tokens, input / output. A borrowed one is marked *, which `borrowedNote` explains. */
+export function priceCell(cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>, borrowed?: Borrowed): string {
+  const api = lent(cost, borrowed);
+  if (api) return `${usd(api.inputPerMillion)} / ${usd(api.outputPerMillion)}*`;
   const { inputPerMillion: input, outputPerMillion: output } = cost;
   if (input === null && output === null) return 'not listed';
   if (input === '0' && output === '0') return '$0 or not listed';
@@ -41,12 +49,26 @@ export function contextLabel(tokens: number): string {
 
 /** An intelligence index as the table shows it: one decimal at most, and a dash when no index was found for the model. */
 export const indexLabel = (index: number | null | undefined) => index === null || index === undefined ? '—' : String(Math.round(index * 10) / 10);
+export const borrowedNote = "* Artificial Analysis's price for the model on its maker's API: OpenCode lists none. With a Claude login your plan pays instead.";
 
-type TableModel = { providerID: string; id: string; name: string; cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion'>; limit: { context: number }; index?: number | null };
+/** The line under a chosen model, and under the decider: its price, its index and its context. */
+export function modelFacts(model: { cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>; limit: { context: number }; variants: readonly string[] }, score: { index: number | null; prices: Borrowed } | undefined): string {
+  const index = score?.index ?? null;
+  return [priceLabel(model.cost, score?.prices), index === null ? 'no index found' : `index ${indexLabel(index)}${model.variants.length ? ' at its highest effort' : ''}`,
+    model.limit.context > 0 ? `${contextLabel(model.limit.context)} context` : 'context not listed'].join(' · ');
+}
+/** The index cell's tip: whose list the index came from, and for which listed model. */
+export function indexTip(model: { matched: string | null; from: 'artificial-analysis' | 'openrouter' | null; variants: readonly string[] }): string {
+  if (model.matched === null || model.from === null) return 'No index found for this model';
+  return `Artificial Analysis, ${model.from === 'openrouter' ? "from OpenRouter's copy, " : ''}for ${model.matched}${model.variants.length ? ', at its highest effort' : ''}`;
+}
+
+type TableModel = { providerID: string; id: string; name: string; cost: Cost; limit: { context: number }; index?: number | null; borrowed?: Borrowed };
 export type TableOrder = 'provider' | 'price' | 'context' | 'index';
+const shown = (model: TableModel) => ({ name: model.name, cost: lent(model.cost, model.borrowed) ?? model.cost });
 const orders: Record<TableOrder, (a: TableModel, b: TableModel) => number> = {
   provider: (a, b) => a.providerID.localeCompare(b.providerID) || a.name.localeCompare(b.name),
-  price: cheapestFirst,
+  price: (a, b) => cheapestFirst(shown(a), shown(b)),
   context: (a, b) => b.limit.context - a.limit.context || a.name.localeCompare(b.name),
   index: (a, b) => (b.index ?? -1) - (a.index ?? -1) || a.name.localeCompare(b.name),
 };

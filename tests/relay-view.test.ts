@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cheapestFirst, checksLine, contextLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, ownChoiceNote, ownChoicePart, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
+import { cheapestFirst, checksLine, contextLabel, indexTip, modelFacts, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, ownChoiceNote, ownChoicePart, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
 import type { UsageRow } from '../src/relay-store.js';
 import { buildDecisionRequest, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS } from '../src/decider.js';
 
@@ -239,4 +239,34 @@ test('ownChoicePart names the part of each model, and ownChoiceNote says why a l
   assert.equal(ownChoiceNote({ kind: 'unranked', reason: 'no index for deep' }), "Relay can't rank this list: no index for deep. The first model is used.");
   assert.equal(ownChoiceNote(part), null);
   assert.equal(ownChoiceNote(null), null);
+});
+
+// 26 Nov: the owner's Claude login models read "price not listed" though Artificial Analysis's list, with their key, had their prices.
+const api = { inputPerMillion: '2', outputPerMillion: '10', cacheReadPerMillion: '0.2', cacheWritePerMillion: '2.5' };
+test("a model OpenCode lists no price for shows Artificial Analysis's API price, marked; OpenCode's own price always wins", () => {
+  const none = { inputPerMillion: null, outputPerMillion: null, tiered: false }, own = { inputPerMillion: '3', outputPerMillion: '15', tiered: false };
+  assert.equal(priceCell(none, api), '$2 / $10*');
+  assert.equal(priceCell(own, api), '$3 / $15');
+  assert.equal(priceCell(none, null), 'not listed');
+  assert.equal(priceLabel(none, api), '$2 in / $10 out per 1M tokens on the API (Artificial Analysis)');
+  assert.equal(priceLabel({ inputPerMillion: '0', outputPerMillion: '0', tiered: false }, api), '$0 or not listed', 'a $0 listing is OpenCode’s own answer');
+});
+
+test('under a chosen model: its price, its index and its context in one line', () => {
+  const model = { cost: { inputPerMillion: null, outputPerMillion: null, tiered: false }, limit: { context: 1_000_000 }, variants: ['low', 'high'] };
+  assert.equal(modelFacts(model, { index: 54.7, prices: api }), '$2 in / $10 out per 1M tokens on the API (Artificial Analysis) · index 54.7 at its highest effort · 1M context');
+  assert.equal(modelFacts({ ...model, cost: { inputPerMillion: '0.15', outputPerMillion: '0.5', tiered: false }, variants: [] }, { index: null, prices: null }), '$0.15 in / $0.5 out per 1M tokens · no index found · 1M context');
+  assert.equal(modelFacts({ ...model, limit: { context: 0 } }, undefined), 'price not listed · no index found · context not listed');
+});
+
+test("Cheapest first places a model by the price it shows, Artificial Analysis's too", () => {
+  const row = (id: string, input: string | null, borrowed: typeof api | null = null) => ({ providerID: 'p', id, name: id, cost: { inputPerMillion: input, outputPerMillion: input }, limit: { context: 0 }, borrowed });
+  const rows = [row('dear', '3'), row('sonnet', null, api), row('cheap', '1'), row('unknown', null)];
+  assert.deepEqual(modelRows(rows, { query: '', provider: '', order: 'price' }).map(model => model.id), ['cheap', 'sonnet', 'dear', 'unknown']);
+});
+
+test("the index cell's tip names where the index came from", () => {
+  assert.equal(indexTip({ matched: 'claude-sonnet-5-5', from: 'artificial-analysis', variants: ['low'] }), 'Artificial Analysis, for claude-sonnet-5-5, at its highest effort');
+  assert.equal(indexTip({ matched: 'moonshotai/kimi-k3', from: 'openrouter', variants: [] }), "Artificial Analysis, from OpenRouter's copy, for moonshotai/kimi-k3");
+  assert.equal(indexTip({ matched: null, from: null, variants: [] }), 'No index found for this model');
 });

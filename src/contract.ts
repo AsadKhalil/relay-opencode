@@ -107,7 +107,11 @@ export const RelayRpc = Rpc.define({
     /** The intelligence index of each listed model that could be matched, with where it came from, when it was fetched, and why it may be old or missing. */
     listIntelligence: { errors, input: nothing, output: { type: 'object', properties: {
       directory: { type: 'string' }, source: { type: 'string' }, fetchedAt: nullableString, note: nullableString,
-      scores: { type: 'array', items: { type: 'object', properties: { providerID: { type: 'string' }, id: { type: 'string' }, index: { type: 'number' }, matched: { type: 'string' } }, required: ['providerID', 'id', 'index', 'matched'], additionalProperties: false } },
+      // `matched` and `from` say where the index came from; `prices` are Artificial Analysis's, only for a model OpenCode lists no price for.
+      scores: { type: 'array', items: { type: 'object', properties: {
+        providerID: { type: 'string' }, id: { type: 'string' }, index: nullableNumber, matched: nullableString,
+        from: { anyOf: [{ type: 'string', enum: ['artificial-analysis', 'openrouter'] }, { type: 'null' }] }, prices: { anyOf: [priceList, { type: 'null' }] },
+      }, required: ['providerID', 'id', 'index', 'matched', 'from', 'prices'], additionalProperties: false } },
     }, required: ['directory', 'source', 'fetchedAt', 'note', 'scores'], additionalProperties: false } },
   },
 });

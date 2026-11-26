@@ -1,4 +1,4 @@
-import type { AaModel } from './artificial-analysis.js';
+import { aaPricesFor, type AaModel } from './artificial-analysis.js';
 import { agentOf, newestAnchors, replyOf } from './chat-facts.js';
 import { costOf, formatUsd, parseUsd, storedUsd } from './costs.js';
 import type { ListedModel } from './inventory.js';
@@ -38,7 +38,7 @@ export const logKey = (record: Pick<UsageRecord, 'at' | 'sessionID' | 'messageID
 const timeOfKey = (key: string) => key.slice(LOG_PREFIX.length).split('/', 1)[0] ?? '';
 
 /** Tokens times each kind's price (output with its reasoning), as Usage by model works them out; null when no kind has a price. */
-function priceTotal(total: Totals, prices: Prices | null): string | null {
+function priceTotal(total: Omit<Totals, 'costUsd'>, prices: Prices | null): string | null {
   const parts = [costOf(total.input, prices?.inputPerMillion ?? null), costOf(total.output + total.reasoning, prices?.outputPerMillion ?? null),
     costOf(total.cacheRead, prices?.cacheReadPerMillion ?? null), costOf(total.cacheWrite, prices?.cacheWritePerMillion ?? null)].filter((part): part is bigint => part !== null);
   return parts.length ? formatUsd(parts.reduce((sum, part) => sum + part, 0n)) : null;
@@ -56,6 +56,20 @@ export function buildRecords(messages: unknown, chat: { sessionID: string; proje
       cacheRead: total.cacheRead, cacheWrite: total.cacheWrite, costByPrice: priceTotal(total, reply.prices), openCodeUsd: total.costUsd, pricesFrom: reply.pricesFrom,
       relay: placed ? { mode: placed.mode, note: placed.note } : null,
     } satisfies UsageRecord];
+  });
+}
+
+/**
+ * The records as the tab shows them: one with no cost at all (no price when it was kept, and nothing charged by OpenCode) is priced with
+ * Artificial Analysis's stored list, as a new record would be. Nothing is written: a record kept before the key was saved stays as it was.
+ */
+export function priceFromList(records: readonly UsageRecord[], borrowed: readonly AaModel[]): UsageRecord[] {
+  return records.map(record => {
+    if (!borrowed.length || record.model === null || shownCost(record) !== null) return record;
+    const slash = record.model.indexOf('/'), hash = record.model.lastIndexOf('#'), id = record.model.slice(slash + 1, hash < 0 ? undefined : hash);
+    const prices = slash > 0 ? aaPricesFor({ providerID: record.model.slice(0, slash), id, name: id, variant: hash < 0 ? null : record.model.slice(hash + 1) }, borrowed) : null;
+    const costByPrice = priceTotal(record, prices);
+    return costByPrice === null ? record : { ...record, costByPrice, pricesFrom: 'artificial-analysis' };
   });
 }
 

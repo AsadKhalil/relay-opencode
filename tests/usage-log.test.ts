@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUsd } from '../src/costs.js';
 import { decisionsOf, type Decision } from '../src/relay-store.js';
-import { buildRecords, grown, KEEP_DAYS, LOG_PREFIX, logKey, pruneRecords, readRecords, saveRecords, shownCost, summarize, usageQueryOf, type LogStore, type UsageQuery, type UsageRecord } from '../src/usage-log.js';
+import { buildRecords, grown, priceFromList, KEEP_DAYS, LOG_PREFIX, logKey, pruneRecords, readRecords, saveRecords, shownCost, summarize, usageQueryOf, type LogStore, type UsageQuery, type UsageRecord } from '../src/usage-log.js';
 
 // Usage records (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). Messages are shaped as OpenCode 2.3 gives them from `session.context`.
 const user = (id: string, created: number) => ({ id, type: 'user', time: { created }, text: 'never read' });
@@ -247,4 +247,18 @@ test('a stored record with an impossible date is skipped, so the range still rea
   const found = await readRecords(store, iso(1000), iso(4000));
   assert.deepEqual(found.map(made => made.messageID), ['m3000']);
   assert.doesNotThrow(() => summarize(found, query({ from: iso(0), to: iso(86_400_000) })));
+});
+
+// 26 Nov: records kept before a key was saved stayed unpriced (12 of the owner's Claude replies).
+test('a record kept with no price is priced from Artificial Analysis’s list when read, unless OpenCode charged for it or it is a free copy', () => {
+  const prices = (input: string, output: string) => ({ inputPerMillion: input, outputPerMillion: output, cacheReadPerMillion: '0.2', cacheWritePerMillion: null });
+  const aa = [{ slug: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5 (Max)', creator: 'Anthropic', released: '2026-09-28', index: 54.7, coding: null, prices: prices('2', '10') },
+    { slug: 'deepseek-v4-1-flash', name: 'DeepSeek V4.1 Flash', creator: 'DeepSeek', released: '2026-10-17', index: null, coding: null, prices: prices('0.3', '1.2') }];
+  const sonnet = at('2026-11-23T10:00:00Z', { model: 'claude-agent/sonnet#high', input: 1_000_000, output: 50_000, reasoning: 50_000, cacheRead: 1_000_000, costByPrice: null, openCodeUsd: '0' });
+  const free = at('2026-11-23T11:00:00Z', { model: 'opencode/deepseek-v4.1-flash-free', costByPrice: null, openCodeUsd: '0' });
+  const charged = at('2026-11-23T12:00:00Z', { model: 'claude-agent/sonnet', costByPrice: null, openCodeUsd: '0.4' });
+  const [priced, ...rest] = priceFromList([sonnet, free, charged, kimi], aa);
+  assert.deepEqual([priced.costByPrice, priced.pricesFrom], ['3.2', 'artificial-analysis'], '1M in at $2, 0.1M out with reasoning at $10, 1M from cache at $0.20');
+  assert.deepEqual(rest, [free, charged, kimi]);
+  assert.deepEqual(priceFromList([sonnet], []), [sonnet], 'no list, no price');
 });

@@ -180,7 +180,7 @@ test('the index comes from one public list fetched at most once a day, and an ol
   };
   await registerRpc(ctx as never, { fetcher: (async () => { fetched++; return reply(); }) as typeof fetch, now: () => now });
   const first = await handlers.listIntelligence({});
-  assert.deepEqual(first.scores, [{ providerID: 'claude-agent', id: 'sonnet', index: 54.5, matched: 'anthropic/claude-sonnet-5.5' }, { providerID: 'ollama-cloud', id: 'glm-5.3', index: 61, matched: 'z-ai/glm-5.3' }]);
+  assert.deepEqual(first.scores, [{ providerID: 'claude-agent', id: 'sonnet', index: 54.5, matched: 'anthropic/claude-sonnet-5.5', from: 'openrouter', prices: null }, { providerID: 'ollama-cloud', id: 'glm-5.3', index: 61, matched: 'z-ai/glm-5.3', from: 'openrouter', prices: null }]);
   assert.deepEqual([first.directory, first.fetchedAt, first.note, fetched], ['/repo', '2026-11-18T08:00:00.000Z', null, 1]);
   assert.match(first.source, /Artificial Analysis/);
   assert.deepEqual(fits(RelayRpc.methods.listIntelligence.output, first), []);
@@ -223,27 +223,34 @@ test('usage by model and the price key fit what they declare, and no call return
   assert.equal((await one.getRelay({})).priceKey, false);
 });
 
-test("with a saved key the index is Artificial Analysis's; when it refuses the key, OpenRouter's with a note, and the key never goes to OpenRouter", async () => {
+test("with a saved key the index is Artificial Analysis's, else OpenRouter's, and its price goes to a model OpenCode lists none for; when it refuses the key, OpenRouter's with a note, and the key never goes to OpenRouter", async () => {
   const records = new Map<string, unknown>([['relay/aa-key', KEY]]), headers: { url: string; key: string | null }[] = [];
-  const model = (providerID: string, id: string, name: string) => ({ providerID, id, name, enabled: true, status: 'active', variants: [], capabilities: { input: ['text'], output: ['text'], tools: true }, limit: { context: 100, output: 10 } });
+  const model = (providerID: string, id: string, name: string, input?: number) => ({ providerID, id, name, enabled: true, status: 'active', variants: [], capabilities: { input: ['text'], output: ['text'], tools: true }, limit: { context: 100, output: 10 }, cost: input === undefined ? [] : [{ input, output: 4.4 }] });
   let aaStatus = 200, handlers: any;
   const fetcher = (async (url: string, init?: RequestInit) => {
     headers.push({ url, key: new Headers(init?.headers).get('x-api-key') });
-    if (url.startsWith(AA_LIST_URL)) return new Response(JSON.stringify(aaPage([{ slug: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5 (Max)', creator: 'Anthropic', index: 50 }, { slug: 'glm-5-3', name: 'GLM-5.3', creator: 'Z AI', index: 30 }])), { status: aaStatus });
-    return new Response(JSON.stringify({ data: [{ id: 'z-ai/glm-5.3', benchmarks: { artificial_analysis: { intelligence_index: 61 } } }] }));
+    if (url.startsWith(AA_LIST_URL)) return new Response(JSON.stringify({ ...aaPage([{ slug: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5 (Max)', creator: 'Anthropic', index: 50 }, { slug: 'glm-5-3', name: 'GLM-5.3', creator: 'Z AI', index: 30 }]), data: [...aaPage([{ slug: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5 (Max)', creator: 'Anthropic', index: 50 }, { slug: 'glm-5-3', name: 'GLM-5.3', creator: 'Z AI', index: 30 }]).data, { slug: 'kimi-k3', name: 'Kimi K3', model_creator: { name: 'Moonshot' }, evaluations: {}, pricing: { price_1m_input_tokens: 3, price_1m_output_tokens: 15 } }] }), { status: aaStatus });
+    return new Response(JSON.stringify({ data: [{ id: 'z-ai/glm-5.3', benchmarks: { artificial_analysis: { intelligence_index: 61 } } }, { id: 'moonshotai/kimi-k3', benchmarks: { artificial_analysis: { intelligence_index: 17.4 } } }] }));
   }) as unknown as typeof fetch;
   await registerRpc({
     location: { directory: '/repo' },
     storage: { async get(key: string) { return structuredClone(records.get(key)); }, async set(key: string, value: unknown) { records.set(key, structuredClone(value)); }, async remove(key: string) { records.delete(key); } },
-    model: { async list(input: { types?: string[] }) { return { data: input.types?.[0] === 'decision' ? [] : [model('claude-agent', 'sonnet', 'Sonnet'), model('ollama-cloud', 'glm-5.3', 'GLM-5.3'), model('local', 'llama', 'Llama Local')] }; } },
+    model: { async list(input: { types?: string[] }) { return { data: input.types?.[0] === 'decision' ? [] : [model('claude-agent', 'sonnet', 'Sonnet'), model('ollama-cloud', 'glm-5.3', 'GLM-5.3', 1.4), model('opencode-go', 'kimi-k3', 'Kimi K3', 3), model('opencode', 'glm-5.3-free', 'GLM-5.3 Free'), model('local', 'llama', 'Llama Local')] }; } },
     rpc: { async register(_definition: unknown, h: unknown) { handlers = asClient(h); return { async dispose() {} }; } },
   } as never, { fetcher, now: () => Date.parse('2026-11-19T08:00:00Z') });
   const fromAa = await handlers.listIntelligence({});
-  assert.deepEqual([fromAa.source, fromAa.note, fromAa.scores], [AA_SOURCE, null, [{ providerID: 'claude-agent', id: 'sonnet', index: 50, matched: 'claude-sonnet-5-5' }, { providerID: 'ollama-cloud', id: 'glm-5.3', index: 30, matched: 'glm-5-3' }]]);
+  const api = { inputPerMillion: '2', outputPerMillion: '10', cacheReadPerMillion: '0.1', cacheWritePerMillion: '2.5' };
+  assert.match(fromAa.source, /^Artificial Analysis Intelligence Index, from Artificial Analysis; .*OpenRouter/);
+  assert.deepEqual([fromAa.note, fromAa.scores], [null, [
+    { providerID: 'claude-agent', id: 'sonnet', index: 50, matched: 'claude-sonnet-5-5', from: 'artificial-analysis', prices: api },
+    { providerID: 'ollama-cloud', id: 'glm-5.3', index: 30, matched: 'glm-5-3', from: 'artificial-analysis', prices: null },
+    { providerID: 'opencode-go', id: 'kimi-k3', index: 17.4, matched: 'moonshotai/kimi-k3', from: 'openrouter', prices: null },
+    { providerID: 'opencode', id: 'glm-5.3-free', index: 30, matched: 'glm-5-3', from: 'artificial-analysis', prices: null },
+  ]], 'OpenCode prices GLM-5.3 and Kimi K3; a free copy borrows no price; Kimi K3 has no index in that list');
   assert.deepEqual(fits(RelayRpc.methods.listIntelligence.output, fromAa), []);
   records.delete('relay/aa-models'); aaStatus = 401;
   const fallback = await handlers.listIntelligence({});
-  assert.deepEqual([fallback.source.includes('OpenRouter'), fallback.note, fallback.scores.map((score: { id: string; index: number }) => [score.id, score.index])], [true, 'could not load the list from Artificial Analysis: the key was refused', [['glm-5.3', 61]]]);
+  assert.deepEqual([fallback.source.includes('OpenRouter'), fallback.note, fallback.scores.map((score: { id: string; index: number }) => [score.id, score.index])], [true, 'could not load the list from Artificial Analysis: the key was refused', [['glm-5.3', 61], ['kimi-k3', 17.4], ['glm-5.3-free', 61]]]);
   assert.deepEqual(headers.filter(asked => !asked.url.startsWith(AA_LIST_URL)).map(asked => asked.key), [null], 'OpenRouter is asked without the key');
   assert.equal(headers.filter(asked => asked.url.startsWith(AA_LIST_URL)).every(asked => asked.key === KEY), true);
 });
