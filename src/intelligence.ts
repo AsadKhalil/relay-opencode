@@ -58,6 +58,21 @@ export function findModel<T>(table: ReadonlyMap<string, T | null>, names: readon
   return null;
 }
 
+/**
+ * A model's family and version, from its name: "claude-sonnet-5-5" is claude-sonnet 5.5. A number glued to a word ("k3", "qwen3") is version,
+ * a size ("31b") stays in the family, and a date is neither. For the index hint only (`indexHint` in src/standings.ts), never for a match.
+ */
+export function familyOf(text: string): { family: string; version: number[] } {
+  const words: string[] = [], version: number[] = [];
+  for (const part of dateless(modelKey(text)).split('-').filter(Boolean)) {
+    const glued = /^([a-z]+)(\d+)$/.exec(part);
+    if (/^\d+$/.test(part)) version.push(Number(part));
+    else if (glued) { words.push(glued[1]!); version.push(Number(glued[2])); }
+    else words.push(part);
+  }
+  return { family: words.join('-'), version };
+}
+
 /** OpenRouter's prices are USD a token, as text; a million tokens' worth, exactly. "-1" (the price varies) and anything odd are unknown. */
 function perMillion(value: unknown): string | null {
   if (typeof value !== 'string' || !/^\d+(\.\d+)?$/.test(value)) return null;

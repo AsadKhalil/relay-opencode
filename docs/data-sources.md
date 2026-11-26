@@ -31,3 +31,12 @@ Since 19 Nov 2026, with an Artificial Analysis key saved in the panel, Relay dow
 - **Credit.** Artificial Analysis asks for a visible credit wherever its data is shown. Relay shows "Prices and index: Artificial Analysis (artificialanalysis.ai)" in the Relay usage tab and in `/relay-stats`, and names it as the index's source.
 
 The older pipeline's optional OpenRouter price catalog and its separate Artificial Analysis panel, which needed a key, were removed on 17 Nov 2026.
+
+## The hint for a model with no index
+
+Since 26 Nov 2026 a model that neither list scores gets a hint, made by `indexHint` in `src/standings.ts` from the scored models of both lists (Artificial Analysis's plain entries, its highest effort, then OpenRouter's). It is shown only, and never used to rank.
+
+- **Family.** A model's family is its name without its version numbers (`familyOf` in `src/intelligence.ts`): `claude-sonnet-5-5` is claude-sonnet 5.5, `kimi-k2.6` is kimi-k 2.6, `gemma4:31b` is gemma-31b 4 (a size stays in the family), and a date is neither. A scored newer version gives "likely below" its score (the nearest newer one, the closest bound), a scored older one "likely above", both "between". Checked on 26 Nov 2026 on the 95 models with an index in both lists: in 9 of 9 version steps the newer version scored higher, by 2.6 to 29.1 points, and a bound made this way was on the right side for 23 of 26 models.
+- **Price.** Else, the models at about its price: a typical request (three parts input to one part output) within half again either way, compared exactly. With five or more, the hint is the middle half of their scores. On the same check the real index was inside that range for 39 of 69 models, and the range was about 20 points wide: a rough guide, and it says so.
+- **None.** Else the reason: a decision model (the index does not score them), a free model ($0 says nothing of its strength), no price, or fewer than five models at its price.
+- On the owner's 123 models on 26 Nov 2026, the 52 with no index got 10 family hints, 20 price hints and 22 reasons.

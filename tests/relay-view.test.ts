@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { borrowedNote, priceTip, cheapestFirst, checksLine, contextLabel, indexTip, modelFacts, RELAY_VERSION, versionLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, ownChoiceNote, ownChoicePart, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
+import { borrowedNote, hintCell, hintText, priceTip, cheapestFirst, checksLine, contextLabel, indexTip, modelFacts, RELAY_VERSION, versionLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, ownChoiceNote, ownChoicePart, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
 import type { UsageRow } from '../src/relay-store.js';
 import { buildDecisionRequest, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS } from '../src/decider.js';
 
@@ -295,4 +295,30 @@ test('under a chosen model: the index of its own effort when there is one, and a
 test('the panel shows which Relay it is, as one short label', () => {
   assert.match(RELAY_VERSION, /^\d+\.\d+\.\d+$/);
   assert.equal(versionLabel, `Relay v${RELAY_VERSION}`);
+});
+
+// The hint for a model with no index (owner, 26 Nov): short in the table, a sentence under a chosen model; always marked as not a score.
+const hint = (part: Partial<Parameters<typeof hintCell>[0] & object>) => ({ kind: 'none' as const, low: null, high: null, older: null, newer: null, count: 0, reason: null, ...part });
+test('a hint reads as a bound or a range in the table, and never as a score', () => {
+  assert.deepEqual([
+    hintCell(hint({ kind: 'family', high: 54.7, newer: 'claude-sonnet-5-5' })), hintCell(hint({ kind: 'family', low: 44.2, older: 'claude-opus-5' })),
+    hintCell(hint({ kind: 'family', low: 44.1, high: 57.3 })), hintCell(hint({ kind: 'price', low: 22.4, high: 35.1, count: 14 })), hintCell(hint({ reason: 'free' })), hintCell(null),
+  ], ['<54.7', '>44.2', '44.1–57.3', '≈22.4–35.1', '—', '—']);
+});
+
+test('a hint says where it comes from, or why there is none', () => {
+  assert.equal(hintText(hint({ kind: 'family', high: 54.7, newer: 'claude-sonnet-5-5' })), 'no index; likely below 54.7, the score of the newer claude-sonnet-5-5');
+  assert.equal(hintText(hint({ kind: 'family', low: 44.2, older: 'claude-opus-5' })), 'no index; likely above 44.2, the score of the older claude-opus-5');
+  assert.equal(hintText(hint({ kind: 'family', low: 44.1, high: 57.3, older: 'gpt-6-sol', newer: 'gpt-6-2-sol' })), 'no index; likely between 44.1 and 57.3, the scores of the older gpt-6-sol and the newer gpt-6-2-sol');
+  assert.equal(hintText(hint({ kind: 'price', low: 22.4, high: 35.1, count: 14 })), 'no index; half of the 14 scored models at about its price score 22.4 to 35.1');
+  assert.deepEqual(['free', 'decision', 'no-price', 'few-peers'].map(reason => hintText(hint({ reason: reason as 'free' }))), [
+    'no index: no list scores this free model, and $0 says nothing of its strength', 'no index: the index does not score decision models',
+    'no index: no price and no scored version to compare it with', 'no index: too few scored models at about its price to compare it with',
+  ]);
+  assert.equal(hintText(null), 'no index found');
+});
+
+test('under a chosen model with no index, the line gives the hint', () => {
+  const model = { cost: { inputPerMillion: '3', outputPerMillion: '15', tiered: false }, limit: { context: 200_000 }, variants: [] };
+  assert.equal(modelFacts(model, { index: null, prices: null, hint: hint({ kind: 'family', high: 54.7, newer: 'claude-sonnet-5-5' }) }), '$3 in / $15 out per 1M tokens · no index; likely below 54.7, the score of the newer claude-sonnet-5-5 · 200K context');
 });

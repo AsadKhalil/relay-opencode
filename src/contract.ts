@@ -114,7 +114,12 @@ export const RelayRpc = Rpc.define({
         from: { anyOf: [{ type: 'string', enum: ['artificial-analysis', 'openrouter'] }, { type: 'null' }] }, prices: { anyOf: [priceList, { type: 'null' }] },
         pricesFrom: { anyOf: [{ type: 'string', enum: ['artificial-analysis', 'openrouter', 'free'] }, { type: 'null' }] }, context: nullableNumber,
         efforts: { type: 'array', items: { type: 'object', properties: { variant: { type: 'string' }, index: { type: 'number' } }, required: ['variant', 'index'], additionalProperties: false } },
-      }, required: ['providerID', 'id', 'index', 'matched', 'from', 'prices', 'pricesFrom', 'context', 'efforts'], additionalProperties: false } },
+        // For a model with no index only, and only to read (`indexHint` in src/standings.ts).
+        hint: { anyOf: [{ type: 'null' }, { type: 'object', properties: {
+          kind: { type: 'string', enum: ['family', 'price', 'none'] }, low: nullableNumber, high: nullableNumber, older: nullableString, newer: nullableString, count: { type: 'number' },
+          reason: { anyOf: [{ type: 'string', enum: ['free', 'decision', 'no-price', 'few-peers'] }, { type: 'null' }] },
+        }, required: ['kind', 'low', 'high', 'older', 'newer', 'count', 'reason'], additionalProperties: false }] },
+      }, required: ['providerID', 'id', 'index', 'matched', 'from', 'prices', 'pricesFrom', 'context', 'efforts', 'hint'], additionalProperties: false } },
     }, required: ['directory', 'source', 'fetchedAt', 'note', 'scores'], additionalProperties: false } },
   },
 });

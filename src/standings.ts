@@ -1,6 +1,6 @@
 import { aaEffortFor, aaFor, aaPricesFor, isFreeCopy, storedAaModels, type AaModel } from './artificial-analysis.js';
-import { pricesAt } from './costs.js';
-import { openRouterFor, storedIndexTable, type IndexTable } from './intelligence.js';
+import { parseUsd, pricesAt } from './costs.js';
+import { familyOf, modelKey, openRouterFor, storedIndexTable, type IndexTable } from './intelligence.js';
 import type { ListedModel, ModelCostView } from './inventory.js';
 import { OWN_REPLIES, type Standing, type Standings } from './ranking.js';
 import { getUsage, modelName, type Prices, type RelayStore, type UsageRow } from './relay-store.js';
@@ -59,6 +59,62 @@ export function factsOf(model: { providerID: string; id: string; name: string; c
     index: plain?.index ?? other?.index ?? null, coding: aaFor(asked, lists.aa, listed => listed.coding !== null)?.coding ?? null,
     indexFrom: plain ? 'artificial-analysis' : other ? 'openrouter' : null, matched: plain?.slug ?? other?.id ?? null, ownEffort: !!effort || (!!plain && variant === 'max'),
   };
+}
+
+/**
+ * What the panel says of a model with no index; never used to rank (owner, 26 Nov 2026: "a hint for all models and provider according to the
+ * latest version of that model or according to parameters"). Tried in order:
+ * - family: its scored newer or older versions (`familyOf`), as a bound; a newer version scored higher in 9 of 9 steps checked on 26 Nov;
+ * - price: the middle half of the scores of models at about its price (blended 3 in : 1 out, within half again), with five or more of them;
+ * - none, with the reason: a decision model, a free model, no price, or too few models at its price.
+ */
+export type IndexHint = { kind: 'family' | 'price' | 'none'; low: number | null; high: number | null; older: string | null; newer: string | null; count: number; reason: 'free' | 'decision' | 'no-price' | 'few-peers' | null };
+type Scored = { name: string; index: number; blended: bigint | null; family: string; version: number[] };
+const EFFORT_SLUG = /-(minimal|low|medium|high|xhigh|max|non-reasoning|reasoning)$/;
+/** A typical request's price, in a form that compares exactly: three parts input to one part output. Null when either is unknown, or both are $0. */
+const blendOf = (prices: Prices | null): bigint | null => {
+  if (prices?.inputPerMillion == null || prices.outputPerMillion == null) return null;
+  const blended = 3n * parseUsd(prices.inputPerMillion) + parseUsd(prices.outputPerMillion);
+  return blended > 0n ? blended : null;
+};
+const scoredCache = new WeakMap<readonly AaModel[], WeakMap<IndexTable, Scored[]>>();
+/** Every scored model both lists hold, once: Artificial Analysis's plain entries (its highest effort) first, then OpenRouter's. */
+function scoredOf(lists: Pick<Stored, 'aa' | 'table'>): Scored[] {
+  const byTable = scoredCache.get(lists.aa) ?? new WeakMap<IndexTable, Scored[]>();
+  scoredCache.set(lists.aa, byTable);
+  const cached = byTable.get(lists.table);
+  if (cached) return cached;
+  const found = new Map<string, Scored>();
+  const add = (name: string, index: number, prices: Prices | null) => { const key = modelKey(name); if (key && !found.has(key)) found.set(key, { name, index, blended: blendOf(prices), ...familyOf(name) }); };
+  for (const listed of lists.aa) if (listed.index !== null && !EFFORT_SLUG.test(listed.slug)) add(listed.slug, listed.index, listed.prices);
+  for (const listed of lists.table.values()) if (listed.index !== null) add(listed.id, listed.index, listed.prices);
+  const scored = [...found.values()];
+  byTable.set(lists.table, scored);
+  return scored;
+}
+const compareVersions = (a: readonly number[], b: readonly number[]) => { for (let at = 0; at < Math.max(a.length, b.length); at++) { const d = (a[at] ?? -1) - (b[at] ?? -1); if (d) return d; } return 0; };
+const tenth = (value: number) => Math.round(value * 10) / 10;
+const quartile = (sorted: readonly number[], at: number) => { const place = (sorted.length - 1) * at, low = Math.floor(place); return sorted[low]! + (sorted[Math.min(low + 1, sorted.length - 1)]! - sorted[low]!) * (place - low); };
+
+/** The hint for `model` (see `IndexHint`), or null when it has an index. `decision` is a decision model, which the index does not score. */
+export function indexHint(model: { id: string; name: string }, facts: Pick<Facts, 'index' | 'prices' | 'pricesFrom'>, lists: Pick<Stored, 'aa' | 'table'>, decision = false): IndexHint | null {
+  if (facts.index !== null) return null;
+  const none = (reason: NonNullable<IndexHint['reason']>): IndexHint => ({ kind: 'none', low: null, high: null, older: null, newer: null, count: 0, reason });
+  if (decision) return none('decision');
+  const scored = scoredOf(lists), mine = [familyOf(model.id), familyOf(model.name)].find(found => found.version.length);
+  if (mine) {
+    const relatives = scored.filter(other => other.family === mine.family && other.version.length && compareVersions(other.version, mine.version) !== 0);
+    const older = relatives.filter(other => compareVersions(other.version, mine.version) < 0).sort((a, b) => compareVersions(b.version, a.version))[0];
+    const newer = relatives.filter(other => compareVersions(other.version, mine.version) > 0).sort((a, b) => compareVersions(a.version, b.version))[0];
+    if (older || newer) return { kind: 'family', low: older?.index ?? null, high: newer?.index ?? null, older: older?.name ?? null, newer: newer?.name ?? null, count: 0, reason: null };
+  }
+  if (facts.pricesFrom === 'free' || isFreeCopy(model)) return none('free');
+  const blended = blendOf(facts.prices);
+  if (blended === null) return none('no-price');
+  // Within half again either way, in exact arithmetic: 2/3 of the price ≤ a peer's ≤ 3/2 of it.
+  const peers = scored.flatMap(other => other.blended !== null && 3n * other.blended >= 2n * blended && 2n * other.blended <= 3n * blended ? [other.index] : []).sort((a, b) => a - b);
+  if (peers.length < 5) return none('few-peers');
+  return { kind: 'price', low: tenth(quartile(peers, 0.25)), high: tenth(quartile(peers, 0.75)), older: null, newer: null, count: peers.length, reason: null };
 }
 
 /** Each choice's standing, by `modelName(choice)`: its facts (`factsOf`) at its effort, and the output its own replies take a request. */

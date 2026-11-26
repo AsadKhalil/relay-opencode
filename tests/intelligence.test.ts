@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchIndexTable, findModel, indexFor, indexTable, loadIndexTable, modelKey, openRouterFor, storedIndexTable } from '../src/intelligence.js';
+import { familyOf, fetchIndexTable, findModel, indexFor, indexTable, loadIndexTable, modelKey, openRouterFor, storedIndexTable } from '../src/intelligence.js';
 
 const entry = (id: string, index: number | null, extra: Record<string, unknown> = {}) => ({ id, canonical_slug: id, name: id, benchmarks: { artificial_analysis: { intelligence_index: index } }, ...extra });
 const body = { data: [
@@ -104,4 +104,14 @@ test('a copy stored before 26 Nov is read, and refreshed at once for its prices'
   assert.deepEqual([fetched, found.table.get('glm-5-3')?.prices?.inputPerMillion, found.table.get('glm-5-3')?.context], [1, '1.4', 1000000]);
   const again = await loadIndexTable(store, fetcher, Date.parse('2026-11-26T09:00:00Z'));
   assert.deepEqual([fetched, again.table.get('glm-5-3')?.prices?.outputPerMillion], [1, '4.4'], 'the new copy is kept, prices and all');
+});
+
+test('a family is the name without its version: numbers glued to a word are version, a size stays in the family', () => {
+  assert.deepEqual(familyOf('claude-sonnet-5-5'), { family: 'claude-sonnet', version: [5, 5] });
+  assert.deepEqual(familyOf('claude-haiku-4-5-20251001'), { family: 'claude-haiku', version: [4, 5] }, 'a date is not a version');
+  assert.deepEqual(familyOf('Kimi K2.6'), { family: 'kimi-k', version: [2, 6] });
+  assert.deepEqual(familyOf('qwen3.7-plus'), { family: 'qwen-plus', version: [3, 7] });
+  assert.deepEqual(familyOf('gemma4:31b'), { family: 'gemma-31b', version: [4] }, 'another size is another model');
+  assert.deepEqual(familyOf('anthropic/claude-opus-4.8'), { family: 'claude-opus', version: [4, 8] });
+  assert.deepEqual(familyOf('big-pickle'), { family: 'big-pickle', version: [] });
 });

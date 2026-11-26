@@ -1536,3 +1536,13 @@ The owner asked for prices, context and the index for all models and providers, 
 - Matches below the exact step, each checked by hand: `claude-haiku-4-5-20251001` to Artificial Analysis's `claude-4-5-haiku` (word order) and OpenRouter's `anthropic/claude-haiku-4.5` (date); `qwen3.8-max` to `qwen/qwen3.8-max-0902` (date); `deepseek-v4.1-flash` (named "DeepSeek V4.1 Flash 1017") to `deepseek-v4-1-flash-1017` for its index.
 - Also: the smoke on the stock 2.3.0 CLI passed with the packed 0.2.2 build. Four checks: typecheck, 318 tests, build, package (48 files, 115.8 kB). Each new rule was broken once to see a test fail (13 of 13).
 - Not tested: the panel itself in Desktop (the owner's copy is `43dd264`), the version label's place beside Refresh on screen, and providers the owner has not connected (OpenAI or Anthropic API keys, Google, OpenRouter as a provider, local models). The matching names no provider, and a test covers a provider Relay has never seen.
+
+## 2026-11-26 (evening) — A hint for every model with no index (Windows 11; the owner's lists, read-only; Relay 0.2.2 not installed)
+
+The owner asked for a hint for every model and provider, from the latest version of a model or from its parameters. Read-only: Relay's stored Artificial Analysis list (from a copy of OpenCode's database, deleted after), OpenRouter's public list, and one more `model.list` call to the owner's service for `relay-bench` (display fields only).
+
+- First a check of the idea on the 95 models with an index in either list: a guess from the nearest version of the same family was off by 10.6 points on average (median 5.3, worst 29.1), so no number is guessed. The direction held, though: the newer version scored higher in 9 of 9 steps. So a family gives a bound ("likely below the newer one's score"), right for 23 of 26. Models at about the same price gave a range that held the real index for 39 of 69, about 20 points wide.
+- Same model on other providers: already shared by its name; none of the owner's 52 no-index models had an indexed twin on another provider.
+- On the owner's 123 models through the panel's own call: 52 have no index; 10 get a family bound (Claude Sonnet 5 and Sonnet 4.6 below 54.7, Opus 4.6 to 4.8 below 44.2, Fable 5 below 49.3, GLM-5.2 below 31.6, Hy3 below 34.6, Kimi K2.6 below 17.4, MiniMax M2.7 below 19), 20 a price range (GPT-5.5 about 47.4 to 61.2, GPT-5.4 Mini 23.1 to 33.9), and 22 the reason there is none (10 free, 9 decision models, 2 too few models at their price, 1 no price).
+- Doubtful: Kimi K2.6's bound uses OpenRouter's 17.4 for Kimi K3, which looks like a low effort's score; a bound is only as good as the score it leans on.
+- Not tested: the panel in Desktop (the owner's copy is `43dd264`).

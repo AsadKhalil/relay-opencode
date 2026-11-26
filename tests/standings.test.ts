@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { AaModel } from '../src/artificial-analysis.js';
 import type { ListedModel } from '../src/inventory.js';
 import type { UsageRow } from '../src/relay-store.js';
-import { factsOf, readStored, standingsOf } from '../src/standings.js';
+import { factsOf, indexHint, readStored, standingsOf } from '../src/standings.js';
 import { indexTable, type IndexTable } from '../src/intelligence.js';
 
 const pick = (providerID: string, id: string, variant: string | null = null) => ({ providerID, id, variant });
@@ -115,4 +115,34 @@ test('every effort: its own index where Artificial Analysis lists it, else the h
   assert.deepEqual(['low', 'high', 'xhigh', 'max'].map(effort => brief('sonnet', effort).slice(4)), [['artificial-analysis', 54.7, false], ['artificial-analysis', 41.5, true], ['artificial-analysis', 54.7, false], ['artificial-analysis', 54.7, true]]);
   assert.deepEqual(['low', 'high'].map(effort => brief('kimi', effort).slice(4)), [['openrouter', 17.4, false], ['openrouter', 17.4, false]], 'OpenRouter has one index a model');
   assert.deepEqual(['low', 'max'].map(effort => brief('sonnet', effort).slice(0, 2)), [['artificial-analysis', '2'], ['artificial-analysis', '2']], 'one price at every effort');
+});
+
+// The hint is for a model with no index, and only for reading: Relay's own choice never ranks by it (`standingsOf` has no hint).
+const scoredAa = [
+  { ...aaEntry('claude-sonnet-5-5', 'Claude Sonnet 5.5 (Max)', 54.7, null, usd('2', '10')), creator: 'Anthropic', released: '2026-09-28' },
+  aaEntry('claude-sonnet-5-5-low', 'Claude Sonnet 5.5 (Low)', 25.6, null, usd('2', '10')),
+  aaEntry('gpt-6-sol', 'GPT-6 Sol (Max)', 44.1, null, usd('2', '10')), aaEntry('gpt-6-2-sol', 'GPT-6.2 Sol (Max)', 57.3, null, usd('2', '10')),
+  aaEntry('model-a', 'A', 20, null, usd('1', '4')), aaEntry('model-b', 'B', 24, null, usd('1.2', '4')), aaEntry('model-c', 'C', 30, null, usd('0.9', '3.6')),
+  aaEntry('model-d', 'D', 36, null, usd('1', '5')), aaEntry('model-e', 'E', 40, null, usd('1.1', '4.4')), aaEntry('model-f', 'F', 60, null, usd('30', '180')), aaEntry('model-g', 'G', 50, null, usd('2', '5')),
+];
+const hintOf = (model: Parameters<typeof factsOf>[0], decision = false) => indexHint(model, factsOf(model, null, { aa: scoredAa, table: new Map() }), { aa: scoredAa, table: new Map() }, decision);
+const none = { low: null, high: null, older: null, newer: null, count: 0 };
+
+test('a hint from the family: below its newest scored version, above an older one, or between two', () => {
+  assert.deepEqual(hintOf(offered('claude-agent', 'claude-sonnet-5', 'Sonnet 5', cost(null, null), 1000000)), { kind: 'family', low: null, high: 54.7, older: null, newer: 'claude-sonnet-5-5', count: 0, reason: null });
+  assert.deepEqual(hintOf(offered('anthropic', 'claude-sonnet-6', 'Claude Sonnet 6', cost('3', '15'), 1000000)), { kind: 'family', low: 54.7, high: null, older: 'claude-sonnet-5-5', newer: null, count: 0, reason: null }, 'a newer version than any scored');
+  assert.deepEqual(hintOf(offered('opencode', 'gpt-6.1-sol', 'GPT-6.1 Sol', cost('2', '10'), 1050000)), { kind: 'family', low: 44.1, high: 57.3, older: 'gpt-6-sol', newer: 'gpt-6-2-sol', count: 0, reason: null });
+  assert.equal(hintOf(offered('opencode', 'claude-sonnet-5-5', 'Claude Sonnet 5.5', cost('2', '10'), 1000000)), null, 'a model with an index needs no hint');
+  assert.deepEqual(hintOf(offered('p', 'gpt-5.9-sol', 'GPT-5.9 Sol', cost('2', '10'), 1050000))?.newer, 'gpt-6-sol', 'the nearest newer version, the closest bound');
+});
+
+test('else from models at about its price: the middle half of their scores, with how many there are', () => {
+  assert.deepEqual(hintOf(offered('p', 'mystery-1', 'Mystery 1', cost('1', '4'), 100000)), { kind: 'price', low: 24, high: 36, older: null, newer: null, count: 5, reason: null }, 'five models within half again of its price; G, at  in and  out, is just past it');
+  assert.deepEqual(hintOf(offered('p', 'mystery-2', 'Mystery 2', cost('10', '40'), 100000)), { kind: 'none', ...none, reason: 'few-peers' });
+});
+
+test('else the reason there is none: a free model, a decision model, or no price', () => {
+  assert.deepEqual(hintOf(offered('opencode', 'seaglass-alpha-free', 'Seaglass Alpha Free', cost('0', '0'), 1000000)), { kind: 'none', ...none, reason: 'free' });
+  assert.deepEqual(hintOf(offered('opencode', 'jev-1.14', 'Jev 1.14', cost('0.042', '0'), 64000), true), { kind: 'none', ...none, reason: 'decision' });
+  assert.deepEqual(hintOf(offered('opencode', 'big-pickle', 'Big Pickle', cost('0', '0'), 200000)), { kind: 'none', ...none, reason: 'no-price' });
 });

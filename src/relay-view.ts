@@ -4,6 +4,7 @@ import { modeLabel } from './router.js';
 import { MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS, MAX_TASK_CHARS } from './decider.js';
 import { costOf, formatUsd, parseUsd } from './costs.js';
 import type { ModelChoice } from './settings.js';
+import type { IndexHint } from './standings.js';
 
 // What the Modes tab says in words. Pure, so it runs under node:test; the panel bundles it, so nothing here may import from `node:`.
 
@@ -65,13 +66,34 @@ export const priceTip = (borrowed: Borrowed) => !borrowed?.from ? undefined : bo
 export const RELAY_VERSION = '0.2.2';
 export const versionLabel = `Relay v${RELAY_VERSION}`;
 
-/** What `listIntelligence` adds to a model: its index, a borrowed price and its source, a context OpenCode lists none for, and each effort's own index. */
-type Score = { index: number | null; prices: Borrowed; pricesFrom?: 'artificial-analysis' | 'openrouter' | 'free' | null; context?: number | null; efforts?: readonly { variant: string; index: number }[] };
+const range = (low: number, high: number) => `${indexLabel(low)}–${indexLabel(high)}`;
+/** A hint in the index column: a bound (<, >) or a range, never a plain number, so it is not read as a score. */
+export function hintCell(hint: IndexHint | null | undefined): string {
+  if (hint?.kind === 'price' && hint.low !== null && hint.high !== null) return `≈${range(hint.low, hint.high)}`;
+  if (hint?.kind !== 'family') return '—';
+  return hint.low !== null && hint.high !== null ? range(hint.low, hint.high) : hint.high !== null ? `<${indexLabel(hint.high)}` : hint.low !== null ? `>${indexLabel(hint.low)}` : '—';
+}
+const reasons: Record<NonNullable<IndexHint['reason']>, string> = {
+  free: 'no list scores this free model, and $0 says nothing of its strength', decision: 'the index does not score decision models',
+  'no-price': 'no price and no scored version to compare it with', 'few-peers': 'too few scored models at about its price to compare it with',
+};
+/** A hint as a sentence: where it comes from, or why there is none. */
+export function hintText(hint: IndexHint | null | undefined): string {
+  if (!hint) return 'no index found';
+  if (hint.kind === 'price') return `no index; half of the ${hint.count} scored models at about its price score ${indexLabel(hint.low)} to ${indexLabel(hint.high)}`;
+  if (hint.kind === 'family' && hint.low !== null && hint.high !== null) return `no index; likely between ${indexLabel(hint.low)} and ${indexLabel(hint.high)}, the scores of the older ${hint.older} and the newer ${hint.newer}`;
+  if (hint.kind === 'family' && hint.high !== null) return `no index; likely below ${indexLabel(hint.high)}, the score of the newer ${hint.newer}`;
+  if (hint.kind === 'family' && hint.low !== null) return `no index; likely above ${indexLabel(hint.low)}, the score of the older ${hint.older}`;
+  return hint.reason ? `no index: ${reasons[hint.reason]}` : 'no index found';
+}
+
+/** What `listIntelligence` adds to a model: its index, a borrowed price and its source, a context OpenCode lists none for, each effort's own index, and a hint when there is no index. */
+type Score = { index: number | null; prices: Borrowed; pricesFrom?: 'artificial-analysis' | 'openrouter' | 'free' | null; context?: number | null; efforts?: readonly { variant: string; index: number }[]; hint?: IndexHint | null };
 /** The line under a chosen model, and under the decider: its price, its index at the chosen effort when that effort has its own, and its context. */
 export function modelFacts(model: { cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>; limit: { context: number }; variants: readonly string[] }, score: Score | undefined, variant: string | null = null): string {
   const own = score?.efforts?.find(effort => effort.variant === variant), index = own?.index ?? score?.index ?? null;
   const borrowed = score?.prices ? { ...score.prices, from: score.pricesFrom ?? null } : null, context = model.limit.context > 0 ? model.limit.context : score?.context ?? 0;
-  return [priceLabel(model.cost, borrowed), index === null ? 'no index found' : `index ${indexLabel(index)}${own ? ` at ${variant} effort` : model.variants.length ? ' at its highest effort' : ''}`,
+  return [priceLabel(model.cost, borrowed), index === null ? hintText(score?.hint) : `index ${indexLabel(index)}${own ? ` at ${variant} effort` : model.variants.length ? ' at its highest effort' : ''}`,
     context > 0 ? `${contextLabel(context)} context${model.limit.context > 0 ? '' : ' (OpenRouter)'}` : 'context not listed'].join(' · ');
 }
 /** The index cell's tip: whose list the index came from, and for which listed model. */

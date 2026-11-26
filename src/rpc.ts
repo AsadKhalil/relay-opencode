@@ -5,7 +5,7 @@ import { listProjectModels } from './inventory.js';
 import { getRelaySettings, saveRelaySettings, recentDecisions, modelName, modes, chatSwitch, setChatSwitch, getUsage, type Mode, type RelaySettings, type RelayStore } from './relay-store.js';
 import { candidates, checksStatus, describeError, linesFor, route, sizesFor } from './router.js';
 import { rank } from './ranking.js';
-import { factsOf, readStored, standingsOf } from './standings.js';
+import { factsOf, indexHint, readStored, standingsOf } from './standings.js';
 import { decide } from './decider.js';
 import { INDEX_SOURCE, loadIndexTable } from './intelligence.js';
 import { AA_CREDIT, AA_SOURCE, getPriceKey, loadAaModels, setPriceKey, storedAaModels } from './artificial-analysis.js';
@@ -31,14 +31,14 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
     listIntelligence: async () => {
       const [key, chat, deciders] = await Promise.all([getPriceKey(relayStore), listProjectModels(context), listProjectModels(context, 'decision')]);
       const seen = new Set<string>(), models = [...chat, ...deciders].filter(model => { const name = `${model.providerID}/${model.id}`; return !seen.has(name) && !!seen.add(name); });
+      const chatNames = new Set(chat.map(model => `${model.providerID}/${model.id}`));
       const [aa, found] = await Promise.all([key ? aaModels(key) : null, indexTable()]), list = aa?.models ?? [];
       const lists = { aa: list, table: found.table };
       const scores = models.flatMap(model => {
         const facts = factsOf(model, null, lists), lent = facts.pricesFrom === 'opencode' ? null : facts.pricesFrom;
         const efforts = model.variants.flatMap(variant => { const own = factsOf(model, variant, lists); return own.ownEffort && own.index !== null ? [{ variant, index: own.index }] : []; });
-        const context = facts.contextFrom === 'openrouter' ? facts.context : null;
-        if (facts.index === null && lent === null && context === null) return [];
-        return [{ providerID: model.providerID, id: model.id, index: facts.index, matched: facts.matched, from: facts.indexFrom, prices: lent ? facts.prices : null, pricesFrom: lent, context, efforts }];
+        const context = facts.contextFrom === 'openrouter' ? facts.context : null, hint = indexHint(model, facts, lists, !chatNames.has(`${model.providerID}/${model.id}`));
+        return [{ providerID: model.providerID, id: model.id, index: facts.index, matched: facts.matched, from: facts.indexFrom, prices: lent ? facts.prices : null, pricesFrom: lent, context, efforts, hint }];
       });
       const source = list.length ? `${AA_SOURCE}; where its list has none, OpenRouter's copy of the same index` : INDEX_SOURCE;
       return { directory: context.location.directory, source, fetchedAt: list.length ? aa!.fetchedAt : found.fetchedAt, note: [aa?.note, found.note].filter(Boolean).join('; ') || null, scores };

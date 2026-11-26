@@ -180,8 +180,10 @@ test('the index comes from one public list fetched at most once a day, and an ol
   };
   await registerRpc(ctx as never, { fetcher: (async () => { fetched++; return reply(); }) as typeof fetch, now: () => now });
   const first = await handlers.listIntelligence({});
-  const none = { pricesFrom: null, context: null, efforts: [] };
-  assert.deepEqual(first.scores, [{ providerID: 'claude-agent', id: 'sonnet', index: 54.5, matched: 'anthropic/claude-sonnet-5.5', from: 'openrouter', prices: null, ...none }, { providerID: 'ollama-cloud', id: 'glm-5.3', index: 61, matched: 'z-ai/glm-5.3', from: 'openrouter', prices: null, ...none }]);
+  const none = { pricesFrom: null, context: null, efforts: [], hint: null }, why = (reason: string) => ({ kind: 'none', low: null, high: null, older: null, newer: null, count: 0, reason });
+  const unscored = (providerID: string, id: string, reason: string) => ({ providerID, id, index: null, matched: null, from: null, prices: null, pricesFrom: null, context: null, efforts: [], hint: why(reason) });
+  assert.deepEqual(first.scores, [{ providerID: 'claude-agent', id: 'sonnet', index: 54.5, matched: 'anthropic/claude-sonnet-5.5', from: 'openrouter', prices: null, ...none }, { providerID: 'ollama-cloud', id: 'glm-5.3', index: 61, matched: 'z-ai/glm-5.3', from: 'openrouter', prices: null, ...none },
+    unscored('local', 'llama', 'no-price'), unscored('d', 'judge', 'decision')], 'every model, and a hint for one with no index');
   assert.deepEqual([first.directory, first.fetchedAt, first.note, fetched], ['/repo', '2026-11-18T08:00:00.000Z', null, 1]);
   assert.match(first.source, /Artificial Analysis/);
   assert.deepEqual(fits(RelayRpc.methods.listIntelligence.output, first), []);
@@ -190,10 +192,10 @@ test('the index comes from one public list fetched at most once a day, and an ol
   assert.equal(fetched, 1, 'a copy under a day old is used as it is');
   now += 2 * 3600_000; reply = () => new Response('busy', { status: 503 });
   const stale = await handlers.listIntelligence({});
-  assert.deepEqual([fetched, stale.scores.length, stale.fetchedAt, stale.note], [2, 2, '2026-11-18T08:00:00.000Z', 'could not refresh the index: OpenRouter answered 503']);
+  assert.deepEqual([fetched, stale.scores.filter((score: { index: number | null }) => score.index !== null).length, stale.fetchedAt, stale.note], [2, 2, '2026-11-18T08:00:00.000Z', 'could not refresh the index: OpenRouter answered 503']);
   records.clear();
   const empty = await handlers.listIntelligence({});
-  assert.deepEqual([empty.scores, empty.fetchedAt, empty.note], [[], null, 'could not load the index: OpenRouter answered 503']);
+  assert.deepEqual([empty.scores.filter((score: { index: number | null }) => score.index !== null), empty.fetchedAt, empty.note], [[], null, 'could not load the index: OpenRouter answered 503']);
   assert.deepEqual(fits(RelayRpc.methods.listIntelligence.output, empty), []);
 });
 
@@ -243,15 +245,16 @@ test("with a saved key the index is Artificial Analysis's, else OpenRouter's, an
   const api = { inputPerMillion: '2', outputPerMillion: '10', cacheReadPerMillion: '0.1', cacheWritePerMillion: '2.5' };
   assert.match(fromAa.source, /^Artificial Analysis Intelligence Index, from Artificial Analysis; .*OpenRouter/);
   assert.deepEqual([fromAa.note, fromAa.scores], [null, [
-    { providerID: 'claude-agent', id: 'sonnet', index: 50, matched: 'claude-sonnet-5-5', from: 'artificial-analysis', prices: api, pricesFrom: 'artificial-analysis', context: null, efforts: [] },
-    { providerID: 'ollama-cloud', id: 'glm-5.3', index: 30, matched: 'glm-5-3', from: 'artificial-analysis', prices: null, pricesFrom: null, context: null, efforts: [] },
-    { providerID: 'opencode-go', id: 'kimi-k3', index: 17.4, matched: 'moonshotai/kimi-k3', from: 'openrouter', prices: null, pricesFrom: null, context: null, efforts: [] },
-    { providerID: 'opencode', id: 'glm-5.3-free', index: 30, matched: 'glm-5-3', from: 'artificial-analysis', prices: { inputPerMillion: '0', outputPerMillion: '0', cacheReadPerMillion: '0', cacheWritePerMillion: '0' }, pricesFrom: 'free', context: null, efforts: [] },
+    { providerID: 'claude-agent', id: 'sonnet', index: 50, matched: 'claude-sonnet-5-5', from: 'artificial-analysis', prices: api, pricesFrom: 'artificial-analysis', context: null, efforts: [], hint: null },
+    { providerID: 'ollama-cloud', id: 'glm-5.3', index: 30, matched: 'glm-5-3', from: 'artificial-analysis', prices: null, pricesFrom: null, context: null, efforts: [], hint: null },
+    { providerID: 'opencode-go', id: 'kimi-k3', index: 17.4, matched: 'moonshotai/kimi-k3', from: 'openrouter', prices: null, pricesFrom: null, context: null, efforts: [], hint: null },
+    { providerID: 'opencode', id: 'glm-5.3-free', index: 30, matched: 'glm-5-3', from: 'artificial-analysis', prices: { inputPerMillion: '0', outputPerMillion: '0', cacheReadPerMillion: '0', cacheWritePerMillion: '0' }, pricesFrom: 'free', context: null, efforts: [], hint: null },
+    { providerID: 'local', id: 'llama', index: null, matched: null, from: null, prices: null, pricesFrom: null, context: null, efforts: [], hint: { kind: 'none', low: null, high: null, older: null, newer: null, count: 0, reason: 'no-price' } },
   ]], 'OpenCode prices GLM-5.3 and Kimi K3; a free model is $0, never the paid price; Kimi K3 has no index in that list');
   assert.deepEqual(fits(RelayRpc.methods.listIntelligence.output, fromAa), []);
   records.delete('relay/aa-models'); aaStatus = 401;
   const fallback = await handlers.listIntelligence({});
-  assert.deepEqual([fallback.source.includes('OpenRouter'), fallback.note, fallback.scores.map((score: { id: string; index: number }) => [score.id, score.index])], [true, 'could not load the list from Artificial Analysis: the key was refused', [['glm-5.3', 61], ['kimi-k3', 17.4], ['glm-5.3-free', 61]]]);
+  assert.deepEqual([fallback.source.includes('OpenRouter'), fallback.note, fallback.scores.filter((score: { index: number | null }) => score.index !== null).map((score: { id: string; index: number }) => [score.id, score.index])], [true, 'could not load the list from Artificial Analysis: the key was refused', [['glm-5.3', 61], ['kimi-k3', 17.4], ['glm-5.3-free', 61]]]);
   assert.deepEqual(headers.filter(asked => !asked.url.startsWith(AA_LIST_URL)).map(asked => asked.key), [null], 'OpenRouter is asked without the key');
   assert.equal(headers.filter(asked => asked.url.startsWith(AA_LIST_URL)).every(asked => asked.key === KEY), true);
 });

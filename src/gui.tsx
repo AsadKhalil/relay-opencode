@@ -5,8 +5,9 @@ import { offered, type ModelChoice } from './settings.js';
 import type { ListedModel } from './inventory.js';
 import { USE_FOR_MAX, type Decision, type Mode, type ModeChoice, type Prices, type RelaySettings } from './relay-store.js';
 import { describeError, modeLabel, reviewRules } from './router.js';
-import { borrowedNote, checksLine, contextLabel, decisionLine, indexLabel, indexTip, modelFacts, modelRows, priceTip, versionLabel, nextEffort, noDeciderNote, ownChoiceNote, ownChoicePart, pickerModel, pillView, priceCell, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, type OwnChoicePart, type TableOrder } from './relay-view.js';
+import { borrowedNote, hintCell, hintText, checksLine, contextLabel, decisionLine, indexLabel, indexTip, modelFacts, modelRows, priceTip, versionLabel, nextEffort, noDeciderNote, ownChoiceNote, ownChoicePart, pickerModel, pillView, priceCell, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, type OwnChoicePart, type TableOrder } from './relay-view.js';
 import { panelCss } from './gui-styles.js';
+import type { IndexHint } from './standings.js';
 import { UsagePanel } from './gui-usage.js';
 
 type Model = ListedModel;
@@ -28,10 +29,10 @@ const Acc = (props: { title: string; sub?: string; children: JSX.Element }) => {
 /** `listIntelligence`'s answer for one model: the index and where it came from, a price and context where OpenCode lists none, and each effort's own index. */
 type Score = {
   providerID: string; id: string; index: number | null; matched: string | null; from: 'artificial-analysis' | 'openrouter' | null; prices: Prices | null;
-  pricesFrom: 'artificial-analysis' | 'openrouter' | 'free' | null; context: number | null; efforts: { variant: string; index: number }[];
+  pricesFrom: 'artificial-analysis' | 'openrouter' | 'free' | null; context: number | null; efforts: { variant: string; index: number }[]; hint: IndexHint | null;
 };
 /** A model as the tables show it: OpenRouter's context where OpenCode lists none (`contextFrom`), and a borrowed price with its source. */
-type Rated = Model & Pick<Score, 'index' | 'matched' | 'from'> & { borrowed: (Prices & { from: Score['pricesFrom'] }) | null; contextFrom: 'openrouter' | null };
+type Rated = Model & Pick<Score, 'index' | 'matched' | 'from' | 'hint'> & { borrowed: (Prices & { from: Score['pricesFrom'] }) | null; contextFrom: 'openrouter' | null };
 const ModelTable = (props: { label: string; models: Rated[]; source: string; action: string; actionLabel: (model: Rated) => string; can: (model: Rated) => boolean; mark: (model: Rated) => string; tip?: (model: Rated) => string | undefined; pick: (model: Rated) => void; close: () => void }) => {
   const [query, setQuery] = createSignal('');
   const [provider, setProvider] = createSignal('');
@@ -63,7 +64,7 @@ const ModelTable = (props: { label: string; models: Rated[]; source: string; act
           <td><span class="rl-t-name">{model.name}</span><small>{model.providerID}{props.mark(model)}</small></td>
           <td title={priceTip(model.borrowed)}>{priceCell(model.cost, model.borrowed)}</td>
           <td title={model.limit.context > 0 ? (model.contextFrom ? "From OpenRouter's list: OpenCode lists none" : undefined) : 'Context size not listed'}>{contextLabel(model.limit.context)}</td>
-          <td title={indexTip(model)}>{indexLabel(model.index)}</td>
+          <td title={model.index === null ? hintText(model.hint) : indexTip(model)}>{model.index === null ? hintCell(model.hint) : indexLabel(model.index)}</td>
           <td><button type="button" class="rl-btn sm" disabled={!props.can(model)} title={props.tip?.(model)} aria-label={props.actionLabel(model)} onClick={() => props.pick(model)}>{props.action}</button></td>
         </tr>}</For></tbody>
       </table>
@@ -121,7 +122,7 @@ export default Plugin.define({
         const scoreOf = (model: Model) => scores()?.byModel.get(`${model.providerID}/${model.id}`);
         const rated = (model: Model): Rated => {
           const score = scoreOf(model), routed = model.limit.context > 0 ? null : score?.context ?? null;
-          return { ...model, limit: { ...model.limit, context: routed ?? model.limit.context }, contextFrom: routed ? 'openrouter' : null, index: score?.index ?? null, matched: score?.matched ?? null, from: score?.from ?? null, borrowed: score?.prices ? { ...score.prices, from: score.pricesFrom } : null };
+          return { ...model, limit: { ...model.limit, context: routed ?? model.limit.context }, contextFrom: routed ? 'openrouter' : null, index: score?.index ?? null, matched: score?.matched ?? null, from: score?.from ?? null, hint: score?.hint ?? null, borrowed: score?.prices ? { ...score.prices, from: score.pricesFrom } : null };
         };
         const indexSource = () => {
           const value = scores();
