@@ -1593,3 +1593,22 @@ The plan `docs/superpowers/plans/2026-11-26-relay-improve-on-go.md`, Task 1 (own
 - **Not tested:** the plugin's own `context.model.list` (Task 2 checks it end to end), `cache.warming`, what a set time changes in the requests a provider gets, Desktop's screen, any real provider.
 
 **Relay reads it (Task 2).** Relay packed from this repository at `285257b` plus Task 2, on the same isolated setup on 2.3.0 and on 2.4.2: Relay's `listModels` RPC gave `cacheMs` 3,600,000 for the model with the provider's time and 600,000 for the one with its own, and nothing else of the settings (no address, no key). The cost check then counts a chat's cache as alive for that time instead of five minutes (`stayOrGo` in `src/router.ts`, unit tests in `tests/router.test.ts`). Not tested: a real chat with a listed time, `cache.warming`.
+
+## 2026-11-26 (night) — Short follow-ups, asked of a real decision model (Windows 11; OpenCode 2.3.0 CLI from npm, isolated)
+
+The plan's Task 5 (owner: "go with your picks", which named this step: made-up follow-ups to a free decision model from an isolated host). `scripts/decider-examples.ts` sent the 20 cases in `scripts/decider-followup-cases.json` twice to `opencode/jev-1.13-free`: 40 requests, $0, from an isolated OpenCode with no login, no plugin and scratch config, data, cache, state, home and app-data folders. Each case carries the chat's last reply (a plan, a review or a finished build, at most 314 characters).
+
+- **One model a mode** (`RELAY_EXAMPLES_ONE=1`): no lines, so the decider is asked only the mode and, as in Relay, gets no reply.
+- **Two models a mode, with lines**: the lines of `scripts/relay-examples.json`, so the decider gets the reply too.
+- The bar: the decider's own mode right at 60% or more in at least 17 of 20, and no case that should stay in Plan sent to Execute.
+
+| | One model a mode | Two models a mode |
+| --- | --- | --- |
+| Right at 60% or more | **17 of 20**: passed | **17 of 20**: passed |
+| Plan cases sent to Execute | 0 | 0 |
+| Missed | "go ahead" (Plan, 58%), "yes" (Plan, 98%), "continue" (Plan, 96%) | "yes" (Plan, 34%), "continue" (Plan, 67%), "ok, what are the risks?" (Review, 52%) |
+| Lowest right answer | "ship it" (Execute, 70%) | "go ahead" (Execute, 70%) |
+
+- Both pass, at the bar itself. The misses are the barest follow-ups after a plan. With one model a mode, "yes" and "continue" were sure of Plan, so with the switch on such a message goes to the Plan model on the `plan` agent, which cannot build. With the reply, "yes" was unsure instead (the chat stays as it is) and "continue" was still Plan.
+- Every case where the person asked to build after a review ("fix those", "fix the first one only" …) was right in both setups, and so were both "check it" cases after a build.
+- One run of each, one decision model (not the owner's own decider), made-up cases.
