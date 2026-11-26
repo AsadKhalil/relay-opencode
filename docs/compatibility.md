@@ -1582,12 +1582,12 @@ The owner asked to redesign the plugin with the Impeccable skill. Product brief:
 
 ## 2026-11-26 (night) — Does OpenCode list a model's cache time? (Windows 11; OpenCode 2.3.0 CLI from npm and Desktop's 2.4.2 CLI, isolated)
 
-The plan , Task 1 (owner: "go with your picks"). An isolated host with scratch folders, a throwaway password and a mock provider that was never asked anything. The provider set ; one of its two models also set .  was read through the client, and only each model's  was printed.
+The plan `docs/superpowers/plans/2026-11-26-relay-improve-on-go.md`, Task 1 (owner: "go with your picks"). An isolated host with scratch folders, a throwaway password and a mock provider that was never asked anything. The provider set `settings: { cache: { ttl: '1h' } }`; one of its two models also set `settings: { cache: { ttl: '10m' } }`. `model.list` was read through the client, and only each model's `settings.cache` was printed.
 
 | Model | 2.3.0 | 2.4.2 |
 | --- | --- | --- |
-| Provider's time only |  |  |
-| Its own time as well |  |  |
+| The provider's time only | `{"ttl":"1h"}` | `{"ttl":"1h"}` |
+| Its own time as well | `{"ttl":"10m"}` | `{"ttl":"10m"}` |
 
-- Both versions put the provider's setting on each of its models, and a model's own setting wins. The same  also hold the provider's other settings (here ), so a reader must take  alone.
-- **Not tested:** the plugin's own  (Task 2 checks it end to end), , what a set time changes in the requests a provider gets, Desktop's screen, any real provider.
+- Both versions put the provider's setting on each of its models, and a model's own setting wins. The same `settings` also hold the provider's other settings (here `baseURL`), so a reader must take `cache.ttl` alone.
+- **Not tested:** the plugin's own `context.model.list` (Task 2 checks it end to end), `cache.warming`, what a set time changes in the requests a provider gets, Desktop's screen, any real provider.
