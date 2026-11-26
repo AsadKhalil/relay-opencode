@@ -5,7 +5,8 @@
 // when the model does not answer. Needs RELAY_SMOKE_CLI pointing at an `opencode` 2.3.0 binary.
 // RELAY_EXAMPLES_OUT=<file> keeps the outcomes. RELAY_EXAMPLES_FROM=<file> prints the report for kept outcomes again, with no request,
 // so a corrected label can be scored without asking the model again. RELAY_EXAMPLES_SET=<file> uses another labelled set
-// (your own lines, or the same examples in another order) instead of scripts/relay-examples.json.
+// (your own lines, or the same examples in another order) instead of scripts/relay-examples.json. RELAY_EXAMPLES_ONE=1 runs the set as one
+// model a mode: no lines, so the decider is asked only the mode and, as in Relay, gets no reply (`oneModelEach`).
 import { execFile as execFileCallback, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -24,7 +25,8 @@ import { priceLabel } from '../src/relay-view.js';
 import { candidates, linesFor, modeLabel, pickModel, route, UNSURE_BELOW, type DeciderAnswer, type LineAnswer, type RoutableModel } from '../src/router.js';
 import type { ModelChoice } from '../src/settings.js';
 
-export type Example = { text: string; agent: 'plan' | 'build'; expect: Mode; line: number | null; nearMiss?: true; followUp?: true; files?: FileFact[] };
+/** `reply` is the end of the chat's last reply before the message; Relay sends it only when the decider is asked about lines or sizes. */
+export type Example = { text: string; agent: 'plan' | 'build'; expect: Mode; line: number | null; nearMiss?: true; followUp?: true; files?: FileFact[]; reply?: string };
 /** `lines` is one sample of what a person might write for each mode's models; an example's `line` counts from 1 in its own mode's lines, or is null when none fits. */
 export type ExampleSet = { lines: Record<Mode, string[]>; examples: Example[] };
 /**
@@ -109,6 +111,11 @@ export function examplesReport(s: Summary): string {
 }
 
 /** Why this model must not be asked, or null. A model with a listed price, or with none listed, needs the paid switch. */
+/** The set as one model a mode: each mode's lines become one empty line, so no mode has lines to choose between. */
+export function oneModelEach(set: ExampleSet): ExampleSet {
+  return { ...set, lines: { plan: [''], execute: [''], review: [''] } };
+}
+
 export function modelRefusal(providerID: string, id: string, listed: readonly ListedModel[], paid: boolean): string | null {
   const name = `${providerID}/${id}`, found = listed.find(model => model.providerID === providerID && model.id === id);
   if (!found) return `The isolated OpenCode does not list ${name} as a decision model. It lists: ${listed.map(model => `${model.providerID}/${model.id}`).join(', ') || 'none'}.`;
@@ -125,7 +132,7 @@ export async function runExamples(set: ExampleSet, host: DecisionsHost, decider:
   let silent = 0;
   for (const [index, example] of set.examples.entries()) {
     // The host's first use of a provider can be slow, so the first example may take up to a minute. Every later one has /relay's own limit.
-    const answer = await decide(host, decider, { kind: 'chat', text: example.text, agent: example.agent, files: example.files ?? [], images: 0, lines }, index === 0 ? 60_000 : TIMEOUT_MS);
+    const answer = await decide(host, decider, { kind: 'chat', text: example.text, agent: example.agent, files: example.files ?? [], images: 0, lines, ...(example.reply ? { reply: example.reply } : {}) }, index === 0 ? 60_000 : TIMEOUT_MS);
     outcomes.push(judge(set, example, answer));
     silent = answer.kind === 'none' ? silent + 1 : 0;
     if (answer.kind === 'none' && (silent === outcomes.length || silent >= 3)) throw new Error(`Stopped after ${outcomes.length} request(s): the model did not answer (${answer.reason}).`);
@@ -135,7 +142,8 @@ export async function runExamples(set: ExampleSet, host: DecisionsHost, decider:
 }
 
 async function main() {
-  const set =JSON.parse(readFileSync(process.env.RELAY_EXAMPLES_SET ?? new URL('./relay-examples.json', import.meta.url), 'utf8')) as ExampleSet;
+  const loaded = JSON.parse(readFileSync(process.env.RELAY_EXAMPLES_SET ?? new URL('./relay-examples.json', import.meta.url), 'utf8')) as ExampleSet;
+  const set = process.env.RELAY_EXAMPLES_ONE === '1' ? oneModelEach(loaded) : loaded;
   if (process.env.RELAY_EXAMPLES_FROM) { console.log(examplesReport(scoreExamples(set, JSON.parse(readFileSync(process.env.RELAY_EXAMPLES_FROM, 'utf8')) as Outcome[]))); return; }
 
   const cli = process.env.RELAY_SMOKE_CLI ?? 'opencode', password = 'synthetic-local-examples';

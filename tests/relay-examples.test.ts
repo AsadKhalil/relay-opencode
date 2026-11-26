@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { examplesReport, judge, modelRefusal, runExamples, scoreExamples, type Example, type ExampleSet, type Outcome } from '../scripts/decider-examples.js';
+import { examplesReport, judge, modelRefusal, oneModelEach, runExamples, scoreExamples, type Example, type ExampleSet, type Outcome } from '../scripts/decider-examples.js';
 import { modes, USE_FOR_MAX, type Mode } from '../src/relay-store.js';
 import { MAX_LINES, type DeciderAnswer, type LineAnswer } from '../src/router.js';
 
@@ -164,4 +164,15 @@ test('a model is refused before any request unless it is listed, enabled and fre
   assert.match(modelRefusal('d', 'unknown', listed, false)!, /price not listed/, 'an unknown price is not a free one');
   assert.equal(modelRefusal('d', 'paid', listed, true), null);
   assert.match(modelRefusal('d', 'off', listed, true)!, /not enabled/, 'the paid switch does not enable a model');
+});
+
+test('a reply goes to the decider with two models a mode, and not with one model a mode', async () => {
+  const withReply: ExampleSet = { ...tiny, examples: [{ ...tiny.examples[0], reply: 'Plan: 1. add the table 2. wire the form 3. test it' }] };
+  const answer = () => ({ answers: [picked('mode', 'execute', 0.9)], cost: 0 });
+  const lined = fakeHost(answer), single = fakeHost(answer);
+  await runExamples(withReply, lined, judgeModel, 0);
+  await runExamples(oneModelEach(withReply), single, judgeModel, 0);
+  assert.equal(JSON.stringify(lined.requests).includes('wire the form'), true);
+  assert.equal(JSON.stringify(single.requests).includes('wire the form'), false);
+  assert.deepEqual(single.requests[0].questions.map((question: { name: string }) => question.name), ['mode'], 'one model a mode asks only the mode');
 });

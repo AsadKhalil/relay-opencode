@@ -1,0 +1,178 @@
+{
+  "lines": {
+    "plan": [
+      "hard thinking: architecture, design, comparing options and trade-offs",
+      "understanding existing code: what it does, why it behaves this way, where something is"
+    ],
+    "execute": [
+      "small, quick edits: typos, renames, one-line fixes, config values",
+      "larger work: new features, refactors, changes across several files"
+    ],
+    "review": [
+      "security: secrets, auth, injection, permissions",
+      "correctness: bugs, edge cases, missing tests"
+    ]
+  },
+  "examples": [
+    {
+      "text": "ok, do it",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I'd add the sign-up form as its own page and reuse the existing validation helpers, so the email rules live in one place. Plan:\n1. Add signup.html and its route in server.py.\n2. Move the email and password checks into validate.py and call them from both forms.\n3. Add tests for a taken email and a short password."
+    },
+    {
+      "text": "go ahead",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "The slow part is the report query: it loads every order and filters in Python. Filtering in SQL and indexing orders.created_at should fix it. Plan:\n1. Rewrite monthly_report() to filter in the query.\n2. Add a migration for the index.\n3. Compare the report before and after on the sample data."
+    },
+    {
+      "text": "yes",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "The settings page saves each field in its own request, which is why two quick edits can overwrite each other. I'd send them together. Plan:\n1. Collect the changed fields in settings.js and send them once on Save.\n2. Accept a dict of fields in PUT /settings.\n3. Add a test that two fields saved together both stick."
+    },
+    {
+      "text": "sounds good, build it",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I'd add the sign-up form as its own page and reuse the existing validation helpers, so the email rules live in one place. Plan:\n1. Add signup.html and its route in server.py.\n2. Move the email and password checks into validate.py and call them from both forms.\n3. Add tests for a taken email and a short password."
+    },
+    {
+      "text": "continue",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "The slow part is the report query: it loads every order and filters in Python. Filtering in SQL and indexing orders.created_at should fix it. Plan:\n1. Rewrite monthly_report() to filter in the query.\n2. Add a migration for the index.\n3. Compare the report before and after on the sample data."
+    },
+    {
+      "text": "implement steps 1 and 2",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "The settings page saves each field in its own request, which is why two quick edits can overwrite each other. I'd send them together. Plan:\n1. Collect the changed fields in settings.js and send them once on Save.\n2. Accept a dict of fields in PUT /settings.\n3. Add a test that two fields saved together both stick."
+    },
+    {
+      "text": "lgtm, apply it",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I'd add the sign-up form as its own page and reuse the existing validation helpers, so the email rules live in one place. Plan:\n1. Add signup.html and its route in server.py.\n2. Move the email and password checks into validate.py and call them from both forms.\n3. Add tests for a taken email and a short password."
+    },
+    {
+      "text": "yep, make the changes",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "The slow part is the report query: it loads every order and filters in Python. Filtering in SQL and indexing orders.created_at should fix it. Plan:\n1. Rewrite monthly_report() to filter in the query.\n2. Add a migration for the index.\n3. Compare the report before and after on the sample data."
+    },
+    {
+      "text": "do it but skip the tests for now",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "The settings page saves each field in its own request, which is why two quick edits can overwrite each other. I'd send them together. Plan:\n1. Collect the changed fields in settings.js and send them once on Save.\n2. Accept a dict of fields in PUT /settings.\n3. Add a test that two fields saved together both stick."
+    },
+    {
+      "text": "ship it",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I'd add the sign-up form as its own page and reuse the existing validation helpers, so the email rules live in one place. Plan:\n1. Add signup.html and its route in server.py.\n2. Move the email and password checks into validate.py and call them from both forms.\n3. Add tests for a taken email and a short password."
+    },
+    {
+      "text": "fix those",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I found two problems. In cart.py, apply_discount() subtracts the discount twice when a coupon and a sale apply together. In checkout.py, an empty cart still creates an order with a total of 0. The rest of the change looks right, and the tests pass."
+    },
+    {
+      "text": "ok fix both bugs",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I found two problems. In cart.py, apply_discount() subtracts the discount twice when a coupon and a sale apply together. In checkout.py, an empty cart still creates an order with a total of 0. The rest of the change looks right, and the tests pass."
+    },
+    {
+      "text": "fix the first one only",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I found two problems. In cart.py, apply_discount() subtracts the discount twice when a coupon and a sale apply together. In checkout.py, an empty cart still creates an order with a total of 0. The rest of the change looks right, and the tests pass."
+    },
+    {
+      "text": "go ahead and fix everything you found",
+      "agent": "plan",
+      "expect": "execute",
+      "line": null,
+      "followUp": true,
+      "reply": "I found two problems. In cart.py, apply_discount() subtracts the discount twice when a coupon and a sale apply together. In checkout.py, an empty cart still creates an order with a total of 0. The rest of the change looks right, and the tests pass."
+    },
+    {
+      "text": "ok but why not use a queue?",
+      "agent": "plan",
+      "expect": "plan",
+      "line": null,
+      "followUp": true,
+      "reply": "I'd add the sign-up form as its own page and reuse the existing validation helpers, so the email rules live in one place. Plan:\n1. Add signup.html and its route in server.py.\n2. Move the email and password checks into validate.py and call them from both forms.\n3. Add tests for a taken email and a short password."
+    },
+    {
+      "text": "wait, what about the login page?",
+      "agent": "plan",
+      "expect": "plan",
+      "line": null,
+      "followUp": true,
+      "reply": "The slow part is the report query: it loads every order and filters in Python. Filtering in SQL and indexing orders.created_at should fix it. Plan:\n1. Rewrite monthly_report() to filter in the query.\n2. Add a migration for the index.\n3. Compare the report before and after on the sample data."
+    },
+    {
+      "text": "hmm, explain step 3 more",
+      "agent": "plan",
+      "expect": "plan",
+      "line": null,
+      "followUp": true,
+      "reply": "The settings page saves each field in its own request, which is why two quick edits can overwrite each other. I'd send them together. Plan:\n1. Collect the changed fields in settings.js and send them once on Save.\n2. Accept a dict of fields in PUT /settings.\n3. Add a test that two fields saved together both stick."
+    },
+    {
+      "text": "ok, what are the risks?",
+      "agent": "plan",
+      "expect": "plan",
+      "line": null,
+      "followUp": true,
+      "reply": "I'd add the sign-up form as its own page and reuse the existing validation helpers, so the email rules live in one place. Plan:\n1. Add signup.html and its route in server.py.\n2. Move the email and password checks into validate.py and call them from both forms.\n3. Add tests for a taken email and a short password."
+    },
+    {
+      "text": "now check it",
+      "agent": "build",
+      "expect": "review",
+      "line": null,
+      "followUp": true,
+      "reply": "Done. I changed auth.py to lock an account after five failed logins and added unlock_account(); login.html now shows how long the lock lasts. I added three tests in test_auth.py, and the whole suite passes."
+    },
+    {
+      "text": "done? review what you changed",
+      "agent": "build",
+      "expect": "review",
+      "line": null,
+      "followUp": true,
+      "reply": "Done. I changed auth.py to lock an account after five failed logins and added unlock_account(); login.html now shows how long the lock lasts. I added three tests in test_auth.py, and the whole suite passes."
+    }
+  ]
+}
