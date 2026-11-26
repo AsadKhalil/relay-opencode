@@ -33,7 +33,7 @@ test('registers a read-only inventory endpoint that does not return provider sec
   let handler: (() => Promise<unknown>) | undefined;
   const ctx = {
     location: { directory: '/repo' },
-    model: { async list() { return { data: [{ providerID: 'p', id: 'm', name: 'Model', enabled: true, status: 'active', variants: [{ id: 'high', settings: { apiKey: 'hidden' } }], capabilities: { input: ['text'], output: ['text'], tools: true }, limit: { context: 100, output: 10 }, settings: { apiKey: 'secret' } }] }; } },
+    model: { async list() { return { data: [{ providerID: 'p', id: 'm', name: 'Model', enabled: true, status: 'active', variants: [{ id: 'high', settings: { apiKey: 'hidden' } }], capabilities: { input: ['text'], output: ['text'], tools: true }, limit: { context: 100, output: 10 }, settings: { apiKey: 'secret', cache: { ttl: '1h' } } }] }; } },
     rpc: { async register(_definition: unknown, handlers: { listModels: () => Promise<unknown> }) { handler = (asClient(handlers) as { listModels: () => Promise<unknown> }).listModels; return { async dispose() {} }; } },
   };
   await registerRpc(ctx as never);
@@ -43,6 +43,7 @@ test('registers a read-only inventory endpoint that does not return provider sec
   assert.equal(JSON.stringify(result).includes('hidden'), false);
   assert.equal((result as any).directory, '/repo');
   assert.equal((result as any).models[0].id, 'm');
+  assert.equal((result as any).models[0].cacheMs, 3_600_000, 'the cache time OpenCode lists');
   assert.deepEqual((result as any).models[0].cost, { inputPerMillion: null, outputPerMillion: null, cacheReadPerMillion: null, cacheWritePerMillion: null, tiered: false, steps: [] });
   assert.deepEqual(fits(RelayRpc.methods.listModels.output, result), [], 'the real host refuses an output its contract does not declare');
 });

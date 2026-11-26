@@ -5,11 +5,12 @@
 // Each chat first sends about 6,000 made-up words that no other chat shares, then a one-word message 4, 8, 16 and 31 minutes after the
 // previous reply. A probe whose first request read 90% or more of its prompt from the cache found the cache alive (`cacheAlive`).
 // Usage: npx tsx scripts/bench/cache-life.ts --out <file.json>
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { OpenCode } from '@opencode/client/promise';
+import { isProject } from './folder.js';
 import { cacheAlive, DENIED_TOOLS, type Tokens } from './lib.js';
 
 const { values: flags } = parseArgs({ options: { out: { type: 'string' } } });
@@ -43,9 +44,16 @@ const tokensOf = (entry: any): Tokens => {
 
 /** Sends one message and waits for the chat to go idle. The first new assistant entry is the message's first request. */
 async function send(sessionID: string, text: string): Promise<{ entry: any | null; error: string | null }> {
+  try { return await sendOnce(sessionID, text); } catch (error) { return { entry: null, error: `the service failed: ${(error as Error)?.message ?? error}` }; }
+}
+
+async function sendOnce(sessionID: string, text: string): Promise<{ entry: any | null; error: string | null }> {
   const before = items(await client.session.context({ sessionID })).length;
   await client.session.prompt({ sessionID, text });
   for (const deadline = Date.now() + MESSAGE_LIMIT_MS; Date.now() < deadline; await sleep(2000)) {
+    for (const request of items(await client.permission.request.list({ location }).catch(() => []))) {
+      if (request.sessionID === sessionID) await client.permission.reply({ sessionID, requestID: request.id, decision: 'reject', message: 'Not allowed in this check.' }).catch(() => {});
+    }
     const added = items(await client.session.context({ sessionID })).slice(before);
     if (!added.some(entry => entry.type === 'idle')) continue;
     const entry = added.find(item => item.type === 'assistant') ?? null;
@@ -56,28 +64,32 @@ async function send(sessionID: string, text: string): Promise<{ entry: any | nul
 }
 
 type Row = { model: string; gapMinutes: number | null; cacheRead: number; prompt: number; alive: boolean | null; error: string | null };
+const seed = Date.now(), rows: Row[] = [];
+/** The file is written at the start and after every row, so an hour's run keeps what it measured even if it stops. */
+const save = () => writeFileSync(out, JSON.stringify({ at: new Date(seed).toISOString(), rows }, null, 2));
 
 /** One chat on `model`: the first message, then a probe after each gap. It stops at the first request that failed. */
-async function probe(model: { providerID: string; id: string }, seed: number): Promise<Row[]> {
-  const name = `${model.providerID}/${model.id}`, rows: Row[] = [];
+async function probe(model: { providerID: string; id: string }, seed: number): Promise<void> {
+  const name = `${model.providerID}/${model.id}`;
   const permissions = ['edit', 'write', 'bash', ...DENIED_TOOLS].map(action => ({ action, resource: '*', effect: 'deny' as const }));
   const { id: sessionID } = await client.session.create({ model, location, title: `relay-bench cache-life ${model.id}`, permissions });
   const row = (gapMinutes: number | null, result: { entry: any | null; error: string | null }): Row => {
     const tokens = tokensOf(result.entry), prompt = tokens.input + tokens.cache.read + tokens.cache.write;
     const value: Row = { model: name, gapMinutes, cacheRead: tokens.cache.read, prompt, alive: gapMinutes === null || result.error ? null : cacheAlive(tokens), error: result.error };
-    rows.push(value);
+    rows.push(value); save();
     console.log([name, gapMinutes ?? 'first', value.cacheRead, value.prompt, value.alive ?? '-', value.error ?? ''].join('\t'));
     return value;
   };
-  if (row(null, await send(sessionID, `Reply with the single word: ready.\n\n${filler(seed, 6000)}`)).error) return rows;
+  if (row(null, await send(sessionID, `Reply with the single word: ready.\n\n${filler(seed, 6000)}`)).error) return;
   for (const gap of GAPS_MINUTES) {
     await sleep(gap * 60_000);
     if (row(gap, await send(sessionID, 'Reply with the single word: ok')).error) break;
   }
-  return rows;
 }
 
+if (!isProject(items(await client.project.list({})), folder)) throw new Error(`OpenCode has no project for ${folder}: open it in Desktop first`);
+mkdirSync(dirname(out), { recursive: true });
+save();
 console.log(['model', 'gap (minutes)', 'cache read', 'prompt', 'alive', 'error'].join('\t'));
-const seed = Date.now();
-const rows = (await Promise.all(MODELS.map((model, index) => probe(model, seed + index)))).flat();
-writeFileSync(out, JSON.stringify({ at: new Date(seed).toISOString(), rows }, null, 2));
+await Promise.all(MODELS.map((model, index) => probe(model, seed + index)));
+console.log(`Rows: ${out}`);
