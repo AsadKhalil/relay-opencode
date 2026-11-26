@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cheapestFirst, checksLine, contextLabel, indexTip, modelFacts, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, ownChoiceNote, ownChoicePart, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
+import { borrowedNote, priceTip, cheapestFirst, checksLine, contextLabel, indexTip, modelFacts, RELAY_VERSION, versionLabel, decisionLine, indexLabel, modelRows, nextEffort, noDeciderNote, pickerModel, pillView, priceCell, priceLabel, ownChoiceNote, ownChoicePart, privacyNote, recentLine, severalModelsHint, switchHint, tryLine, usageCells, usageText } from '../src/relay-view.js';
 import type { UsageRow } from '../src/relay-store.js';
 import { buildDecisionRequest, MAX_CHARS, MAX_FILE_NAMES, MAX_REPLY_CHARS } from '../src/decider.js';
 
@@ -269,4 +269,30 @@ test("the index cell's tip names where the index came from", () => {
   assert.equal(indexTip({ matched: 'claude-sonnet-5-5', from: 'artificial-analysis', variants: ['low'] }), 'Artificial Analysis, for claude-sonnet-5-5, at its highest effort');
   assert.equal(indexTip({ matched: 'moonshotai/kimi-k3', from: 'openrouter', variants: [] }), "Artificial Analysis, from OpenRouter's copy, for moonshotai/kimi-k3");
   assert.equal(indexTip({ matched: null, from: null, variants: [] }), 'No index found for this model');
+});
+
+// 26 Nov (owner: "make sure prices, context, intelligence index shows for all models and providers ... add relay version in the side panel beside refresh button").
+test('a borrowed price names its source; a free model reads $0 by its name, and a $0 listing alone is still never called free', () => {
+  const none = { inputPerMillion: null, outputPerMillion: null, tiered: false }, zero = { inputPerMillion: '0', outputPerMillion: '0', tiered: false };
+  assert.equal(priceCell(none, { ...api, from: 'openrouter' }), '$2 / $10*');
+  assert.equal(priceLabel(none, { ...api, from: 'openrouter' }), '$2 in / $10 out per 1M tokens on the API (OpenRouter)');
+  assert.equal(priceLabel(none, { ...api, from: 'artificial-analysis' }), '$2 in / $10 out per 1M tokens on the API (Artificial Analysis)');
+  const free = { inputPerMillion: '0', outputPerMillion: '0', from: 'free' as const };
+  assert.deepEqual([priceCell(zero, free), priceCell(none, free), priceLabel(zero, free)], ['$0 (free)', '$0 (free)', '$0 (free by its name)']);
+  assert.deepEqual([priceCell(zero), priceLabel(zero)], ['$0 or not listed', '$0 or not listed']);
+  assert.match(borrowedNote, /Artificial Analysis or OpenRouter/);
+  assert.deepEqual([priceTip({ ...api, from: 'openrouter' }), priceTip(free), priceTip(null)], ["OpenRouter's price for this model on its maker's API", 'OpenCode offers this model free (by its name)', undefined]);
+});
+
+test('under a chosen model: the index of its own effort when there is one, and a context from OpenRouter says so', () => {
+  const model = { cost: { inputPerMillion: null, outputPerMillion: null, tiered: false }, limit: { context: 1_000_000 }, variants: ['low', 'high'] };
+  const score = { index: 54.7, prices: api, pricesFrom: 'artificial-analysis' as const, context: null, efforts: [{ variant: 'high', index: 41.5 }] };
+  assert.equal(modelFacts(model, score, 'high'), '$2 in / $10 out per 1M tokens on the API (Artificial Analysis) · index 41.5 at high effort · 1M context');
+  assert.equal(modelFacts(model, score, 'low'), '$2 in / $10 out per 1M tokens on the API (Artificial Analysis) · index 54.7 at its highest effort · 1M context');
+  assert.equal(modelFacts({ ...model, limit: { context: 0 } }, { ...score, context: 500_000 }, null), '$2 in / $10 out per 1M tokens on the API (Artificial Analysis) · index 54.7 at its highest effort · 500K context (OpenRouter)');
+});
+
+test('the panel shows which Relay it is, as one short label', () => {
+  assert.match(RELAY_VERSION, /^\d+\.\d+\.\d+$/);
+  assert.equal(versionLabel, `Relay v${RELAY_VERSION}`);
 });

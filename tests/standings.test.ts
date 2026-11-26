@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import type { AaModel } from '../src/artificial-analysis.js';
 import type { ListedModel } from '../src/inventory.js';
 import type { UsageRow } from '../src/relay-store.js';
-import { readStored, standingsOf } from '../src/standings.js';
+import { factsOf, readStored, standingsOf } from '../src/standings.js';
+import { indexTable, type IndexTable } from '../src/intelligence.js';
 
 const pick = (providerID: string, id: string, variant: string | null = null) => ({ providerID, id, variant });
 const cost = (input: string | null, output: string | null) => ({ inputPerMillion: input, outputPerMillion: output, cacheReadPerMillion: null, cacheWritePerMillion: null, tiered: false, steps: [] });
@@ -21,7 +22,7 @@ test('each effort gets its Artificial Analysis entry, and the plain entry stands
 });
 
 test('without that list, OpenRouter’s stored index, and no Coding index', () => {
-  const table = new Map([['kimi-k3-1-pro', { id: 'moonshotai/kimi-k3.1-pro', index: 60 }]]);
+  const table: IndexTable = new Map([['kimi-k3-1-pro', { id: 'moonshotai/kimi-k3.1-pro', index: 60, context: null, prices: null }]]);
   const s = standingsOf({ aa: [], table, usage: [] }, [listed('opencode-go', 'kimi-k3.1-pro', 'Kimi K3.1 Pro', cost('2', '10'))], [pick('opencode-go', 'kimi-k3.1-pro')]);
   assert.deepEqual(s.get('opencode-go/kimi-k3.1-pro'), { index: 60, coding: null, inputPerMillion: '2', outputPerMillion: '10', outPerRequest: null });
 });
@@ -53,11 +54,65 @@ test('readStored reads storage only, and a broken part counts as empty', async (
 });
 
 // 26 Nov: Artificial Analysis's free list has no index for many models OpenRouter's copy scores (12 of the owner's 123), and it is the same index.
-test('a model with no index in Artificial Analysis’s list takes OpenRouter’s stored one; a free copy borrows no price', () => {
+test('a model with no index in Artificial Analysis’s list takes OpenRouter’s stored one; a free copy is $0, never the paid price', () => {
   const aa = [aaEntry('kimi-k3', 'Kimi K3 (Max)', null, null, { inputPerMillion: '3', outputPerMillion: '15' }), aaEntry('deepseek-v4-1-flash', 'DeepSeek V4.1 Flash', 32, null, { inputPerMillion: '0.3', outputPerMillion: '1.2' })];
-  const table = new Map([['kimi-k3', { id: 'moonshotai/kimi-k3', index: 17.4 }], ['qwen3-8-flash', { id: 'qwen/qwen3.8-flash', index: 28.5 }]]);
+  const table: IndexTable = new Map([['kimi-k3', { id: 'moonshotai/kimi-k3', index: 17.4, context: null, prices: null }], ['qwen3-8-flash', { id: 'qwen/qwen3.8-flash', index: 28.5, context: null, prices: null }]]);
   const models = [listed('opencode-go', 'kimi-k3', 'Kimi K3', cost('3', '15')), listed('opencode-go', 'qwen3.8-flash', 'Qwen3.8 Flash', cost('0.15', '0.47')), listed('opencode', 'deepseek-v4.1-flash-free', 'DeepSeek V4.1 Flash Free', cost(null, null))];
   const s = standingsOf({ aa, table, usage: [] }, models, [pick('opencode-go', 'kimi-k3'), pick('opencode-go', 'qwen3.8-flash'), pick('opencode', 'deepseek-v4.1-flash-free')]);
   assert.deepEqual([s.get('opencode-go/kimi-k3')?.index, s.get('opencode-go/qwen3.8-flash')?.index], [17.4, 28.5]);
-  assert.deepEqual(s.get('opencode/deepseek-v4.1-flash-free'), { index: 32, coding: null, inputPerMillion: null, outputPerMillion: null, outPerRequest: null });
+  assert.deepEqual(s.get('opencode/deepseek-v4.1-flash-free'), { index: 32, coding: null, inputPerMillion: '0', outputPerMillion: '0', outPerRequest: null });
+});
+
+// 26 Nov (owner: "make sure prices, context, intelligence index shows for all models and providers ... tested all providers with effort").
+// Made-up lists shaped like the owner's: OpenCode Zen and Go, Ollama Cloud (ids with ":"), Claude through a Claude login (family ids, no price).
+const usd = (input: string, output: string) => ({ inputPerMillion: input, outputPerMillion: output });
+const aaList = [
+  aaEntry('gpt-6-1-terra', 'GPT-6.1 Terra (Max)', 51.4, null, usd('1', '5')), aaEntry('gpt-6-1-terra-non-reasoning', 'GPT-6.1 Terra (Non-reasoning)', 30.5, null, usd('1', '5')),
+  aaEntry('gpt-6-1-terra-low', 'GPT-6.1 Terra (Low)', 29.4, null, usd('1', '5')),
+  { ...aaEntry('claude-sonnet-5-5', 'Claude Sonnet 5.5 (Max)', 54.7, null, usd('2', '10')), creator: 'Anthropic', released: '2026-09-28' },
+  { ...aaEntry('claude-sonnet-5-5-high', 'Claude Sonnet 5.5 (High)', 41.5, null, usd('2', '10')), creator: 'Anthropic', released: '2026-09-28' },
+  { ...aaEntry('claude-4-5-haiku', 'Claude 4.5 Haiku (Non-reasoning)', null, null, usd('1', '5')), creator: 'Anthropic', released: '2025-10-15' },
+  aaEntry('glm-5-3-flash', 'GLM-5.3-Flash', 27.7, null, usd('0.15', '0.5')), aaEntry('glm-5-3-flash-low', 'GLM-5.3-Flash (Low)', 20.1, null, usd('0.15', '0.5')),
+  aaEntry('kimi-k3', 'Kimi K3', null, null, usd('3', '15')), aaEntry('deepseek-v4-1-flash-1017', 'DeepSeek V4.1 Flash 1017', 32.4, null, usd('0.3', '1.2')),
+];
+const router = (id: string, prompt: string, completion: string, context: number, index: number | null) => ({ id, canonical_slug: id, context_length: context, pricing: { prompt, completion }, benchmarks: { artificial_analysis: { intelligence_index: index } } });
+const orList = indexTable({ data: [router('moonshotai/kimi-k3', '0.000003', '0.000015', 1048576, 17.4), router('anthropic/claude-haiku-4.5', '0.000001', '0.000005', 200000, 7.4),
+  router('anthropic/claude-sonnet-5.5', '0.000002', '0.00001', 1000000, 54.5), router('vendor/big-model', '0.000001', '0.000002', 500000, null)] });
+const offered = (providerID: string, id: string, name: string, price: ReturnType<typeof cost>, context: number) => ({ providerID, id, name, cost: price, limit: { context } });
+const shapes = {
+  zen: offered('opencode', 'gpt-6.1-terra', 'GPT-6.1 Terra', cost('1', '5'), 1050000), go: offered('opencode-go', 'glm-5.3-flash', 'GLM-5.3-Flash', cost('0.15', '0.5'), 1000000),
+  ollama: offered('ollama-cloud', 'deepseek-v4.1-flash:1017', 'deepseek-v4.1-flash:1017', cost('0.15', '0.6'), 1000000), sonnet: offered('claude-agent', 'sonnet', 'Sonnet 5.5', cost(null, null), 1000000),
+  haiku: offered('claude-agent', 'claude-haiku-4-5-20251001', 'Haiku 4.5', cost(null, null), 200000), kimi: offered('opencode', 'kimi-k3', 'Kimi K3', cost('3', '15'), 1048576),
+  free: offered('opencode', 'seaglass-alpha-free', 'Seaglass Alpha Free', cost('0', '0'), 1048576), pickle: offered('opencode', 'big-pickle', 'Big Pickle', cost(null, null), 200000),
+  unknown: offered('new-provider', 'big-model', 'Big Model', cost(null, null), 0),
+};
+const brief = (model: keyof typeof shapes, variant: string | null, aa = aaList) => {
+  const facts = factsOf(shapes[model], variant, { aa, table: orList });
+  return [facts.pricesFrom, facts.prices?.inputPerMillion ?? null, facts.contextFrom, facts.context, facts.indexFrom, facts.index, facts.ownEffort];
+};
+
+test('every provider: OpenCode\u2019s price first, then Artificial Analysis\u2019s, then OpenRouter\u2019s; context from OpenCode, else OpenRouter', () => {
+  assert.deepEqual(brief('zen', null), ['opencode', '1', 'opencode', 1050000, 'artificial-analysis', 51.4, false]);
+  assert.deepEqual(brief('go', null), ['opencode', '0.15', 'opencode', 1000000, 'artificial-analysis', 27.7, false]);
+  assert.deepEqual(brief('ollama', null), ['opencode', '0.15', 'opencode', 1000000, 'artificial-analysis', 32.4, false], 'an Ollama id with a colon');
+  assert.deepEqual(brief('sonnet', null), ['artificial-analysis', '2', 'opencode', 1000000, 'artificial-analysis', 54.7, false], 'a Claude login model by its family');
+  assert.deepEqual(brief('haiku', null), ['artificial-analysis', '1', 'opencode', 200000, 'openrouter', 7.4, false], 'a dated id; its words in another order there');
+  assert.deepEqual(brief('kimi', null), ['opencode', '3', 'opencode', 1048576, 'openrouter', 17.4, false], 'no index in Artificial Analysis\u2019s list: OpenRouter\u2019s');
+  assert.deepEqual(brief('free', null), ['free', '0', 'opencode', 1048576, null, null, false], 'a free model is $0 by its name');
+  assert.deepEqual(brief('pickle', null), [null, null, 'opencode', 200000, null, null, false], 'in no list: nothing is made up');
+  assert.deepEqual(brief('unknown', null), ['openrouter', '1', 'openrouter', 500000, null, null, false], 'a provider Relay has never seen, found by its model\u2019s name');
+});
+
+test('without a key, OpenRouter\u2019s list prices and scores the Claude login models', () => {
+  assert.deepEqual(brief('sonnet', null, []), ['openrouter', '2', 'opencode', 1000000, 'openrouter', 54.5, false]);
+});
+
+test('every effort: its own index where Artificial Analysis lists it, else the highest effort\u2019s, said so', () => {
+  assert.deepEqual(['none', 'low', 'medium', 'high', 'max'].map(effort => brief('zen', effort).slice(4)), [
+    ['artificial-analysis', 30.5, true], ['artificial-analysis', 29.4, true], ['artificial-analysis', 51.4, false], ['artificial-analysis', 51.4, false], ['artificial-analysis', 51.4, true],
+  ], '"none" is non-reasoning there; its plain entry is the highest effort');
+  assert.deepEqual(['low', 'high', 'max'].map(effort => brief('go', effort).slice(4)), [['artificial-analysis', 20.1, true], ['artificial-analysis', 27.7, false], ['artificial-analysis', 27.7, true]]);
+  assert.deepEqual(['low', 'high', 'xhigh', 'max'].map(effort => brief('sonnet', effort).slice(4)), [['artificial-analysis', 54.7, false], ['artificial-analysis', 41.5, true], ['artificial-analysis', 54.7, false], ['artificial-analysis', 54.7, true]]);
+  assert.deepEqual(['low', 'high'].map(effort => brief('kimi', effort).slice(4)), [['openrouter', 17.4, false], ['openrouter', 17.4, false]], 'OpenRouter has one index a model');
+  assert.deepEqual(['low', 'max'].map(effort => brief('sonnet', effort).slice(0, 2)), [['artificial-analysis', '2'], ['artificial-analysis', '2']], 'one price at every effort');
 });

@@ -101,3 +101,9 @@ test('the plugin id, the RPC id and the package name are one name: relay-opencod
   const { name } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { name: string };
   assert.deepEqual([plugin.id, RelayRpc.id, tui.id, name], ['relay-opencode', 'relay-opencode', 'relay-opencode', 'relay-opencode'], 'the terminal part too');
 });
+
+test('the version the panel shows is the package version', async () => {
+  const { RELAY_VERSION } = await import('../src/relay-view.js');
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+  assert.equal(RELAY_VERSION, version, 'change RELAY_VERSION in src/relay-view.ts with every version (CONTRIBUTING.md)');
+});

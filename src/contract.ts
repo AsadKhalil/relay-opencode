@@ -107,11 +107,14 @@ export const RelayRpc = Rpc.define({
     /** The intelligence index of each listed model that could be matched, with where it came from, when it was fetched, and why it may be old or missing. */
     listIntelligence: { errors, input: nothing, output: { type: 'object', properties: {
       directory: { type: 'string' }, source: { type: 'string' }, fetchedAt: nullableString, note: nullableString,
-      // `matched` and `from` say where the index came from; `prices` are Artificial Analysis's, only for a model OpenCode lists no price for.
+      // What `factsOf` (src/standings.ts) adds to OpenCode's own record. `matched` and `from` say where the index came from; `prices` and
+      // `pricesFrom` are only for a model OpenCode lists no price for; `context` only when OpenCode lists none; `efforts` are the efforts with an index of their own.
       scores: { type: 'array', items: { type: 'object', properties: {
         providerID: { type: 'string' }, id: { type: 'string' }, index: nullableNumber, matched: nullableString,
         from: { anyOf: [{ type: 'string', enum: ['artificial-analysis', 'openrouter'] }, { type: 'null' }] }, prices: { anyOf: [priceList, { type: 'null' }] },
-      }, required: ['providerID', 'id', 'index', 'matched', 'from', 'prices'], additionalProperties: false } },
+        pricesFrom: { anyOf: [{ type: 'string', enum: ['artificial-analysis', 'openrouter', 'free'] }, { type: 'null' }] }, context: nullableNumber,
+        efforts: { type: 'array', items: { type: 'object', properties: { variant: { type: 'string' }, index: { type: 'number' } }, required: ['variant', 'index'], additionalProperties: false } },
+      }, required: ['providerID', 'id', 'index', 'matched', 'from', 'prices', 'pricesFrom', 'context', 'efforts'], additionalProperties: false } },
     }, required: ['directory', 'source', 'fetchedAt', 'note', 'scores'], additionalProperties: false } },
   },
 });

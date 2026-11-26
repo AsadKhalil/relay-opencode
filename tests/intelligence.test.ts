@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchIndexTable, indexFor, indexTable, modelKey, storedIndexTable } from '../src/intelligence.js';
+import { fetchIndexTable, findModel, indexFor, indexTable, loadIndexTable, modelKey, openRouterFor, storedIndexTable } from '../src/intelligence.js';
 
 const entry = (id: string, index: number | null, extra: Record<string, unknown> = {}) => ({ id, canonical_slug: id, name: id, benchmarks: { artificial_analysis: { intelligence_index: index } }, ...extra });
 const body = { data: [
@@ -18,13 +18,13 @@ test('a model key drops the vendor, the case, the variant suffix and the punctua
   assert.equal(modelKey('openai/gpt-oss-20b:free'), 'gpt-oss-20b');
 });
 
-test('the table keeps each model with an index once, and drops a key two different models share', () => {
+test('the table keeps each model once, with or without an index, and drops a key two different models share', () => {
   const table = indexTable(body);
-  assert.deepEqual(table.get('claude-sonnet-5-5'), { id: 'anthropic/claude-sonnet-5.5', index: 54.5 }, 'the :batch twin is the same model');
-  assert.deepEqual(table.get('gpt-oss-20b'), { id: 'openai/gpt-oss-20b', index: 33.4 });
+  assert.deepEqual(table.get('claude-sonnet-5-5'), { id: 'anthropic/claude-sonnet-5.5', index: 54.5, context: null, prices: null }, 'the :batch twin is the same model');
+  assert.deepEqual(table.get('gpt-oss-20b'), { id: 'openai/gpt-oss-20b', index: 33.4, context: null, prices: null });
   assert.equal(table.has('twin-1'), false, 'two vendors, two scores: no guess');
-  assert.equal(table.has('no-index'), false);
-  assert.equal(table.has('no-benchmarks'), false);
+  assert.deepEqual(table.get('no-index'), { id: 'vendor/no-index', index: null, context: null, prices: null }, 'kept for its price and context');
+  assert.deepEqual(table.get('no-benchmarks'), { id: 'vendor/no-benchmarks', index: null, context: null, prices: null });
   assert.equal(indexTable({ nope: true }).size, 0);
   assert.equal(indexTable(null).size, 0);
 });
@@ -60,6 +60,48 @@ test('the list is fetched once, refused when it is not a model list, too big, or
 
 test('the stored index table is read from storage alone, at any age', async () => {
   const store = { get: async () => ({ fetchedAt: '2020-01-01T00:00:00.000Z', rows: [['glm-5-3', 'z-ai/glm-5.3', 50]] }) };
-  assert.deepEqual([...await storedIndexTable(store)], [['glm-5-3', { id: 'z-ai/glm-5.3', index: 50 }]]);
+  assert.deepEqual([...await storedIndexTable(store)], [['glm-5-3', { id: 'z-ai/glm-5.3', index: 50, context: null, prices: null }]], 'a copy stored before 26 Nov has no prices or context');
   assert.equal((await storedIndexTable({ get: async () => { throw new Error('disk'); } })).size, 0);
+});
+
+// 26 Nov: the list is kept whole for prices and context, and one ladder finds a model in it and in Artificial Analysis's list.
+const priced = (id: string, prompt: string, completion: string, context: number, index: number | null = null, extra: Record<string, unknown> = {}) =>
+  entry(id, index, { context_length: context, pricing: { prompt, completion, input_cache_read: '0.0000001', input_cache_write: '-1' }, ...extra });
+
+test('each model keeps its prices for a million tokens, exactly, and its context; a copy (:free, :batch) never changes them', () => {
+  const table = indexTable({ data: [priced('openai/gpt-oss-20b:free', '0', '0', 131072, 33.4), priced('openai/gpt-oss-20b', '0.00000007', '0.0000003', 131072, 33.4), priced('vendor/auto', '-1', '-1', 0)] });
+  assert.deepEqual(table.get('gpt-oss-20b'), { id: 'openai/gpt-oss-20b', index: 33.4, context: 131072, prices: { inputPerMillion: '0.07', outputPerMillion: '0.3', cacheReadPerMillion: '0.1', cacheWritePerMillion: null } });
+  assert.deepEqual(table.get('auto'), { id: 'vendor/auto', index: null, context: null, prices: { inputPerMillion: null, outputPerMillion: null, cacheReadPerMillion: '0.1', cacheWritePerMillion: null } }, 'a price of -1 (it varies) is unknown');
+  assert.equal(indexTable({ data: [priced('vendor/solo:free', '0', '0', 1000, 10)] }).get('solo')?.prices, null, 'a model listed only as a free copy: its own price is unknown, not $0');
+});
+
+test('the ladder: as written, then without a date, then with its words in any order, then the one listed key that ends in it', () => {
+  const table = indexTable({ data: [priced('anthropic/claude-haiku-4.5', '0.000001', '0.000005', 200000, 7.4), priced('qwen/qwen3.8-max-20260902', '0.000002', '0.000006', 262144), priced('vendor/gpt-5.4-mini', '0.00000075', '0.0000045', 400000), priced('vendor/gpt-4.5-mini', '0.000001', '0.000002', 128000)] });
+  const id = (model: { id: string; name: string }) => openRouterFor(model, table)?.id ?? null;
+  assert.equal(id({ id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5' }), 'anthropic/claude-haiku-4.5', 'a date at the end');
+  assert.equal(id({ id: 'qwen3.8-max', name: 'Qwen3.8 Max' }), 'qwen/qwen3.8-max-20260902', 'a date on the listed side');
+  assert.equal(id({ id: 'claude-4-5-haiku', name: 'Claude 4.5 Haiku' }), 'anthropic/claude-haiku-4.5', 'the words in another order');
+  assert.equal(id({ id: 'mini-gpt-5.4', name: 'x' }), 'vendor/gpt-5.4-mini', 'numbers keep their order: 5.4 is not 4.5');
+  assert.equal(id({ id: 'haiku', name: 'Haiku' }), null, 'a family name alone is no one model');
+});
+
+test('a match without what is asked for gives way to one with it, and never to a guess', () => {
+  const table = indexTable({ data: [priced('deepseek/deepseek-v4.1-flash', '0.0000003', '0.0000012', 1000000), priced('deepseek/deepseek-v4.1-flash-1017', '0.0000003', '0.0000012', 1000000, 32.4)] });
+  const indexed = (model: { id: string; name: string }) => openRouterFor(model, table, found => found.index !== null)?.id ?? null;
+  assert.equal(openRouterFor({ id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash 1017' }, table)?.id, 'deepseek/deepseek-v4.1-flash', 'its id first');
+  assert.equal(indexed({ id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash 1017' }), 'deepseek/deepseek-v4.1-flash-1017', 'its name names the version that has an index');
+  assert.equal(indexed({ id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash' }), null, 'no index for that one');
+  const twins = new Map([['red-big-cat', { id: 'a/red-big-cat' }], ['big-red-cat', { id: 'b/big-red-cat' }]]);
+  assert.equal(findModel(twins, ['cat-red-big'], found => found.id), null, 'two listed models in the same words: no guess');
+});
+
+test('a copy stored before 26 Nov is read, and refreshed at once for its prices', async () => {
+  const records = new Map<string, unknown>([['relay/intelligence', { fetchedAt: '2026-11-26T07:00:00.000Z', rows: [['glm-5-3', 'z-ai/glm-5.3', 50]] }]]);
+  const store = { async get(key: string) { return records.get(key); }, async set(key: string, value: unknown) { records.set(key, value); } };
+  let fetched = 0;
+  const fetcher = (async () => { fetched++; return new Response(JSON.stringify({ data: [priced('z-ai/glm-5.3', '0.0000014', '0.0000044', 1000000, 61)] })); }) as unknown as typeof fetch;
+  const found = await loadIndexTable(store, fetcher, Date.parse('2026-11-26T08:00:00Z'));
+  assert.deepEqual([fetched, found.table.get('glm-5-3')?.prices?.inputPerMillion, found.table.get('glm-5-3')?.context], [1, '1.4', 1000000]);
+  const again = await loadIndexTable(store, fetcher, Date.parse('2026-11-26T09:00:00Z'));
+  assert.deepEqual([fetched, again.table.get('glm-5-3')?.prices?.outputPerMillion], [1, '4.4'], 'the new copy is kept, prices and all');
 });

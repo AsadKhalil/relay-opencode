@@ -5,10 +5,10 @@ import { listProjectModels } from './inventory.js';
 import { getRelaySettings, saveRelaySettings, recentDecisions, modelName, modes, chatSwitch, setChatSwitch, getUsage, type Mode, type RelaySettings, type RelayStore } from './relay-store.js';
 import { candidates, checksStatus, describeError, linesFor, route, sizesFor } from './router.js';
 import { rank } from './ranking.js';
-import { readStored, standingsOf } from './standings.js';
+import { factsOf, readStored, standingsOf } from './standings.js';
 import { decide } from './decider.js';
-import { INDEX_SOURCE, indexFor, loadIndexTable } from './intelligence.js';
-import { AA_CREDIT, AA_SOURCE, aaFor, aaPricesFor, getPriceKey, loadAaModels, setPriceKey, storedAaModels } from './artificial-analysis.js';
+import { INDEX_SOURCE, loadIndexTable } from './intelligence.js';
+import { AA_CREDIT, AA_SOURCE, getPriceKey, loadAaModels, setPriceKey, storedAaModels } from './artificial-analysis.js';
 import { oldestRecord, priceFromList, pruneRecords, readRecords, summarize, usageQueryOf, type LogStore } from './usage-log.js';
 
 const chatID = (input: unknown) => { const id = (input as { sessionID: string }).sessionID.trim(); if (!id) throw new Error('Name the chat'); return id; };
@@ -25,20 +25,20 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
   const relayView = async (settings: RelaySettings, chat: Awaited<ReturnType<typeof listProjectModels>>, deciders: Awaited<ReturnType<typeof listProjectModels>>) => ({ directory: context.location.directory, settings, decisions: await recentDecisions(relayStore), deciders, checks: checksStatus(settings, chat), priceKey: (await getPriceKey(relayStore)) !== null });
   return context.rpc.register(RelayRpc, guarded({
     listModels: async () => ({ directory: context.location.directory, models: await listProjectModels(context) }),
-    // With a saved key the index is Artificial Analysis's own, and OpenRouter's copy of the same index where its list has none (26 Nov: 12 of
-    // the owner's 123 models); without a key, or when its list cannot be had, OpenRouter's alone. A model OpenCode lists no price for, such
-    // as Claude through a subscription login, gets Artificial Analysis's price, as its usage records do.
+    // Each model's facts beyond OpenCode's own record, by `factsOf`: the index (Artificial Analysis's with a saved key, else OpenRouter's copy
+    // of it), a price where OpenCode lists none (such as Claude through a subscription login), a context where it lists none, and the index of
+    // each effort that has its own. The lists are loaded here, at most once a day each, so Relay's own choice can read them from storage.
     listIntelligence: async () => {
       const [key, chat, deciders] = await Promise.all([getPriceKey(relayStore), listProjectModels(context), listProjectModels(context, 'decision')]);
       const seen = new Set<string>(), models = [...chat, ...deciders].filter(model => { const name = `${model.providerID}/${model.id}`; return !seen.has(name) && !!seen.add(name); });
       const [aa, found] = await Promise.all([key ? aaModels(key) : null, indexTable()]), list = aa?.models ?? [];
+      const lists = { aa: list, table: found.table };
       const scores = models.flatMap(model => {
-        const asked = { ...model, variant: null }, hit = list.length ? aaFor(asked, list) : null, other = hit?.index == null ? indexFor(model, found.table) : null;
-        const prices = model.cost.inputPerMillion === null && model.cost.outputPerMillion === null ? aaPricesFor(asked, list) : null;
-        const index = hit?.index ?? other?.index ?? null;
-        if (index === null && prices === null) return [];
-        const from = hit?.index != null ? 'artificial-analysis' as const : other ? 'openrouter' as const : null;
-        return [{ providerID: model.providerID, id: model.id, index, matched: from === 'artificial-analysis' ? hit!.slug : other?.matched ?? null, from, prices }];
+        const facts = factsOf(model, null, lists), lent = facts.pricesFrom === 'opencode' ? null : facts.pricesFrom;
+        const efforts = model.variants.flatMap(variant => { const own = factsOf(model, variant, lists); return own.ownEffort && own.index !== null ? [{ variant, index: own.index }] : []; });
+        const context = facts.contextFrom === 'openrouter' ? facts.context : null;
+        if (facts.index === null && lent === null && context === null) return [];
+        return [{ providerID: model.providerID, id: model.id, index: facts.index, matched: facts.matched, from: facts.indexFrom, prices: lent ? facts.prices : null, pricesFrom: lent, context, efforts }];
       });
       const source = list.length ? `${AA_SOURCE}; where its list has none, OpenRouter's copy of the same index` : INDEX_SOURCE;
       return { directory: context.location.directory, source, fetchedAt: list.length ? aa!.fetchedAt : found.fetchedAt, note: [aa?.note, found.note].filter(Boolean).join('; ') || null, scores };

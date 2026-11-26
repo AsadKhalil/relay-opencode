@@ -8,14 +8,20 @@ import type { ModelChoice } from './settings.js';
 // What the Modes tab says in words. Pure, so it runs under node:test; the panel bundles it, so nothing here may import from `node:`.
 
 const usd = (value: string | null) => value === null ? 'not listed' : `$${value}`;
-type Borrowed = Pick<Prices, 'inputPerMillion' | 'outputPerMillion'> | null | undefined;
+/** A price from elsewhere (`factsOf` in src/standings.ts): another list's, or $0 for a model free by its name. Without `from`, Artificial Analysis's. */
+type Borrowed = (Pick<Prices, 'inputPerMillion' | 'outputPerMillion'> & { from?: 'artificial-analysis' | 'openrouter' | 'free' | null }) | null | undefined;
 type Cost = Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion'>;
-/** Artificial Analysis's price, only where OpenCode lists none at all: a $0 listing is OpenCode's own answer (`listIntelligence` in src/rpc.ts). */
-const lent = (cost: Cost, borrowed: Borrowed) => cost.inputPerMillion === null && cost.outputPerMillion === null && borrowed && (borrowed.inputPerMillion !== null || borrowed.outputPerMillion !== null) ? borrowed : null;
-/** A listed price of 0 can mean free or not known, so it is never called free. A borrowed price is the model's API price, which a subscription login does not pay. */
+/** A borrowed price, only where OpenCode lists none at all (a $0 listing is OpenCode's own answer), or $0 for a free model. */
+const lent = (cost: Cost, borrowed: Borrowed) => borrowed && (borrowed.from === 'free' || (cost.inputPerMillion === null && cost.outputPerMillion === null && (borrowed.inputPerMillion !== null || borrowed.outputPerMillion !== null))) ? borrowed : null;
+const sourceName = (borrowed: NonNullable<Borrowed>) => borrowed.from === 'openrouter' ? 'OpenRouter' : 'Artificial Analysis';
+/**
+ * A listed price of 0 can mean free or not known, so it is never called free; a model OpenCode offers free by its name is. A borrowed price is
+ * the model's API price, which a subscription login does not pay.
+ */
 export function priceLabel(cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>, borrowed?: Borrowed): string {
   const api = lent(cost, borrowed);
-  if (api) return `${usd(api.inputPerMillion)} in / ${usd(api.outputPerMillion)} out per 1M tokens on the API (Artificial Analysis)`;
+  if (api?.from === 'free') return '$0 (free by its name)';
+  if (api) return `${usd(api.inputPerMillion)} in / ${usd(api.outputPerMillion)} out per 1M tokens on the API (${sourceName(api)})`;
   const { inputPerMillion: input, outputPerMillion: output } = cost;
   if (input === null && output === null) return 'price not listed';
   if (input === '0' && output === '0') return '$0 or not listed';
@@ -32,6 +38,7 @@ export function cheapestFirst(a: { name: string; cost: Pick<ModelCostView, 'inpu
 /** A price in the model table, whose column header says it is per 1M tokens, input / output. A borrowed one is marked *, which `borrowedNote` explains. */
 export function priceCell(cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>, borrowed?: Borrowed): string {
   const api = lent(cost, borrowed);
+  if (api?.from === 'free') return '$0 (free)';
   if (api) return `${usd(api.inputPerMillion)} / ${usd(api.outputPerMillion)}*`;
   const { inputPerMillion: input, outputPerMillion: output } = cost;
   if (input === null && output === null) return 'not listed';
@@ -49,13 +56,23 @@ export function contextLabel(tokens: number): string {
 
 /** An intelligence index as the table shows it: one decimal at most, and a dash when no index was found for the model. */
 export const indexLabel = (index: number | null | undefined) => index === null || index === undefined ? '—' : String(Math.round(index * 10) / 10);
-export const borrowedNote = "* Artificial Analysis's price for the model on its maker's API: OpenCode lists none. With a Claude login your plan pays instead.";
+export const borrowedNote = "* The model's price on its maker's API, from Artificial Analysis or OpenRouter (hover for which): OpenCode lists none. With a Claude login your plan pays instead.";
 
-/** The line under a chosen model, and under the decider: its price, its index and its context. */
-export function modelFacts(model: { cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>; limit: { context: number }; variants: readonly string[] }, score: { index: number | null; prices: Borrowed } | undefined): string {
-  const index = score?.index ?? null;
-  return [priceLabel(model.cost, score?.prices), index === null ? 'no index found' : `index ${indexLabel(index)}${model.variants.length ? ' at its highest effort' : ''}`,
-    model.limit.context > 0 ? `${contextLabel(model.limit.context)} context` : 'context not listed'].join(' · ');
+/** The price cell's tip for a borrowed price: whose list it came from. */
+export const priceTip = (borrowed: Borrowed) => !borrowed?.from ? undefined : borrowed.from === 'free' ? 'OpenCode offers this model free (by its name)' : `${sourceName(borrowed)}'s price for this model on its maker's API`;
+
+/** Which Relay the panel is: change it with every version; a test keeps it equal to package.json. */
+export const RELAY_VERSION = '0.2.2';
+export const versionLabel = `Relay v${RELAY_VERSION}`;
+
+/** What `listIntelligence` adds to a model: its index, a borrowed price and its source, a context OpenCode lists none for, and each effort's own index. */
+type Score = { index: number | null; prices: Borrowed; pricesFrom?: 'artificial-analysis' | 'openrouter' | 'free' | null; context?: number | null; efforts?: readonly { variant: string; index: number }[] };
+/** The line under a chosen model, and under the decider: its price, its index at the chosen effort when that effort has its own, and its context. */
+export function modelFacts(model: { cost: Pick<ModelCostView, 'inputPerMillion' | 'outputPerMillion' | 'tiered'>; limit: { context: number }; variants: readonly string[] }, score: Score | undefined, variant: string | null = null): string {
+  const own = score?.efforts?.find(effort => effort.variant === variant), index = own?.index ?? score?.index ?? null;
+  const borrowed = score?.prices ? { ...score.prices, from: score.pricesFrom ?? null } : null, context = model.limit.context > 0 ? model.limit.context : score?.context ?? 0;
+  return [priceLabel(model.cost, borrowed), index === null ? 'no index found' : `index ${indexLabel(index)}${own ? ` at ${variant} effort` : model.variants.length ? ' at its highest effort' : ''}`,
+    context > 0 ? `${contextLabel(context)} context${model.limit.context > 0 ? '' : ' (OpenRouter)'}` : 'context not listed'].join(' · ');
 }
 /** The index cell's tip: whose list the index came from, and for which listed model. */
 export function indexTip(model: { matched: string | null; from: 'artificial-analysis' | 'openrouter' | null; variants: readonly string[] }): string {

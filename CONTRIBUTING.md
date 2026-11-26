@@ -63,7 +63,7 @@ Thanks for helping. Relay is an OpenCode plugin (package `relay-opencode`). `/re
 
 A release puts a new version on npm, where OpenCode downloads it from. Only an owner of the npm package `relay-opencode` can publish.
 
-1. **Pick the version.** Raise `version` in `package.json` (for example to `0.2.0`), or run `npm version 0.2.0 --no-git-tag-version`. Set the same version in the README's install example, and add a dated line to `docs/implementation-progress.md`.
+1. **Pick the version.** Raise `version` in `package.json` (for example to `0.2.0`), or run `npm version 0.2.0 --no-git-tag-version`. Set the same version in `RELAY_VERSION` in `src/relay-view.ts` (the panel shows it; a test checks) and in the README's install example, and add a dated line to `docs/implementation-progress.md`.
 2. **Check.** Run the four checks and the smoke (above). Commit and push.
 3. **Publish.** Run `npm login` as a package owner, then `npm publish`. `prepublishOnly` runs the four checks again and stops the release if one fails. `npm publish --dry-run` first shows the files that would go out: only `dist/`, the README, the license and `package.json`.
 4. **Wait for it to go live.** npm may hold a release for review. Until it is live, `npm view relay-opencode version` can print `0.0.0-stage`, a placeholder npm adds ("Temporary package placeholder for staged publishing"). For 0.1.0 the real version became `latest` about three minutes later. Check with `npm view relay-opencode version`.

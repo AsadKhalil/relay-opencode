@@ -1,5 +1,5 @@
 import { usdString } from './costs.js';
-import { modelKey } from './intelligence.js';
+import { findModel, modelKey } from './intelligence.js';
 import type { Prices } from './relay-store.js';
 
 // Artificial Analysis's free model list: each model's prices and intelligence index, with a key the owner saves in the panel. The key is sent
@@ -91,32 +91,49 @@ export async function loadAaModels(store: Pick<Store, 'get' | 'set'>, key: strin
 
 // The subscription login's models are named by family only; Claude Code picks the version, so the newest in the list stands for it.
 const FAMILIES = new Set(['sonnet', 'haiku', 'opus', 'fable']);
-/**
- * The listed model that is `model` at its effort: an exact match of the id or name, as `modelKey` writes them, with the effort first and then
- * without it. A key that two different models share matches nothing.
- */
-export function aaFor(model: { providerID: string; id: string; name: string; variant: string | null }, models: readonly AaModel[]): AaModel | null {
-  const table = new Map<string, AaModel | null>();
+type Asked = { providerID: string; id: string; name: string; variant: string | null };
+type Useful = (listed: AaModel) => boolean;
+// One key table a list, kept while the list is: a list is read once and asked about for every model and effort.
+const tables = new WeakMap<readonly AaModel[], Map<string, AaModel | null>>();
+function tableOf(models: readonly AaModel[]): Map<string, AaModel | null> {
+  let table = tables.get(models);
+  if (table) return table;
+  table = new Map();
   for (const listed of models) for (const name of [listed.slug, listed.name]) {
     const key = modelKey(name), found = table.get(key);
     if (key && found !== null) table.set(key, found && found.slug !== listed.slug ? null : listed);
   }
-  let ids = [model.id, model.name];
-  if (model.providerID === 'claude-agent' && FAMILIES.has(model.id)) {
-    const base = new RegExp(`^claude-${model.id}-[\\d-]+$`);
-    const newest = models.filter(listed => listed.creator === 'Anthropic' && base.test(listed.slug)).sort((a, b) => (b.released ?? '').localeCompare(a.released ?? '') || a.slug.length - b.slug.length)[0];
-    if (!newest) return null;
-    ids = [newest.slug];
-  }
-  const keys = [...(model.variant ? ids.map(id => modelKey(`${id}-${model.variant}`)) : []), ...ids.map(modelKey)];
-  for (const key of keys) { const found = table.get(key); if (found) return found; }
-  return null;
+  tables.set(models, table);
+  return table;
+}
+/** The names `model` is looked up by: its id and name, or for a Claude login family, the newest listed model of it. Null when that family is not listed. */
+function namesOf(model: Asked, models: readonly AaModel[]): string[] | null {
+  if (model.providerID !== 'claude-agent' || !FAMILIES.has(model.id)) return [model.id, model.name];
+  const base = new RegExp(`^claude-${model.id}-[\\d-]+$`);
+  const newest = models.filter(listed => listed.creator === 'Anthropic' && base.test(listed.slug)).sort((a, b) => (b.released ?? '').localeCompare(a.released ?? '') || a.slug.length - b.slug.length)[0];
+  return newest ? [newest.slug] : null;
+}
+/** OpenCode's effort as Artificial Analysis names an entry: its plain entry is the highest effort ("max"), and "none" is its non-reasoning entry. */
+const effortSlug = (variant: string | null) => variant === null || variant === 'max' ? null : variant === 'none' ? 'non-reasoning' : variant;
+/** The listed entry of `model` at its own effort, through the ladder of `findModel`; null when that effort has no entry of its own. */
+export function aaEffortFor(model: Asked, models: readonly AaModel[], useful?: Useful): AaModel | null {
+  const names = namesOf(model, models), effort = effortSlug(model.variant);
+  return names && effort ? findModel(tableOf(models), names.map(name => `${name}-${effort}`), listed => listed.slug, useful) : null;
+}
+/**
+ * The listed model that is `model` at its effort: its effort's own entry, else its plain entry, found by the ladder of `findModel` (as written,
+ * without a date, in another word order, by its end). `useful` passes over an entry without what the caller needs. Two models at one step match nothing.
+ */
+export function aaFor(model: Asked, models: readonly AaModel[], useful?: Useful): AaModel | null {
+  const names = namesOf(model, models);
+  return names ? aaEffortFor(model, models, useful) ?? findModel(tableOf(models), names, listed => listed.slug, useful) : null;
 }
 
-/** OpenCode's free copies: `modelKey` reads them as the paid model, which is right for the index and wrong for a bill. */
-const isFreeCopy = (model: { id: string; name: string }) => /[-:]free$/i.test(model.id) || /\bfree\b/i.test(model.name);
-/** Artificial Analysis's prices for a model, as `aaFor` matches it; null for a free copy or no match. Callers lend them only where OpenCode lists none. */
-export const aaPricesFor = (model: Parameters<typeof aaFor>[0], models: readonly AaModel[]): Prices | null => isFreeCopy(model) ? null : aaFor(model, models)?.prices ?? null;
+/** A model OpenCode offers free (an id ending -free or :free, or Free in its name). `modelKey` reads it as the paid model: right for the index, wrong for a bill. */
+export const isFreeCopy = (model: { id: string; name: string }) => /[-:]free$/i.test(model.id) || /\bfree\b/i.test(model.name);
+const priced = (listed: AaModel) => listed.prices.inputPerMillion !== null || listed.prices.outputPerMillion !== null;
+/** Artificial Analysis's prices for a model, from an entry that has some; null for a free copy or no match. Callers lend them only where OpenCode lists none. */
+export const aaPricesFor = (model: Asked, models: readonly AaModel[]): Prices | null => isFreeCopy(model) ? null : aaFor(model, models, priced)?.prices ?? null;
 
 const KEY_SHAPE = /^\S{8,200}$/;
 /** The saved key, or null. */

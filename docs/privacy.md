@@ -6,7 +6,7 @@ For the Relay usage tab, Relay reads the same numbers for every reply of every c
 
 To weigh a move and to show what a reply took, Relay reads the chat's token counts, costs and times, the model that answered, and that model's listed prices from OpenCode on your machine. It keeps them with its last 20 records in OpenCode's plugin storage and sends them nowhere. It never stores the text of your messages.
 
-To show the intelligence index, Relay downloads OpenRouter's public model list, at most once a day. It sends no key and nothing about you or your models.
+To show the intelligence index, and a price and context size where OpenCode lists none, Relay downloads OpenRouter's public model list, at most once a day. It sends no key and nothing about you or your models.
 
 If you save an Artificial Analysis key in the panel, Relay also downloads Artificial Analysis's free model list with it, at most once a day, for prices and the index; OpenRouter's list is still downloaded, without the key, for the models that list has no index for. It sends the key and nothing else. The key is kept in OpenCode's plugin storage on your machine, sent only to Artificial Analysis, and never shown in the panel again. Remove deletes it. [Data sources](data-sources.md) has the details.
 
