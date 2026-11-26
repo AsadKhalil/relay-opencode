@@ -180,13 +180,15 @@ const priced = [
   wide('flash', price('0.3', '1.2', '0.006', '0.3')), wide('zero', price('0', '0', '0', '0')), wide('bare'),
   wide('plain', price('2', '10', null, null)), wide('cheap', price('0.4', '2', null, null)),
 ];
-type Extra = { agoMs?: number; answered?: object[]; past?: object[]; current?: ReturnType<typeof pick> | null; chat?: object | null };
+type Extra = { agoMs?: number; answered?: object[]; past?: object[]; current?: ReturnType<typeof pick> | null; chat?: object | null; models?: object[] };
 /** A chat of `tokens` on `from`, which answered a minute ago. The decider's line points at `to`, the second model of the Execute list. */
 function move(from: string, to: string, tokens: number, extra: Extra = {}) {
   const chat = extra.chat === undefined ? { tokens, answered: [{ providerID: 'p', id: from, tokens, agoMs: extra.agoMs ?? 60_000 }, ...(extra.answered ?? [])] } : extra.chat;
   const lists = { modes: { ...settings.modes, execute: [entry(from, 'the usual work'), entry(to, 'small, clear changes')] } };
-  return route(sure('execute', 0.9, { execute: { index: 1, confidence: 0.8 } }), lists, priced as never, { needsImage: false, tokens: 0, chat, past: extra.past } as never, extra.current === undefined ? pick(from) : extra.current);
+  return route(sure('execute', 0.9, { execute: { index: 1, confidence: 0.8 } }), lists, (extra.models ?? priced) as never, { needsImage: false, tokens: 0, chat, past: extra.past } as never, extra.current === undefined ? pick(from) : extra.current);
 }
+/** The priced models, with a cache time listed for all of them or for `ids` only. */
+const lasting = (ms: number, ids?: string[]) => priced.map(model => !ids || ids.includes(model.id) ? { ...model, cacheMs: ms } : model);
 const went = (result: ReturnType<typeof route>) => result.switch ? [result.model.id, result.note] : ['no switch', result.note];
 
 test('a step down to a cheaper model happens only when it pays', () => {
@@ -218,10 +220,11 @@ test('a saving that is more than the cost, but less than one and a half times it
 });
 
 test('what the picked model still holds of the chat is not read again', () => {
-  const held = (agoMs: number) => move('opus', 'sonnet', 100_000, { answered: [{ providerID: 'p', id: 'sonnet', tokens: 92_000, agoMs }] });
+  const held = (agoMs: number, models?: object[]) => move('opus', 'sonnet', 100_000, { answered: [{ providerID: 'p', id: 'sonnet', tokens: 92_000, agoMs }], models });
   assert.equal(went(move('opus', 'sonnet', 100_000))[0], 'opus');
   assert.equal(went(held(120_000))[0], 'sonnet', 'all but 8,000 tokens are still in its cache');
   assert.equal(went(held(300_001))[0], 'opus', 'after five minutes its cache is gone');
+  assert.equal(went(held(1_200_000, lasting(3_600_000, ['sonnet'])))[0], 'sonnet', 'with an hour listed for sonnet, twenty minutes is still in its cache');
 });
 
 test('the usual number of requests comes from the records of that line, once there are three', () => {
@@ -289,4 +292,15 @@ test('sizesFor asks only where Relay can rank and the strongest is not the cheap
   assert.deepEqual(sizesFor(twoPlan, models, nothing, null, new Map()), [], 'unranked');
   assert.deepEqual(sizesFor(three, models, nothing, null, ranks), [], 'lines are asked instead');
   assert.deepEqual(route(sure('plan'), twoPlan, models, nothing, null, 'plan', dominant), { switch: true, mode: 'plan', agent: 'plan', model: pick('deep'), fit: null, note: null }, 'it takes all the work');
+});
+
+test('the cache time OpenCode lists replaces the five minutes', () => {
+  // An hour's cache, ten minutes after the last answer: the move from opus to sonnet still costs a re-read and does not pay.
+  assert.equal(went(move('opus', 'sonnet', 60_000, { agoMs: 600_000, models: lasting(3_600_000) }))[0], 'opus');
+  // Without a listed time, ten minutes is past the cache, so nothing is lost by moving.
+  assert.deepEqual(went(move('opus', 'sonnet', 60_000, { agoMs: 600_000 })), ['sonnet', null]);
+  // A cache time of 0 means there is never a cache to lose.
+  assert.deepEqual(went(move('opus', 'sonnet', 60_000, { agoMs: 1_000, models: lasting(0) })), ['sonnet', null]);
+  // Only the chat's own model counts for its cache: an hour on the pick alone does not keep the chat on opus.
+  assert.deepEqual(went(move('opus', 'sonnet', 60_000, { agoMs: 600_000, models: lasting(3_600_000, ['sonnet']) })), ['sonnet', null]);
 });

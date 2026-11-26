@@ -12,6 +12,7 @@ const modelItem = {
     capabilities: { type: 'object', properties: { input: { type: 'array', items: { type: 'string' } }, output: { type: 'array', items: { type: 'string' } }, tools: { type: 'boolean' } }, required: ['input', 'output', 'tools'], additionalProperties: false },
     limit: { type: 'object', properties: { context: { type: 'number' }, output: { type: 'number' } }, required: ['context', 'output'], additionalProperties: false },
     cost: { type: 'object', properties: { ...prices, tiered: { type: 'boolean' }, steps: { type: 'array', items: { type: 'object', properties: { above: { type: 'number' }, ...prices }, required: ['above', ...priceNames], additionalProperties: false } } }, required: [...priceNames, 'tiered', 'steps'], additionalProperties: false },
+    cacheMs: { type: 'number' },
   }, required: ['providerID', 'id', 'name', 'enabled', 'status', 'variants', 'capabilities', 'limit', 'cost'], additionalProperties: false,
 } as const;
 // One set of settings for every project (the host shares plugin storage), the last decisions, and the panel's test box.

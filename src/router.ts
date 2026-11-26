@@ -40,7 +40,8 @@ export const brief = (error: unknown) => safeHead(describeError(error, 'unknown 
 export type LineAnswer = { index: number | null; confidence: number };
 /** `sizes` holds the decider's answer about how big the work is, for the modes Relay chooses for by itself (src/ranking.ts). */
 export type DeciderAnswer = { kind: 'answer'; mode: Mode; confidence: number; lines: Partial<Record<Mode, LineAnswer>>; sizes?: Partial<Record<Mode, SizeAnswer>>; ms: number; costUsd: string | null } | { kind: 'none'; reason: string; ms: number };
-export type RoutableModel = OfferedModel & { capabilities: { input: readonly string[] }; limit: { context: number }; cost?: ModelCostView };
+/** `cacheMs` is the cache time OpenCode lists for the model (`cache.ttl`), when one is set. */
+export type RoutableModel = OfferedModel & { capabilities: { input: readonly string[] }; limit: { context: number }; cost?: ModelCostView; cacheMs?: number };
 /** What is known of a chat: its size in tokens, and each model's latest answer in it, newest first, with the chat's size then and how long ago its request began. */
 export type ChatFacts = { tokens: number; answered: readonly { providerID: string; id: string; tokens: number; agoMs: number }[] };
 /**
@@ -138,8 +139,9 @@ export function sizesFor(settings: Pick<RelaySettings, 'modes'>, models: readonl
 
 // Stay or go: a step down to a cheaper model is made only when it pays. Arithmetic only, on whole numbers; no model is asked. The method
 // and its worked examples are in docs/research/2026-11-17-relay-cost-and-model-choice.md (section 4.2). Nothing in it has been measured.
-// shortcut: a cache is taken to live five minutes, OpenCode's default. A longer lifetime set in OpenCode is not read, so a chat that was idle for more than five minutes is always moved.
+// shortcut: a cache lives five minutes (OpenCode's default) unless OpenCode lists a cache time for the model. Cache warming is not read: a warmed cache is taken to end at its ttl.
 const CACHE_MS = 5 * 60_000;
+const lifeOf = (model: RoutableModel | undefined) => model?.cacheMs ?? CACHE_MS;
 // shortcut: each coming request is taken to read 1,500 new tokens and write 500, and a line with fewer than three records to take 6 requests, until Relay's records give real averages.
 const NEW_IN = 1500n, NEW_OUT = 500n, USUAL_REQUESTS = 6;
 type Price = { read: bigint; write: bigint; output: bigint };
@@ -165,9 +167,9 @@ function stayOrGo(mode: Mode, pick: ModelChoice, current: ModelChoice | null, us
   if (chat === undefined || current === null || is(pick, current) || !usable.some(choice => same(choice, current))) return go();
   if (chat === null) return go("the chat's size could not be read, so no cost check");
   // Nothing to lose: a new chat, one that was just compacted, a last answer from another model, or a cache that has run out.
-  const last = chat.answered[0];
-  if (!last || !is(last, current) || last.agoMs > CACHE_MS) return go();
-  const size = Math.max(0, Math.round(chat.tokens)), priceOf = (choice: ModelChoice) => priceFor(models.find(model => is(model, choice))?.cost, size);
+  const listed = (choice: ModelChoice) => models.find(model => is(model, choice)), last = chat.answered[0];
+  if (!last || !is(last, current) || last.agoMs > lifeOf(listed(current))) return go();
+  const size = Math.max(0, Math.round(chat.tokens)), priceOf = (choice: ModelChoice) => priceFor(listed(choice)?.cost, size);
   const from = priceOf(current), to = priceOf(pick);
   if (!from || !to) return go('no price listed, so no cost check');
   // Tokens times a price for a million tokens, so every amount here is a million times too big until it is shown.
@@ -176,7 +178,7 @@ function stayOrGo(mode: Mode, pick: ModelChoice, current: ModelChoice | null, us
   const name = modelName(pick), took = (attachment.past ?? []).flatMap(item => item.mode === mode && item.model === name && item.reply ? [item.reply.requests] : []).sort((a, b) => a - b);
   const requests = took.length >= 3 ? Math.max(1, Math.round(took[Math.floor((took.length - 1) / 2)])) : USUAL_REQUESTS;
   // What the pick must read again: the whole chat, or only what was added since it last answered here, while its cache lives.
-  const held = chat.answered.find(item => is(item, pick) && item.agoMs <= CACHE_MS)?.tokens ?? 0;
+  const held = chat.answered.find(item => is(item, pick) && item.agoMs <= lifeOf(listed(pick)))?.tokens ?? 0;
   const saving = BigInt(requests) * less, extra = BigInt(Math.max(0, size - Math.round(held))) * (to.write - to.read);
   if (2n * saving >= 3n * extra) return go();   // it pays when the saving is at least one and a half times the extra
   return { stay: true, note: `moving this chat to ${name} would cost ${aboutUsd(extra / 1_000_000n)} to read it again and save ${aboutUsd(saving / 1_000_000n)} over ${requests} requests${saving >= extra ? ', less than one and a half times that cost' : ''}, so the chat's model stays` };

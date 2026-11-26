@@ -20,7 +20,7 @@ Since 18 Nov 2026:
 - **The whole chat must fit.** A chat is moved to a model only when the chat so far, with the attached files, fits that model with the room OpenCode keeps free before it compacts a chat.
 - **Recent choices shows what each reply took**, so you can see what a switch cost.
 
-The check uses OpenCode's listed prices and a few guesses: a cache that lasts five minutes, 1,500 new tokens in and 500 out for each coming request, and 6 requests for a line until three replies of that line are on record. With no listed price (a plan, a local model, "$0 or not listed") there is no cost check, and your line is followed.
+The check uses OpenCode's listed prices and a few guesses: a cache that lasts five minutes unless you set a cache time for the model in OpenCode (`cache.ttl`), 1,500 new tokens in and 500 out for each coming request, and 6 requests for a line until three replies of that line are on record. With no listed price (a plan, a local model, "$0 or not listed") there is no cost check, and your line is followed.
 
 ## What you can do
 

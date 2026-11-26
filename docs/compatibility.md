@@ -1591,3 +1591,5 @@ The plan `docs/superpowers/plans/2026-11-26-relay-improve-on-go.md`, Task 1 (own
 
 - Both versions put the provider's setting on each of its models, and a model's own setting wins. The same `settings` also hold the provider's other settings (here `baseURL`), so a reader must take `cache.ttl` alone.
 - **Not tested:** the plugin's own `context.model.list` (Task 2 checks it end to end), `cache.warming`, what a set time changes in the requests a provider gets, Desktop's screen, any real provider.
+
+**Relay reads it (Task 2).** Relay packed from this repository at `285257b` plus Task 2, on the same isolated setup on 2.3.0 and on 2.4.2: Relay's `listModels` RPC gave `cacheMs` 3,600,000 for the model with the provider's time and 600,000 for the one with its own, and nothing else of the settings (no address, no key). The cost check then counts a chat's cache as alive for that time instead of five minutes (`stayOrGo` in `src/router.ts`, unit tests in `tests/router.test.ts`). Not tested: a real chat with a listed time, `cache.warming`.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { listProjectModels } from '../src/inventory.js';
+import { listProjectModels, ttlMs } from '../src/inventory.js';
 import { aboutUsd, parseUsd, usdString } from '../src/costs.js';
 
 test('returns project model routes without credentials or provider request settings', async () => {
@@ -62,4 +62,21 @@ test('decision models are asked for by type, and chat models as before', async (
   const seen: unknown[] = [];
   await listProjectModels(host([], seen)); await listProjectModels(host([], seen), 'decision');
   assert.deepEqual(seen, [{ location: { directory: '/repo' } }, { location: { directory: '/repo' }, types: ['decision'] }]);
+});
+
+test('a cache time set in OpenCode is read in milliseconds; anything else is unset', () => {
+  assert.deepEqual(['1h', '90s', '500ms', '2d', '5m', '1.5h', '0s'].map(ttlMs), [3_600_000, 90_000, 500, 172_800_000, 300_000, 5_400_000, 0]);
+  assert.deepEqual(['', '60', '1H', ' 1h', '-5m', 'soon', 60, null, undefined, {}].map(ttlMs), Array(10).fill(null));
+});
+
+test("the cache time is the only thing read from a model's settings", async () => {
+  const [a, b, c] = await listProjectModels(host([
+    record({ settings: { apiKey: 'secret', headers: { authorization: 'secret' }, baseURL: 'https://secret.example', cache: { ttl: '1h', warming: true } } }),
+    record({ settings: { cache: { ttl: 'soon' } } }),
+    record({}),
+  ]));
+  assert.equal(a.cacheMs, 3_600_000);
+  assert.equal('cacheMs' in b, false, 'a cache time that cannot be read is unset');
+  assert.equal('cacheMs' in c, false, 'no settings, no cache time');
+  assert.equal(/secret|hidden/.test(JSON.stringify([a, b, c])), false);
 });

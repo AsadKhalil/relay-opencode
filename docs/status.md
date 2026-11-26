@@ -40,7 +40,7 @@ Details are in the [compatibility findings](compatibility.md) and the [change lo
 ## Known limits
 
 - Decision requests are not counted against any budget.
-- The cost check is arithmetic on listed prices and the guesses named in [When Relay saves money](saving-money.md). It has not been checked against a provider's bill. It takes a cache to last five minutes: with a longer cache time set in OpenCode, Relay still moves a chat that was idle for five minutes without a cost check.
+- The cost check is arithmetic on listed prices and the guesses named in [When Relay saves money](saving-money.md). It has not been checked against a provider's bill. It counts a cache as lasting five minutes, unless OpenCode lists a cache time for the model (`cache.ttl` in the provider's or the model's `settings`); cache warming is not read.
 - A model with no listed price gets no cost check and shows no cost. Claude through OpenCode's Claude Agent provider with a subscription login is such a model: Relay follows your line every time. On that route a cache also lasted longer than the five minutes Relay counts with.
 - The cost check weighs only a move between two models of the same mode. When the chat's model is not one of the new mode's models, for example Plan on one model and Execute on another, the chat moves as before.
 - What a reply took is read when the chat goes idle. A reply that was stopped, or a message that was taken back, shows nothing.
