@@ -28,18 +28,18 @@ You need OpenCode 2.3 or newer: OpenCode Desktop or the terminal app.
 1. Run:
 
    ```sh
-   opencode plugin add relay-opencode@0.2.0
+   opencode plugin add relay-opencode@0.2.1
    ```
 
-   It downloads Relay from npm and adds it to the `plugins` list of your global config, keeping the plugins already there. Use the newest version, which `npm view relay-opencode version` prints. With OpenCode Desktop only, run Desktop's own command-line binary the same way: on Windows `%APPDATA%\ai.opencode.desktop\cli\<version>-x64\opencode-cli.exe plugin add relay-opencode@0.2.0`.
+   It downloads Relay from npm and adds it to the `plugins` list of your global config, keeping the plugins already there. Use the newest version, which `npm view relay-opencode version` prints. With OpenCode Desktop only, run Desktop's own command-line binary the same way: on Windows `%APPDATA%\ai.opencode.desktop\cli\<version>-x64\opencode-cli.exe plugin add relay-opencode@0.2.1`.
 2. Quit OpenCode completely and open it again.
 3. Type `/` in a chat. `/relay` should be in the list.
 
-Or add it by hand: in OpenCode's global config file (`~/.config/opencode/opencode.json`; on Windows `C:\Users\<you>\.config\opencode\opencode.json`; or `opencode.jsonc` if that is the one you have), add `"relay-opencode@0.2.0"` to the `plugins` list, keeping any plugins already in it:
+Or add it by hand: in OpenCode's global config file (`~/.config/opencode/opencode.json`; on Windows `C:\Users\<you>\.config\opencode\opencode.json`; or `opencode.jsonc` if that is the one you have), add `"relay-opencode@0.2.1"` to the `plugins` list, keeping any plugins already in it:
 
 ```json
 {
-  "plugins": ["relay-opencode@0.2.0"]
+  "plugins": ["relay-opencode@0.2.1"]
 }
 ```
 
@@ -94,8 +94,8 @@ To remove Relay, run `opencode plugin remove relay-opencode@<version>` (or delet
 - **Installed from npm:** remove the old version and add the new one, then quit and reopen OpenCode:
 
   ```sh
-  opencode plugin remove relay-opencode@0.1.0
-  opencode plugin add relay-opencode@0.2.0
+  opencode plugin remove relay-opencode@0.2.0
+  opencode plugin add relay-opencode@0.2.1
   ```
 
   `plugin add` on its own adds a second entry next to the old one. By hand, change the version in the `plugins` entry instead.
