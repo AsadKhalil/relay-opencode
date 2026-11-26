@@ -55,25 +55,29 @@ Give your coding agent (OpenCode, Claude Code, Cursor or another) this repositor
 
 Follow these steps in order. Stop and ask the user when a step says so. Never print, copy or change API keys, tokens, passwords or login files.
 
-1. **Check OpenCode.** Run `opencode --version`.
-   - If it prints 2.3.0 or newer, go on.
-   - If the command is not found, look for OpenCode Desktop. On Windows it is `%LOCALAPPDATA%\Programs\ai.opencode.desktop\OpenCode.exe`, and its command-line binary is in `%APPDATA%\ai.opencode.desktop\cli\<version>-x64\opencode-cli.exe`. On macOS it is `/Applications/OpenCode.app`. If you find it, go on.
-   - If OpenCode is missing or older than 2.3.0, stop and ask the user to install or update it from https://opencode.ai.
-2. **Find the newest Relay version.** Run `npm view relay-opencode version`. Call the result `<version>`. If npm is not available, or it prints nothing or something that is not a plain version like `0.2.0` (for example `0.0.0-stage`, a placeholder npm shows while a release is held for review), use `latest` as `<version>`.
-3. **Find the config file.** The global config folder is `~/.config/opencode` (Windows: `%USERPROFILE%\.config\opencode`). Use `opencode.jsonc` if it exists there, else `opencode.json`. Never create a second config file next to an existing one. If neither exists, create `opencode.json` with the content `{}` and skip step 4.
-4. **Back it up.** Copy the file to `opencode.json.before-relay` (or `opencode.jsonc.before-relay`) in the same folder. If that name is taken, an earlier backup holds the original, so keep it and use `.before-relay-2` (then `-3`, and so on).
-5. **Add Relay.** First try the command: `opencode plugin add relay-opencode@<version>` (with Desktop only, its `opencode-cli` binary from step 1). It adds the entry to the global config itself and keeps the other plugins.
-   - If an entry `relay-opencode@<another version>` is already there, remove it first with `opencode plugin remove relay-opencode@<another version>`: `plugin add` adds a second entry instead of replacing the first.
-   - If the command works, go to step 6. If it is not available or fails, edit the file by hand as follows.
+1. **Find OpenCode.** OpenCode Desktop does not put an `opencode` command on the PATH, so a missing command is no reason to stop. Check these, and note what you find:
+   - The command: `opencode --version`. If it prints a version, you have a CLI for step 5. If it is not found, that is fine.
+   - OpenCode Desktop: on Windows `%LOCALAPPDATA%\Programs\ai.opencode.desktop\OpenCode.exe` (in PowerShell `$env:LOCALAPPDATA`, in Git Bash `$LOCALAPPDATA`); on macOS `/Applications/OpenCode.app` or `~/Applications/OpenCode.app`.
+   - Desktop's own CLI, which works like the `opencode` command: on Windows `%APPDATA%\ai.opencode.desktop\cli\<version>-x64\opencode-cli.exe` (take the folder with the highest version).
+   - OpenCode's folders: `~/.config/opencode` or `~/.local/share/opencode` (on Windows under `%USERPROFILE%`). They mean OpenCode has run on this machine.
 
-   By hand, edit the file's text in place: never rewrite it from parsed JSON, which would drop the comments, trailing commas and formatting of a `.jsonc` file. Change only the `plugins` list:
-   - If `plugins` is missing, add `"plugins": ["relay-opencode@<version>"]` as a new top-level key.
-   - If an entry is exactly `"relay-opencode"` or starts with `"relay-opencode@"`, replace that one entry with `"relay-opencode@<version>"`.
-   - If an entry is a folder path ending in `relay-opencode` (an install from source or a fixed copy), stop and ask the user whether to replace it.
-   - Otherwise append `"relay-opencode@<version>"` and keep every other entry as it is.
-   - The key is `plugins` (plural): never add a second `plugins` key or a singular `plugin` key, and do not touch any other key, such as `permissions`.
+   Any one of these is enough: go on. With no CLI you add Relay by hand in step 5, which needs no CLI. If a version you found is below 2.3.0 (from `--version`, or the name of Desktop's CLI folder), stop and ask the user to update OpenCode. If you found none of them, stop and ask the user to install OpenCode 2.3 or newer from https://opencode.ai.
+2. **Find the newest Relay version.** Run `npm view relay-opencode version`. Call the result `<version>`. If npm is not available, or it prints nothing or something that is not a plain version like `0.2.0` (for example `0.0.0-stage`, a placeholder npm shows while a release is held for review), use `latest` as `<version>`.
+3. **Find the config file.** The global config folder is `~/.config/opencode` (Windows: `%USERPROFILE%\.config\opencode`), or `$XDG_CONFIG_HOME/opencode` when that variable is set. Use `opencode.jsonc` if it exists there, else `opencode.json`. Never create a second config file next to an existing one. If neither exists, create `opencode.json` with the content `{}` and skip step 4.
+4. **Look, then back it up.** Read the `plugins` list of the config file.
+   - If an entry is a folder path ending in `relay-opencode` (an install from source or a fixed copy), stop and ask the user whether to replace it, and change nothing. Never add a second Relay next to it: OpenCode would load Relay twice.
+   - If an entry is exactly `relay-opencode` or starts with `relay-opencode@`, it is an older install: you replace it in step 5.
+
+   Then copy the file to `opencode.json.before-relay` (or `opencode.jsonc.before-relay`) in the same folder. If that name is taken, an earlier backup holds the original, so keep it and use `.before-relay-2` (then `-3`, and so on).
+5. **Add Relay.**
+   1. **With a CLI from step 1** (the `opencode` command, or Desktop's `opencode-cli`; the working folder does not matter): if there is an older entry, run `<cli> plugin remove <that exact entry>`, because `plugin add` would add a second entry instead of replacing it. Then run `<cli> plugin add relay-opencode@<version>`. It writes the global config itself and keeps the other plugins. It worked when it exits with code 0 and prints that the plugin was "installed and added to" the file from step 3; then go to step 6.
+   2. **Without a CLI, or if the command failed,** edit the file's text in place: never rewrite it from parsed JSON, which would drop the comments, trailing commas and formatting of a `.jsonc` file. Change only the `plugins` list:
+      - If `plugins` is missing, add `"plugins": ["relay-opencode@<version>"]` as a new top-level key.
+      - If there is an older entry, replace that one entry with `"relay-opencode@<version>"`.
+      - Otherwise append `"relay-opencode@<version>"` and keep every other entry as it is.
+      - The key is `plugins` (plural): never add a second `plugins` key or a singular `plugin` key, and do not touch any other key, such as `permissions`.
 6. **Check the file.** For `.json`, it must parse: `node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" <path>`. For `.jsonc`, a strict JSON check fails even on a good file, so check instead that the comments are still there and the brackets balance, or use a JSONC parser. If the file is broken, restore the backup and stop.
-7. **Restart OpenCode.** If you run inside OpenCode yourself, do not restart it: tell the user to quit OpenCode completely and open it again. Otherwise ask the user to restart it the same way. Do not end OpenCode's processes yourself.
+7. **Restart OpenCode.** Ask the user to quit OpenCode completely and open it again; if you run inside OpenCode yourself, or are not sure, do not restart it yourself. Do not end OpenCode's processes yourself.
 8. **Verify** after the restart. The first start downloads Relay, which can take a minute or two.
    - In OpenCode's log (`~/.local/share/opencode/log/opencode.log`; Windows: `%USERPROFILE%\.local\share\opencode\log\opencode.log`) there is a `loading plugin` line naming `relay-opencode`, and no `failed to load plugin` line for it.
    - Or ask the user to type `/` in a chat: `/relay` is listed.
