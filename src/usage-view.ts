@@ -60,7 +60,8 @@ export function totalCells(total: UsageTotal) {
     detail: [provider, `${amount(total.replies)} ${total.replies === 1 ? 'reply' : 'replies'}`, `${tokens} tokens`, total.cost !== null && total.unpriced ? `${amount(total.unpriced)} without a price` : ''].filter(Boolean).join(' · ') };
 }
 export const METRICS: readonly { id: Metric; label: string }[] = [{ id: 'cost', label: 'Cost' }, { id: 'tokens', label: 'Tokens' }, { id: 'requests', label: 'Requests' }];
-const COLORS = ['#4f7cff', '#2ea36a', '#d99a1c', '#9b6bff', '#e05a8a'], OTHER = '#8b949e';
+// The series colours are the board's own tokens (src/gui-styles.ts), outside the four mode hues, so a model's colour never reads as a mode; each light has its own.
+const COLORS = ['var(--rl-s1)', 'var(--rl-s2)', 'var(--rl-s3)', 'var(--rl-s4)', 'var(--rl-s5)'], OTHER = 'var(--rl-s0)';
 type Part = { model: string; value: number; color: string };
 /** A cost in millionths of a dollar: a whole number, for bar heights only. Labels come from the USD strings. */
 const micro = (cost: string | null) => cost === null ? 0 : Number(parseUsd(cost) / 1_000_000n);

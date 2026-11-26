@@ -4,12 +4,12 @@
 
 <table>
   <tr>
-    <td valign="top"><img src="docs/images/relay-panel.png" width="360" alt="The Relay panel: Plan and Execute, each with two models, their effort, price, intelligence index and a use-it-for line"></td>
-    <td valign="top"><img src="docs/images/model-table.png" width="360" alt="Adding a model: a searchable table of the models OpenCode offers, with price, context and intelligence index, sorted by index"><br><br><img src="docs/images/recent-choices.png" width="360" alt="Recent choices: each decision with its mode, model, how sure the decider was, and what the reply took"></td>
+    <td valign="top"><img src="docs/images/relay-panel.png" width="360" alt="The Relay panel as a strip board: the decider, the 7-day cost strip, and Plan and Execute bays, each model a strip with its slot, price, index, context, effort and use-it-for line"></td>
+    <td valign="top"><img src="docs/images/model-table.png" width="360" alt="Adding a model: a searchable rack of the models OpenCode offers, with price, intelligence index and context, sorted by index"><br><br><img src="docs/images/recent-choices.png" width="360" alt="Recent choices: one line per decision with its time, mode, model, how sure the decider was, and what the reply cost"></td>
   </tr>
 </table>
 
-<sub>The Relay panel with example settings and example Recent choices. The models, prices and index numbers are what OpenCode and Relay listed on 18 Nov 2026.</sub>
+<sub>The Relay panel with sample settings and sample Recent choices (26 Nov 2026). The models, prices and index numbers are shaped like what OpenCode and the public lists showed that day.</sub>
 
 > Relay is early. It is built for OpenCode 2.3 and runs in OpenCode Desktop 2.4.1 on Windows. See [what has been tested](docs/status.md).
 

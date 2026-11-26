@@ -60,20 +60,22 @@ Relay keeps its settings, switches and records in OpenCode's own storage under t
 
 Open a chat, open the command palette (Ctrl+K) and run **Open Relay**. The Relay panel opens beside the chat. The settings are shared by all your projects. The terminal app has no settings screen, so set them up in Desktop.
 
+The panel is laid out like a board of flight strips: the **Decider** at the top, then the **cost strip** (spent, tokens and replies over the last seven days; click it to open Relay usage), then a bay for each mode, **Plan**, **Execute** and **Review**, holding one strip for each model you chose. Below the bays sit four drawers: Recent choices, Prices from Artificial Analysis, How Relay works, and Review rules. The last row shows the number of models OpenCode offers, which Relay you run (such as "Relay v0.2.2") and **Refresh**. The panel follows Desktop's light or dark theme with its own colours.
+
 <img src="images/relay-modes.png" width="380" alt="The Relay panel's three modes, each with its models, their effort, price, intelligence index and use-it-for line">
 
 ### Models for each mode
 
-Add models to **Plan**, **Execute** and **Review**: press **+ Add a model** under a mode.
+Add models to **Plan**, **Execute** and **Review**: press **Add a model to …** at the end of a bay.
 
 <img src="images/model-table.png" width="380" alt="The table for adding a model, sorted by intelligence index">
 
-- A table lists the models OpenCode offers you, with the price per million tokens (input / output), the context size and the intelligence index.
+- A rack lists the models OpenCode offers you, with the price per million tokens (input over output), the intelligence index and the context size, in the same order as on the strips.
 - Type in the search box to find one by its name or its provider, narrow the table to one provider, or sort it by price (cheapest first), by context (largest first) or by index (highest first). Press **Add** on a row.
-- Each chosen model has a menu for its effort (low, high and so on) when the model offers them.
+- Each chosen model is a **strip**. The coloured block at its left is its slot: 1 is the first, used when no line fits. Then the model and its provider, and three printed fields: price per million tokens (input over output), index and context. Below them: its effort (low, high and so on, when the model offers them), a stamp when Relay chooses by itself ("big work", "small work" or "all work"), its "Use it for…" line, and × to remove it.
+- A strip whose model OpenCode no longer offers sits pushed to the side with an **unavailable** stamp, and the bay says to remove it or reconnect its provider.
 - The prices come from OpenCode's own model catalog, which OpenCode fills from [models.dev](https://models.dev). For a model OpenCode lists no price for (every model of the `claude-agent` provider, Claude through a subscription login), the table shows that model's price on its maker's API, marked `*`: Artificial Analysis's once you have saved a key ([below](#prices-from-artificial-analysis)), else OpenRouter's public one. Hover over it to see which. With a Claude login your plan pays instead. A model OpenCode offers free (an id ending `-free`, or Free in its name) reads "$0 (free)" and never borrows the paid model's price. The context size is OpenCode's, else OpenRouter's. "not listed" means neither has a price, and "$0 or not listed" means the catalog says 0, which can be either. **Cheapest first** sorts by the price shown.
-- Under each chosen model and the decider, one line gives its price, its index and its context size, for example "$2 in / $10 out per 1M tokens on the API (Artificial Analysis) · index 41.5 at high effort · 1M context". The index is the chosen effort's own when Artificial Analysis lists that effort, else the highest effort's, and the line says which.
-- The panel's last row shows which Relay you run, such as "Relay v0.2.2", beside **Refresh**.
+- Hover over a strip's figures for the sentence behind them, for example "$2 in / $10 out per 1M tokens on the API (Artificial Analysis) · index 41.5 at high effort · 1M context". The index is the chosen effort's own when Artificial Analysis lists that effort, else the highest effort's, and the sentence says which. An estimated index prints in italics.
 - The index is the Artificial Analysis Intelligence Index: from Artificial Analysis's own list once you have saved a key, and from OpenRouter's public model list, which carries the same index, where that list has none or there is no key. For a model with efforts, it is the score at its highest effort, and a lower effort scores less (GPT-6.2 Sol: 57 at max, 41 at low). The price per token is the same at every effort, but a higher effort writes more tokens, so each reply costs more. Hover over a number to see which list and which model it came from.
 - A model neither list scores gets a **hint** instead, never a plain number, and Relay never ranks by it:
   - `<54.7`: likely below the score of a newer version of it (Claude Sonnet 5 is older than Sonnet 5.5); `>44.2` likely above an older one; `44.1–57.3` between the two.
@@ -87,23 +89,23 @@ Add models to **Plan**, **Execute** and **Review**: press **+ Add a model** unde
   - In Review, a reviewer with a lower index than the model that wrote the work is not used.
   - The decision model judges the size by your message, the end of the chat's last reply, and the chat's first message, which says what the task is. Work with many rules or edge cases to get right counts as big, even in one file.
   - When it is not sure how big the work is, the model with the highest index is used: unclear work counts as big. When it gives no size at all, or a model has no index or no price, the first model is used. The panel says why under the list.
-  - The panel shows each model's part: "Relay: big work", "small work" or "all work". It reads only what Relay has stored, so the index list must have been loaded once (the model tables load it).
+  - The panel stamps each model's part on its strip: "big work", "small work" or "all work". It reads only what Relay has stored, so the index list must have been loaded once (the model tables load it).
   - Two rows of one model need an effort on each; "default effort" can't be ranked against the same model's named effort.
 
 ### The decider
 
 <img src="images/decider.png" width="380" alt="The decider card: the chosen decision model, the test box and what Relay would pick">
 
-- Press **+ Choose a decider** and **Use** on a row. The table lists only the decision models OpenCode offers you; `opencode/jev-1.13-free` is free.
-- **Change the decider** opens it again, and × removes the decider. Until you choose one, the panel and the pill warn you: without a decider, Relay switches nothing.
-- Type a sample message in the test box and press **Try** to see what Relay would pick.
+- Press **Choose a decider** and **Use** on a row. The rack lists only the decision models OpenCode offers you; `opencode/jev-1.13-free` is free.
+- The decider is a strip with the slot **D**. **Change the decider** opens the rack again, and × removes the decider. Until you choose one, the panel and the pill warn you: without a decider, Relay switches nothing.
+- Under it: Relay's last choice, a box to type a sample message and **Try** what Relay would pick, and **What it sends to …**, which opens to list exactly what leaves your machine to make a choice.
 
 ### Relay usage
 
 The **Relay usage** tab shows every reply of every chat: with Relay on or off, `/relay` messages, helpers, and OpenCode's summaries of long chats. Open it with **Open usage** in the Relay panel, or **Open Relay usage** in the command palette. It counts from the version that brought it on, and keeps each record for 90 days.
 
 - **Range:** today, 7, 30 or 90 days, in your own time zone.
-- **Spent and Tokens:** what the range cost where a price is known (the tile says how many replies have none), and every token. In is what was read new, from a cache and into a cache; out includes reasoning.
+- **Spent, Tokens and Replies:** what the range cost where a price is known (it says how many replies have none), every token, and the replies and requests. In is what was read new, from a cache and into a cache; out includes reasoning.
 - **Chart:** one bar a day, split by model (the five largest, the rest as "other"), for cost, tokens or requests, with the tallest bar's value at the top and the days beneath. Hover over a bar for that day's numbers.
 - **By model:** one row a model, most spent first: its cost, provider, replies and tokens. Click a row to show only that model.
 - **Search and filters:** search by model. Under **Filters**: provider, effort, mode (or the agent, for a chat Relay did not place), Relay on or off, chat, helper or summary, and project. A note at the top says when the numbers are filtered, with **Clear**.
@@ -127,7 +129,7 @@ OpenCode lists no price for some models, such as Claude through a subscription l
 
 <img src="images/recent-choices.png" width="380" alt="Recent choices, with what each reply took">
 
-**Recent choices** at the bottom of the panel lists the last 20 decisions, for chats and helpers, and updates by itself. Once the chat has answered a message, its row also says what the reply took:
+**Recent choices**, the first drawer below the bays, lists the last 20 decisions, for chats and helpers, and updates by itself. Each is one line: when (the time today, the date before), the mode, the model, how sure the decider was, and what the reply cost. Hover over a line for the whole record, which also says what the reply took:
 
 - **The reply:** the model and effort that answered, how many requests the reply made, and all of them added up: tokens in, out, reasoning (when there is any), read from a cache and written to a cache, with the cost OpenCode worked out (when the model has a listed price).
 - **Prices:** that model's listed prices for a million tokens: in, out, cache read and cache write, at the size of the reply's first request. "$0 or not listed" means OpenCode has no price for it, as for Claude through a subscription login.
@@ -135,7 +137,7 @@ OpenCode lists no price for some models, such as Claude through a subscription l
 
 A row kept before 19 Nov 2026 has no model, totals or prices, only the number of requests and the first request.
 
-The screenshots show the panel with example settings and example rows. The models, prices and index numbers are what OpenCode and Relay listed on 18 Nov 2026.
+The screenshots show the panel with sample settings and sample rows, from the preview (`npm run preview:panel`) on 26 Nov 2026. The models, prices and index numbers are shaped like what OpenCode and the public lists showed that day.
 
 ## Use
 

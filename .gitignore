@@ -1,2 +1,9 @@
 node_modules/
 dist/
+
+# Impeccable working files: review captures, decision-page logs, build state, this machine's build path
+.impeccable/review/
+.impeccable/questions/
+.impeccable/build/
+.impeccable/config.local.json
+.playwright-mcp/

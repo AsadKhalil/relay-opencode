@@ -1,0 +1,934 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-26T16:22:03.860Z",
+  "title": "Design System: Relay",
+  "extensions": {
+    "colorMeta": {
+      "bay": {
+        "role": "neutral",
+        "displayName": "Board Bay",
+        "canonical": "#e3e5e0",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 124.5)",
+          "oklch(26.4% 0.007 124.5)",
+          "oklch(37.9% 0.007 124.5)",
+          "oklch(49.3% 0.007 124.5)",
+          "oklch(60.7% 0.007 124.5)",
+          "oklch(72.1% 0.007 124.5)",
+          "oklch(83.6% 0.007 124.5)",
+          "oklch(95.0% 0.007 124.5)"
+        ]
+      },
+      "rail": {
+        "role": "neutral",
+        "displayName": "Rail Grey",
+        "canonical": "#cdd1cb",
+        "tonalRamp": [
+          "oklch(15.0% 0.009 134.9)",
+          "oklch(26.4% 0.009 134.9)",
+          "oklch(37.9% 0.009 134.9)",
+          "oklch(49.3% 0.009 134.9)",
+          "oklch(60.7% 0.009 134.9)",
+          "oklch(72.1% 0.009 134.9)",
+          "oklch(83.6% 0.009 134.9)",
+          "oklch(95.0% 0.009 134.9)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Strip Paper",
+        "canonical": "#fcfaf4",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 91.5)",
+          "oklch(26.4% 0.008 91.5)",
+          "oklch(37.9% 0.008 91.5)",
+          "oklch(49.3% 0.008 91.5)",
+          "oklch(60.7% 0.008 91.5)",
+          "oklch(72.1% 0.008 91.5)",
+          "oklch(83.6% 0.008 91.5)",
+          "oklch(95.0% 0.008 91.5)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Printed Rule",
+        "canonical": "#e2dccb",
+        "tonalRamp": [
+          "oklch(15.0% 0.024 90.8)",
+          "oklch(26.4% 0.024 90.8)",
+          "oklch(37.9% 0.024 90.8)",
+          "oklch(49.3% 0.024 90.8)",
+          "oklch(60.7% 0.024 90.8)",
+          "oklch(72.1% 0.024 90.8)",
+          "oklch(83.6% 0.024 90.8)",
+          "oklch(95.0% 0.024 90.8)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Print Ink",
+        "canonical": "#1b1d20",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 258.4)",
+          "oklch(26.4% 0.007 258.4)",
+          "oklch(37.9% 0.007 258.4)",
+          "oklch(49.3% 0.007 258.4)",
+          "oklch(60.7% 0.007 258.4)",
+          "oklch(72.1% 0.007 258.4)",
+          "oklch(83.6% 0.007 258.4)",
+          "oklch(95.0% 0.007 258.4)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Second Ink",
+        "canonical": "#434850",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 259.8)",
+          "oklch(26.4% 0.015 259.8)",
+          "oklch(37.9% 0.015 259.8)",
+          "oklch(49.3% 0.015 259.8)",
+          "oklch(60.7% 0.015 259.8)",
+          "oklch(72.1% 0.015 259.8)",
+          "oklch(83.6% 0.015 259.8)",
+          "oklch(95.0% 0.015 259.8)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Third Ink",
+        "canonical": "#575c63",
+        "tonalRamp": [
+          "oklch(15.0% 0.013 256.7)",
+          "oklch(26.4% 0.013 256.7)",
+          "oklch(37.9% 0.013 256.7)",
+          "oklch(49.3% 0.013 256.7)",
+          "oklch(60.7% 0.013 256.7)",
+          "oklch(72.1% 0.013 256.7)",
+          "oklch(83.6% 0.013 256.7)",
+          "oklch(95.0% 0.013 256.7)"
+        ]
+      },
+      "plan": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "#2360d0",
+        "tonalRamp": [
+          "oklch(15.0% 0.184 261.3)",
+          "oklch(26.4% 0.184 261.3)",
+          "oklch(37.9% 0.184 261.3)",
+          "oklch(49.3% 0.184 261.3)",
+          "oklch(60.7% 0.184 261.3)",
+          "oklch(72.1% 0.184 261.3)",
+          "oklch(83.6% 0.184 261.3)",
+          "oklch(95.0% 0.184 261.3)"
+        ]
+      },
+      "execute": {
+        "role": "primary",
+        "displayName": "Runway Amber",
+        "canonical": "#e19a1c",
+        "tonalRamp": [
+          "oklch(15.0% 0.150 74.5)",
+          "oklch(26.4% 0.150 74.5)",
+          "oklch(37.9% 0.150 74.5)",
+          "oklch(49.3% 0.150 74.5)",
+          "oklch(60.7% 0.150 74.5)",
+          "oklch(72.1% 0.150 74.5)",
+          "oklch(83.6% 0.150 74.5)",
+          "oklch(95.0% 0.150 74.5)"
+        ]
+      },
+      "review": {
+        "role": "primary",
+        "displayName": "Clearance Green",
+        "canonical": "#1d8553",
+        "tonalRamp": [
+          "oklch(15.0% 0.120 156.8)",
+          "oklch(26.4% 0.120 156.8)",
+          "oklch(37.9% 0.120 156.8)",
+          "oklch(49.3% 0.120 156.8)",
+          "oklch(60.7% 0.120 156.8)",
+          "oklch(72.1% 0.120 156.8)",
+          "oklch(83.6% 0.120 156.8)",
+          "oklch(95.0% 0.120 156.8)"
+        ]
+      },
+      "controller": {
+        "role": "primary",
+        "displayName": "Controller Violet",
+        "canonical": "#6a4fd6",
+        "tonalRamp": [
+          "oklch(15.0% 0.197 286.8)",
+          "oklch(26.4% 0.197 286.8)",
+          "oklch(37.9% 0.197 286.8)",
+          "oklch(49.3% 0.197 286.8)",
+          "oklch(60.7% 0.197 286.8)",
+          "oklch(72.1% 0.197 286.8)",
+          "oklch(83.6% 0.197 286.8)",
+          "oklch(95.0% 0.197 286.8)"
+        ]
+      },
+      "alert": {
+        "role": "secondary",
+        "displayName": "Alert Red",
+        "canonical": "#c3372b",
+        "tonalRamp": [
+          "oklch(15.0% 0.179 29.1)",
+          "oklch(26.4% 0.179 29.1)",
+          "oklch(37.9% 0.179 29.1)",
+          "oklch(49.3% 0.179 29.1)",
+          "oklch(60.7% 0.179 29.1)",
+          "oklch(72.1% 0.179 29.1)",
+          "oklch(83.6% 0.179 29.1)",
+          "oklch(95.0% 0.179 29.1)"
+        ]
+      },
+      "on-fill": {
+        "role": "neutral",
+        "displayName": "On Fill",
+        "canonical": "#fff",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "plan-text": {
+        "role": "primary",
+        "displayName": "Signal Blue Text",
+        "canonical": "#1d4fae",
+        "tonalRamp": [
+          "oklch(15.0% 0.161 261.6)",
+          "oklch(26.4% 0.161 261.6)",
+          "oklch(37.9% 0.161 261.6)",
+          "oklch(49.3% 0.161 261.6)",
+          "oklch(60.7% 0.161 261.6)",
+          "oklch(72.1% 0.161 261.6)",
+          "oklch(83.6% 0.161 261.6)",
+          "oklch(95.0% 0.161 261.6)"
+        ]
+      },
+      "execute-text": {
+        "role": "primary",
+        "displayName": "Runway Amber Text",
+        "canonical": "#7a4d00",
+        "tonalRamp": [
+          "oklch(15.0% 0.099 71.2)",
+          "oklch(26.4% 0.099 71.2)",
+          "oklch(37.9% 0.099 71.2)",
+          "oklch(49.3% 0.099 71.2)",
+          "oklch(60.7% 0.099 71.2)",
+          "oklch(72.1% 0.099 71.2)",
+          "oklch(83.6% 0.099 71.2)",
+          "oklch(95.0% 0.099 71.2)"
+        ]
+      },
+      "review-text": {
+        "role": "primary",
+        "displayName": "Clearance Green Text",
+        "canonical": "#14663f",
+        "tonalRamp": [
+          "oklch(15.0% 0.099 157.0)",
+          "oklch(26.4% 0.099 157.0)",
+          "oklch(37.9% 0.099 157.0)",
+          "oklch(49.3% 0.099 157.0)",
+          "oklch(60.7% 0.099 157.0)",
+          "oklch(72.1% 0.099 157.0)",
+          "oklch(83.6% 0.099 157.0)",
+          "oklch(95.0% 0.099 157.0)"
+        ]
+      },
+      "controller-text": {
+        "role": "primary",
+        "displayName": "Controller Violet Text",
+        "canonical": "#5536c4",
+        "tonalRamp": [
+          "oklch(15.0% 0.206 285.0)",
+          "oklch(26.4% 0.206 285.0)",
+          "oklch(37.9% 0.206 285.0)",
+          "oklch(49.3% 0.206 285.0)",
+          "oklch(60.7% 0.206 285.0)",
+          "oklch(72.1% 0.206 285.0)",
+          "oklch(83.6% 0.206 285.0)",
+          "oklch(95.0% 0.206 285.0)"
+        ]
+      },
+      "alert-text": {
+        "role": "secondary",
+        "displayName": "Alert Red Text",
+        "canonical": "#a32a1f",
+        "tonalRamp": [
+          "oklch(15.0% 0.159 29.5)",
+          "oklch(26.4% 0.159 29.5)",
+          "oklch(37.9% 0.159 29.5)",
+          "oklch(49.3% 0.159 29.5)",
+          "oklch(60.7% 0.159 29.5)",
+          "oklch(72.1% 0.159 29.5)",
+          "oklch(83.6% 0.159 29.5)",
+          "oklch(95.0% 0.159 29.5)"
+        ]
+      },
+      "series-1": {
+        "role": "tertiary",
+        "displayName": "Ledger Teal",
+        "canonical": "#0f8b8d",
+        "tonalRamp": [
+          "oklch(15.0% 0.096 196.7)",
+          "oklch(26.4% 0.096 196.7)",
+          "oklch(37.9% 0.096 196.7)",
+          "oklch(49.3% 0.096 196.7)",
+          "oklch(60.7% 0.096 196.7)",
+          "oklch(72.1% 0.096 196.7)",
+          "oklch(83.6% 0.096 196.7)",
+          "oklch(95.0% 0.096 196.7)"
+        ]
+      },
+      "series-2": {
+        "role": "tertiary",
+        "displayName": "Ledger Rose",
+        "canonical": "#c2457a",
+        "tonalRamp": [
+          "oklch(15.0% 0.167 357.5)",
+          "oklch(26.4% 0.167 357.5)",
+          "oklch(37.9% 0.167 357.5)",
+          "oklch(49.3% 0.167 357.5)",
+          "oklch(60.7% 0.167 357.5)",
+          "oklch(72.1% 0.167 357.5)",
+          "oklch(83.6% 0.167 357.5)",
+          "oklch(95.0% 0.167 357.5)"
+        ]
+      },
+      "series-3": {
+        "role": "tertiary",
+        "displayName": "Ledger Taupe",
+        "canonical": "#7a6f66",
+        "tonalRamp": [
+          "oklch(15.0% 0.019 61.7)",
+          "oklch(26.4% 0.019 61.7)",
+          "oklch(37.9% 0.019 61.7)",
+          "oklch(49.3% 0.019 61.7)",
+          "oklch(60.7% 0.019 61.7)",
+          "oklch(72.1% 0.019 61.7)",
+          "oklch(83.6% 0.019 61.7)",
+          "oklch(95.0% 0.019 61.7)"
+        ]
+      },
+      "series-4": {
+        "role": "tertiary",
+        "displayName": "Ledger Plum",
+        "canonical": "#93357f",
+        "tonalRamp": [
+          "oklch(15.0% 0.154 337.0)",
+          "oklch(26.4% 0.154 337.0)",
+          "oklch(37.9% 0.154 337.0)",
+          "oklch(49.3% 0.154 337.0)",
+          "oklch(60.7% 0.154 337.0)",
+          "oklch(72.1% 0.154 337.0)",
+          "oklch(83.6% 0.154 337.0)",
+          "oklch(95.0% 0.154 337.0)"
+        ]
+      },
+      "series-5": {
+        "role": "tertiary",
+        "displayName": "Ledger Olive",
+        "canonical": "#8f9230",
+        "tonalRamp": [
+          "oklch(15.0% 0.119 111.0)",
+          "oklch(26.4% 0.119 111.0)",
+          "oklch(37.9% 0.119 111.0)",
+          "oklch(49.3% 0.119 111.0)",
+          "oklch(60.7% 0.119 111.0)",
+          "oklch(72.1% 0.119 111.0)",
+          "oklch(83.6% 0.119 111.0)",
+          "oklch(95.0% 0.119 111.0)"
+        ]
+      },
+      "series-other": {
+        "role": "tertiary",
+        "displayName": "Ledger Other",
+        "canonical": "#8a9099",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 258.4)",
+          "oklch(26.4% 0.015 258.4)",
+          "oklch(37.9% 0.015 258.4)",
+          "oklch(49.3% 0.015 258.4)",
+          "oklch(60.7% 0.015 258.4)",
+          "oklch(72.1% 0.015 258.4)",
+          "oklch(83.6% 0.015 258.4)",
+          "oklch(95.0% 0.015 258.4)"
+        ]
+      },
+      "night-bay": {
+        "role": "neutral",
+        "displayName": "Board Bay (night)",
+        "canonical": "#121315",
+        "tonalRamp": [
+          "oklch(15.0% 0.004 264.5)",
+          "oklch(26.4% 0.004 264.5)",
+          "oklch(37.9% 0.004 264.5)",
+          "oklch(49.3% 0.004 264.5)",
+          "oklch(60.7% 0.004 264.5)",
+          "oklch(72.1% 0.004 264.5)",
+          "oklch(83.6% 0.004 264.5)",
+          "oklch(95.0% 0.004 264.5)"
+        ]
+      },
+      "night-rail": {
+        "role": "neutral",
+        "displayName": "Rail Grey (night)",
+        "canonical": "#26282c",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 264.4)",
+          "oklch(26.4% 0.008 264.4)",
+          "oklch(37.9% 0.008 264.4)",
+          "oklch(49.3% 0.008 264.4)",
+          "oklch(60.7% 0.008 264.4)",
+          "oklch(72.1% 0.008 264.4)",
+          "oklch(83.6% 0.008 264.4)",
+          "oklch(95.0% 0.008 264.4)"
+        ]
+      },
+      "night-paper": {
+        "role": "neutral",
+        "displayName": "Strip Paper (night)",
+        "canonical": "#2c2b27",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 95.3)",
+          "oklch(26.4% 0.007 95.3)",
+          "oklch(37.9% 0.007 95.3)",
+          "oklch(49.3% 0.007 95.3)",
+          "oklch(60.7% 0.007 95.3)",
+          "oklch(72.1% 0.007 95.3)",
+          "oklch(83.6% 0.007 95.3)",
+          "oklch(95.0% 0.007 95.3)"
+        ]
+      },
+      "night-rule": {
+        "role": "neutral",
+        "displayName": "Printed Rule (night)",
+        "canonical": "#423e35",
+        "tonalRamp": [
+          "oklch(15.0% 0.016 86.9)",
+          "oklch(26.4% 0.016 86.9)",
+          "oklch(37.9% 0.016 86.9)",
+          "oklch(49.3% 0.016 86.9)",
+          "oklch(60.7% 0.016 86.9)",
+          "oklch(72.1% 0.016 86.9)",
+          "oklch(83.6% 0.016 86.9)",
+          "oklch(95.0% 0.016 86.9)"
+        ]
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Print Ink (night)",
+        "canonical": "#efede6",
+        "tonalRamp": [
+          "oklch(15.0% 0.010 93.6)",
+          "oklch(26.4% 0.010 93.6)",
+          "oklch(37.9% 0.010 93.6)",
+          "oklch(49.3% 0.010 93.6)",
+          "oklch(60.7% 0.010 93.6)",
+          "oklch(72.1% 0.010 93.6)",
+          "oklch(83.6% 0.010 93.6)",
+          "oklch(95.0% 0.010 93.6)"
+        ]
+      },
+      "night-ink-2": {
+        "role": "neutral",
+        "displayName": "Second Ink (night)",
+        "canonical": "#c9c5bb",
+        "tonalRamp": [
+          "oklch(15.0% 0.014 88.7)",
+          "oklch(26.4% 0.014 88.7)",
+          "oklch(37.9% 0.014 88.7)",
+          "oklch(49.3% 0.014 88.7)",
+          "oklch(60.7% 0.014 88.7)",
+          "oklch(72.1% 0.014 88.7)",
+          "oklch(83.6% 0.014 88.7)",
+          "oklch(95.0% 0.014 88.7)"
+        ]
+      },
+      "night-ink-3": {
+        "role": "neutral",
+        "displayName": "Third Ink (night)",
+        "canonical": "#a39f95",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 88.7)",
+          "oklch(26.4% 0.015 88.7)",
+          "oklch(37.9% 0.015 88.7)",
+          "oklch(49.3% 0.015 88.7)",
+          "oklch(60.7% 0.015 88.7)",
+          "oklch(72.1% 0.015 88.7)",
+          "oklch(83.6% 0.015 88.7)",
+          "oklch(95.0% 0.015 88.7)"
+        ]
+      },
+      "night-plan": {
+        "role": "primary",
+        "displayName": "Signal Blue (night)",
+        "canonical": "#6a9dff",
+        "tonalRamp": [
+          "oklch(15.0% 0.154 262.3)",
+          "oklch(26.4% 0.154 262.3)",
+          "oklch(37.9% 0.154 262.3)",
+          "oklch(49.3% 0.154 262.3)",
+          "oklch(60.7% 0.154 262.3)",
+          "oklch(72.1% 0.154 262.3)",
+          "oklch(83.6% 0.154 262.3)",
+          "oklch(95.0% 0.154 262.3)"
+        ]
+      },
+      "night-execute": {
+        "role": "primary",
+        "displayName": "Runway Amber (night)",
+        "canonical": "#f2ab2f",
+        "tonalRamp": [
+          "oklch(15.0% 0.153 75.9)",
+          "oklch(26.4% 0.153 75.9)",
+          "oklch(37.9% 0.153 75.9)",
+          "oklch(49.3% 0.153 75.9)",
+          "oklch(60.7% 0.153 75.9)",
+          "oklch(72.1% 0.153 75.9)",
+          "oklch(83.6% 0.153 75.9)",
+          "oklch(95.0% 0.153 75.9)"
+        ]
+      },
+      "night-review": {
+        "role": "primary",
+        "displayName": "Clearance Green (night)",
+        "canonical": "#4cc48c",
+        "tonalRamp": [
+          "oklch(15.0% 0.136 159.9)",
+          "oklch(26.4% 0.136 159.9)",
+          "oklch(37.9% 0.136 159.9)",
+          "oklch(49.3% 0.136 159.9)",
+          "oklch(60.7% 0.136 159.9)",
+          "oklch(72.1% 0.136 159.9)",
+          "oklch(83.6% 0.136 159.9)",
+          "oklch(95.0% 0.136 159.9)"
+        ]
+      },
+      "night-controller": {
+        "role": "primary",
+        "displayName": "Controller Violet (night)",
+        "canonical": "#a593ff",
+        "tonalRamp": [
+          "oklch(15.0% 0.154 289.6)",
+          "oklch(26.4% 0.154 289.6)",
+          "oklch(37.9% 0.154 289.6)",
+          "oklch(49.3% 0.154 289.6)",
+          "oklch(60.7% 0.154 289.6)",
+          "oklch(72.1% 0.154 289.6)",
+          "oklch(83.6% 0.154 289.6)",
+          "oklch(95.0% 0.154 289.6)"
+        ]
+      },
+      "night-alert": {
+        "role": "secondary",
+        "displayName": "Alert Red (night)",
+        "canonical": "#ff6f61",
+        "tonalRamp": [
+          "oklch(15.0% 0.178 28.0)",
+          "oklch(26.4% 0.178 28.0)",
+          "oklch(37.9% 0.178 28.0)",
+          "oklch(49.3% 0.178 28.0)",
+          "oklch(60.7% 0.178 28.0)",
+          "oklch(72.1% 0.178 28.0)",
+          "oklch(83.6% 0.178 28.0)",
+          "oklch(95.0% 0.178 28.0)"
+        ]
+      },
+      "night-on-fill": {
+        "role": "neutral",
+        "displayName": "On Fill (night)",
+        "canonical": "#0d1117",
+        "tonalRamp": [
+          "oklch(15.0% 0.014 258.4)",
+          "oklch(26.4% 0.014 258.4)",
+          "oklch(37.9% 0.014 258.4)",
+          "oklch(49.3% 0.014 258.4)",
+          "oklch(60.7% 0.014 258.4)",
+          "oklch(72.1% 0.014 258.4)",
+          "oklch(83.6% 0.014 258.4)",
+          "oklch(95.0% 0.014 258.4)"
+        ]
+      },
+      "night-series-1": {
+        "role": "tertiary",
+        "displayName": "Ledger Teal (night)",
+        "canonical": "#3cc4c6",
+        "tonalRamp": [
+          "oklch(15.0% 0.113 196.5)",
+          "oklch(26.4% 0.113 196.5)",
+          "oklch(37.9% 0.113 196.5)",
+          "oklch(49.3% 0.113 196.5)",
+          "oklch(60.7% 0.113 196.5)",
+          "oklch(72.1% 0.113 196.5)",
+          "oklch(83.6% 0.113 196.5)",
+          "oklch(95.0% 0.113 196.5)"
+        ]
+      },
+      "night-series-2": {
+        "role": "tertiary",
+        "displayName": "Ledger Rose (night)",
+        "canonical": "#ee7eab",
+        "tonalRamp": [
+          "oklch(15.0% 0.146 355.9)",
+          "oklch(26.4% 0.146 355.9)",
+          "oklch(37.9% 0.146 355.9)",
+          "oklch(49.3% 0.146 355.9)",
+          "oklch(60.7% 0.146 355.9)",
+          "oklch(72.1% 0.146 355.9)",
+          "oklch(83.6% 0.146 355.9)",
+          "oklch(95.0% 0.146 355.9)"
+        ]
+      },
+      "night-series-3": {
+        "role": "tertiary",
+        "displayName": "Ledger Taupe (night)",
+        "canonical": "#b3a89e",
+        "tonalRamp": [
+          "oklch(15.0% 0.019 64.8)",
+          "oklch(26.4% 0.019 64.8)",
+          "oklch(37.9% 0.019 64.8)",
+          "oklch(49.3% 0.019 64.8)",
+          "oklch(60.7% 0.019 64.8)",
+          "oklch(72.1% 0.019 64.8)",
+          "oklch(83.6% 0.019 64.8)",
+          "oklch(95.0% 0.019 64.8)"
+        ]
+      },
+      "night-series-4": {
+        "role": "tertiary",
+        "displayName": "Ledger Plum (night)",
+        "canonical": "#d47fc1",
+        "tonalRamp": [
+          "oklch(15.0% 0.134 335.6)",
+          "oklch(26.4% 0.134 335.6)",
+          "oklch(37.9% 0.134 335.6)",
+          "oklch(49.3% 0.134 335.6)",
+          "oklch(60.7% 0.134 335.6)",
+          "oklch(72.1% 0.134 335.6)",
+          "oklch(83.6% 0.134 335.6)",
+          "oklch(95.0% 0.134 335.6)"
+        ]
+      },
+      "night-series-5": {
+        "role": "tertiary",
+        "displayName": "Ledger Olive (night)",
+        "canonical": "#c6c95c",
+        "tonalRamp": [
+          "oklch(15.0% 0.132 110.5)",
+          "oklch(26.4% 0.132 110.5)",
+          "oklch(37.9% 0.132 110.5)",
+          "oklch(49.3% 0.132 110.5)",
+          "oklch(60.7% 0.132 110.5)",
+          "oklch(72.1% 0.132 110.5)",
+          "oklch(83.6% 0.132 110.5)",
+          "oklch(95.0% 0.132 110.5)"
+        ]
+      },
+      "night-series-other": {
+        "role": "tertiary",
+        "displayName": "Ledger Other (night)",
+        "canonical": "#7f848b",
+        "tonalRamp": [
+          "oklch(15.0% 0.012 256.7)",
+          "oklch(26.4% 0.012 256.7)",
+          "oklch(37.9% 0.012 256.7)",
+          "oklch(49.3% 0.012 256.7)",
+          "oklch(60.7% 0.012 256.7)",
+          "oklch(72.1% 0.012 256.7)",
+          "oklch(83.6% 0.012 256.7)",
+          "oklch(95.0% 0.012 256.7)"
+        ]
+      },
+      "badge-from": {
+        "role": "tertiary",
+        "displayName": "Badge Blue",
+        "canonical": "#4f7cff",
+        "tonalRamp": [
+          "oklch(15.0% 0.201 266.3)",
+          "oklch(26.4% 0.201 266.3)",
+          "oklch(37.9% 0.201 266.3)",
+          "oklch(49.3% 0.201 266.3)",
+          "oklch(60.7% 0.201 266.3)",
+          "oklch(72.1% 0.201 266.3)",
+          "oklch(83.6% 0.201 266.3)",
+          "oklch(95.0% 0.201 266.3)"
+        ]
+      },
+      "badge-to": {
+        "role": "tertiary",
+        "displayName": "Badge Violet",
+        "canonical": "#9b6bff",
+        "tonalRamp": [
+          "oklch(15.0% 0.211 294.8)",
+          "oklch(26.4% 0.211 294.8)",
+          "oklch(37.9% 0.211 294.8)",
+          "oklch(49.3% 0.211 294.8)",
+          "oklch(60.7% 0.211 294.8)",
+          "oklch(72.1% 0.211 294.8)",
+          "oklch(83.6% 0.211 294.8)",
+          "oklch(95.0% 0.211 294.8)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The panel name beside the R badge, once per panel."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Uppercase bay headings in the holder text colour; usage section heads in ink."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The board's base size, in the host's UI font."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Lede, bay blurbs, drawer bodies; 12.5px for inputs and the lede, 600 for buttons."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Provider names, small notes, footer, counts."
+      },
+      "call-sign": {
+        "displayName": "Call Sign",
+        "purpose": "A model's id on its strip; 600 in the usage rows."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Price, index and context fields, right-aligned, tabular."
+      },
+      "figure-large": {
+        "displayName": "Figure Large",
+        "purpose": "Totals on the cost strip and usage tiles."
+      },
+      "slot-numeral": {
+        "displayName": "Slot Numeral",
+        "purpose": "The number or D in a slot block."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase printed field labels and column heads."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "Uppercase stamps and tags."
+      }
+    },
+    "shadows": [
+      {
+        "name": "strip-lift-day",
+        "value": "0 1px 0 rgba(27,29,32,.07), 0 1px 3px rgba(27,29,32,.12)",
+        "purpose": "Every paper surface in day: strips, cost strip, model rack, log lines, usage tiles, plate and rows."
+      },
+      {
+        "name": "strip-lift-night",
+        "value": "0 1px 0 rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.35)",
+        "purpose": "The same surfaces at night."
+      },
+      {
+        "name": "input-focus-ring",
+        "value": "0 0 0 3px color-mix(in srgb, var(--rl-plan) 20%, transparent)",
+        "purpose": "A text input or select on focus, with a plan-blue border."
+      },
+      {
+        "name": "note-ring",
+        "value": "inset 0 0 0 1px color-mix(in srgb, var(--c) 38%, transparent)",
+        "purpose": "A note's edge in its status colour."
+      },
+      {
+        "name": "key-cap-rule",
+        "value": "inset 0 -1px 0 var(--rl-rule)",
+        "purpose": "The underline of a kbd."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(.16,1,.3,1)",
+        "purpose": "The board's one curve: strips arriving and being pulled."
+      },
+      {
+        "name": "strip-arrive",
+        "value": "rl-slide-in .28s cubic-bezier(.16,1,.3,1); from translateX(32px) opacity .3",
+        "purpose": "A strip just added slides into its bay; only under prefers-reduced-motion: no-preference."
+      },
+      {
+        "name": "strip-pull",
+        "value": "transform .2s cubic-bezier(.16,1,.3,1); translateX(10px)",
+        "purpose": "An unavailable strip is pulled out of its holder."
+      },
+      {
+        "name": "disclosure-turn",
+        "value": "transform .15s; rotate(90deg)",
+        "purpose": "Drawer and fine-print chevrons when opened."
+      },
+      {
+        "name": "cost-go-fill",
+        "value": "background .15s, color .15s",
+        "purpose": "The cost strip's Usage cell filling on hover."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bay with Flight Strip",
+      "kind": "custom",
+      "refersTo": "strip",
+      "description": "A mode bay (Plan here) holding one flight strip: slot block, call sign, price stack, index, context, then effort, stamp and the \"use it for\" line; the bay ends in an empty slot.",
+      "html": "<section class=\"ds-bay\"><header class=\"ds-bay-head\"><h3>Plan</h3><span>Thinks, explains and plans. Cannot change files.</span></header><ol class=\"ds-rack\"><li class=\"ds-strip\"><span class=\"ds-slot\">1</span><span class=\"ds-call\"><span class=\"ds-id\">sonnet</span><span class=\"ds-prov\">claude-agent</span></span><span class=\"ds-f\"><span class=\"ds-px\"><span>$2</span><span>$10*</span></span></span><span class=\"ds-f\">41.5</span><span class=\"ds-f\">1M</span><span class=\"ds-row2\"><select class=\"ds-eff\" aria-label=\"Effort\"><option>high</option></select><span class=\"ds-stamp\">big work</span><input class=\"ds-for\" placeholder=\"Use it for…\" value=\"hard design and architecture\" aria-label=\"Use it for\"></span><button class=\"ds-x\" aria-label=\"Remove\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4.5 4.5l7 7M11.5 4.5l-7 7\"/></svg></button></li></ol><button class=\"ds-slot-empty\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 3.5v9M3.5 8h9\"/></svg>Add a model to Plan</button></section>",
+      "css": ".ds-bay{display:grid;gap:6px;width:356px;padding:8px;border-radius:5px;background:#d8dbd5;color:#1b1d20;font-size:13px;line-height:1.4}.ds-bay-head{display:flex;align-items:baseline;gap:8px;padding:0 2px}.ds-bay-head h3{margin:0;color:#1d4fae;font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}.ds-bay-head span{color:#434850;font-size:12px}.ds-rack{margin:0;padding:0;list-style:none;display:grid;gap:3px}.ds-strip{display:grid;grid-template-columns:24px minmax(0,1fr) 66px 38px 36px;grid-template-rows:auto auto;column-gap:6px;row-gap:5px;align-items:center;padding:6px 8px 6px 0;border-radius:3px;background:#fcfaf4;box-shadow:0 1px 0 rgba(27,29,32,.07),0 1px 3px rgba(27,29,32,.12)}.ds-slot{grid-row:1/3;align-self:stretch;display:grid;place-items:center;margin:-6px 0;border-radius:3px 0 0 3px;background:#2360d0;color:#fff;font:700 12px/1 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace}.ds-call{display:grid;gap:1px;min-width:0}.ds-id{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:650 12.5px/1.3 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace}.ds-prov{color:#434850;font-size:11.5px}.ds-f{align-self:stretch;display:flex;align-items:center;justify-content:flex-end;margin:-6px 0;padding-left:6px;border-left:1px solid #e2dccb;font:550 11.5px/1.15 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}.ds-px{display:grid;justify-items:end;gap:1px}.ds-row2{grid-column:2/5;display:flex;align-items:center;gap:6px;min-width:0}.ds-eff{flex:none;padding:0 2px;border:1px solid #e2dccb;border-radius:3px;background:#fcfaf4;color:#1b1d20;font-size:11.5px}.ds-stamp{flex:none;padding:0 5px;border:1.5px solid currentColor;border-radius:3px;color:#1d4fae;font:700 10px/1.45 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace;letter-spacing:.04em;text-transform:uppercase}.ds-for{flex:1;min-width:0;padding:2px 0;border:0;border-bottom:1px dashed #e2dccb;background:transparent;color:#1b1d20;font:inherit;font-size:12px}.ds-for:focus-visible{outline:none;border-bottom:1px solid #2360d0}.ds-x{grid-column:5;justify-self:end;display:grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:3px;background:transparent;color:#575c63;cursor:pointer}.ds-x:hover{background:rgba(195,55,43,.14);color:#c3372b}.ds-x:focus-visible{outline:2px solid #2360d0;outline-offset:2px}.ds-slot-empty{display:flex;align-items:center;gap:6px;width:100%;padding:7px 10px;border:1.5px dashed rgba(35,96,208,.6);border-radius:3px;background:transparent;color:#1d4fae;font-family:inherit;font-size:12.5px;font-weight:600;line-height:1.2;cursor:pointer;text-align:left}.ds-slot-empty:hover{background:rgba(35,96,208,.09)}.ds-slot-empty:focus-visible{outline:2px solid #2360d0;outline-offset:2px}"
+    },
+    {
+      "name": "Empty Slot, filled",
+      "kind": "button",
+      "refersTo": "slot-empty-filled",
+      "description": "The empty slot filled solid in its holder colour: the one step the person must take next (here, the decider).",
+      "html": "<button class=\"ds-slot-go\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 3.5v9M3.5 8h9\"/></svg>Choose a decider</button>",
+      "css": ".ds-slot-go{display:flex;align-items:center;gap:6px;width:320px;padding:7px 10px;border:1.5px solid #6a4fd6;border-radius:3px;background:#6a4fd6;color:#fff;font-family:inherit;font-size:12.5px;font-weight:600;line-height:1.2;cursor:pointer;text-align:left}.ds-slot-go:hover{background:#5536c4;border-color:#5536c4}.ds-slot-go:focus-visible{outline:2px solid #2360d0;outline-offset:2px}"
+    },
+    {
+      "name": "Cost Strip",
+      "kind": "card",
+      "refersTo": "cost-strip",
+      "description": "The 7-day spend, tokens and replies as ruled fields on one paper strip, ending in the Usage arrow; opens the usage tab.",
+      "html": "<button class=\"ds-cost\"><span class=\"ds-cost-f\"><span class=\"ds-k\">7-day spend</span><span class=\"ds-v\">$2.12*</span></span><span class=\"ds-cost-f\"><span class=\"ds-k\">Tokens</span><span class=\"ds-v\">12.8M</span></span><span class=\"ds-cost-f\"><span class=\"ds-k\">Replies</span><span class=\"ds-v\">54</span></span><span class=\"ds-cost-go\">Usage<svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3.5 8h9M9 4.5L12.5 8 9 11.5\"/></svg></span></button>",
+      "css": ".ds-cost{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:stretch;width:356px;padding:0;border:0;border-radius:3px;background:#fcfaf4;box-shadow:0 1px 0 rgba(27,29,32,.07),0 1px 3px rgba(27,29,32,.12);color:#1b1d20;font:inherit;text-align:left;cursor:pointer;overflow:hidden}.ds-cost-f{display:grid;align-content:start;gap:2px;min-width:0;padding:7px 10px;border-right:1px solid #e2dccb}.ds-k{color:#575c63;font:600 10px/1.2 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace;letter-spacing:.03em;text-transform:uppercase}.ds-v{font:650 16px/1.2 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}.ds-cost-go{display:flex;align-items:center;gap:4px;padding:0 10px;color:#2360d0;font-size:12px;font-weight:650;transition:background .15s,color .15s}.ds-cost:hover .ds-cost-go{background:#2360d0;color:#fff}.ds-cost:focus-visible{outline:2px solid #2360d0;outline-offset:2px}"
+    },
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Paper button with a rail border; the small size carries Refresh and table actions.",
+      "html": "<button class=\"ds-btn\">Save</button> <button class=\"ds-btn ds-sm\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12.5 6.5A4.75 4.75 0 1 0 12.75 9.5M12.5 3v3.5H9\"/></svg>Refresh</button> <button class=\"ds-btn\" disabled>Remove</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 10px;border:1px solid #cdd1cb;border-radius:4px;background:#fcfaf4;color:#1b1d20;font-family:inherit;font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer}.ds-btn:hover:not(:disabled){border-color:#575c63}.ds-btn:focus-visible{outline:2px solid #2360d0;outline-offset:2px}.ds-btn:disabled{opacity:.5;cursor:default}.ds-sm{padding:3px 8px;font-size:11.5px}"
+    },
+    {
+      "name": "Range Segments",
+      "kind": "nav",
+      "refersTo": "button-pressed",
+      "description": "Small buttons in a row; the pressed one is an ink fill with bay text (time range, chart metric).",
+      "html": "<div class=\"ds-seg\" role=\"group\" aria-label=\"Time range\"><button class=\"ds-seg-b\">Today</button><button class=\"ds-seg-b\" aria-pressed=\"true\">7 days</button><button class=\"ds-seg-b\">30 days</button><button class=\"ds-seg-b\">90 days</button></div>",
+      "css": ".ds-seg{display:flex;flex-wrap:wrap;gap:3px}.ds-seg-b{padding:3px 8px;border:1px solid #cdd1cb;border-radius:4px;background:#fcfaf4;color:#1b1d20;font-family:inherit;font-size:11.5px;font-weight:600;line-height:1.2;cursor:pointer}.ds-seg-b:hover{border-color:#575c63}.ds-seg-b:focus-visible{outline:2px solid #2360d0;outline-offset:2px}.ds-seg-b[aria-pressed=true]{border-color:#1b1d20;background:#1b1d20;color:#e3e5e0}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Paper field with a rail border; focus brings a plan-blue border and a 3px ring.",
+      "html": "<input class=\"ds-in\" type=\"search\" placeholder=\"Search, e.g. sonnet or ollama\" aria-label=\"Search models\">",
+      "css": ".ds-in{width:320px;padding:5px 8px;border:1px solid #cdd1cb;border-radius:4px;background:#fcfaf4;color:#1b1d20;font:inherit;font-size:12.5px;outline:none}.ds-in::placeholder{color:#575c63;opacity:1}.ds-in:focus{border-color:#2360d0;box-shadow:0 0 0 3px rgba(35,96,208,.2)}.ds-in:disabled{opacity:.55}"
+    },
+    {
+      "name": "Stamp and Tag",
+      "kind": "chip",
+      "refersTo": "stamp",
+      "description": "Outlined stamps print Relay's part on a strip or \"unavailable\"; filled tags name the mode on a Recent choices line.",
+      "html": "<span class=\"ds-stamp\">small work</span> <span class=\"ds-stamp ds-bad\">unavailable</span> <span class=\"ds-tag\">Execute</span> <span class=\"ds-tag ds-none\">none</span>",
+      "css": ".ds-stamp{display:inline-block;padding:0 5px;border:1.5px solid currentColor;border-radius:3px;color:#7a4d00;font:700 10px/1.45 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace;letter-spacing:.04em;text-transform:uppercase}.ds-bad{color:#a32a1f}.ds-tag{display:inline-block;padding:1px 5px;border-radius:3px;background:#e19a1c;color:#1b1d20;font:700 10px/1.4 ui-monospace,\"Cascadia Mono\",\"Cascadia Code\",\"SF Mono\",Menlo,Consolas,monospace;letter-spacing:.04em;text-transform:uppercase}.ds-none{background:#cdd1cb;color:#434850}"
+    },
+    {
+      "name": "Drawer",
+      "kind": "custom",
+      "refersTo": "drawer",
+      "description": "A disclosure under the bays, recessed by tone, with a turning chevron and a right-aligned caption.",
+      "html": "<details class=\"ds-drawer\"><summary><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 4l4 4-4 4\"/></svg><span>Recent choices</span><span class=\"ds-sub\">5 of the last 20</span></summary><div class=\"ds-drawer-body\">No /relay message yet.</div></details>",
+      "css": ".ds-drawer{width:356px;border-radius:4px;background:#daddd8}.ds-drawer>summary{display:flex;align-items:center;gap:6px;padding:8px 10px;color:#1b1d20;font-weight:600;font-size:12.5px;cursor:pointer;list-style:none}.ds-drawer>summary::-webkit-details-marker{display:none}.ds-drawer>summary svg{color:#575c63;transition:transform .15s}.ds-drawer[open]>summary svg{transform:rotate(90deg)}.ds-drawer>summary:focus-visible{outline:2px solid #2360d0;outline-offset:2px}.ds-sub{margin-left:auto;color:#575c63;font-size:11.5px;font-weight:500}.ds-drawer-body{padding:0 10px 10px;color:#434850;font-size:12px;line-height:1.5}"
+    },
+    {
+      "name": "Panel Header",
+      "kind": "nav",
+      "refersTo": "badge",
+      "description": "The R badge (brand gradient, 6px corners) and the panel name; the usage tab adds a small Refresh at the right.",
+      "html": "<header class=\"ds-top\"><span class=\"ds-logo\" aria-hidden=\"true\">R</span><h2 class=\"ds-name\">Relay usage</h2><button class=\"ds-ref\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12.5 6.5A4.75 4.75 0 1 0 12.75 9.5M12.5 3v3.5H9\"/></svg>Refresh</button></header>",
+      "css": ".ds-top{display:flex;align-items:center;gap:8px;width:380px;padding:12px 14px 8px;background:#e3e5e0}.ds-logo{flex:none;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;background:linear-gradient(135deg,#4f7cff,#9b6bff)}.ds-name{margin:0;font-size:15px;font-weight:700;letter-spacing:-0.01em;color:#1b1d20}.ds-ref{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid #cdd1cb;border-radius:4px;background:#fcfaf4;color:#1b1d20;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer}.ds-ref:hover{border-color:#575c63}.ds-ref:focus-visible{outline:2px solid #2360d0;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Strip Board",
+    "overview": "Relay's two OpenCode Desktop side panels are an air-traffic strip board. Each mode (Plan, Execute, Review) is a bay; each model chosen for it is a paper flight strip slotted into that bay, with a coloured slot block at its left edge, its id printed in monospace, and its figures (price per 1M tokens, input over output; intelligence index; context) in narrow ruled fields at its right. The decider is the controller: its strip has its own violet bay above the others, with the last choice it made written under it. The usage tab is the same board's ledger: summary tiles cut like the cost strip, a chart plate, and rows of strips that each end in a money field.\n\nThe board is dense and quiet. Type is small (13px body, 10px to 12.5px labels and figures) because the panel is 380px wide and is read beside a chat. Hierarchy comes from the strip's own structure (slot, call sign, fields) and from four holder colours, not from size. There are two lights: day (pale grey-green bay, warm paper strips, near-black print) and night (near-black bay, dim brown-grey strips, cream print). The board reads which one OpenCode Desktop is in from the host's background lightness, and never borrows the host's colours.\n\nWhat the board rejects, by its thesis: rounded settings cards wrapped in grey hint paragraphs. Explanation is one line at the top, a one-line blurb beside each bay heading, or fine print folded into a disclosure; everything else is strips. One divergence from the direction: it asked for square-cornered strips, and the build lands at a near-square 3px corner on every paper surface.",
+    "keyCharacteristics": [
+      "Flight strips on one five-column template: slot block, call sign, price, index, context.",
+      "Four holder colours bound to the modes and the decider; plan blue doubles as the interaction colour.",
+      "Monospace for every figure, model id, time, field label and stamp; the host's UI font for prose and controls.",
+      "Paper lifted off a flat bay by one two-layer hairline shadow; bays and drawers recessed by tone, not shadow.",
+      "Two lights as token swaps on one root; no web fonts, no icon fonts, drawn SVG icons."
+    ],
+    "rules": [
+      {
+        "name": "The Four Holders Rule",
+        "body": "On the board, blue, amber, green and violet mean Plan, Execute, Review and the decider. They reach a strip, slot block, bay heading, stamp, tag, empty slot or link only through `data-mode` and `--code`, `--code-ink`, `--code-text`; a component that hard-codes a holder colour breaks when the mode or the light changes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Reserved Series Rule",
+        "body": "Chart series never take a holder hue. Teal, rose, taupe, plum, olive and grey sit off blue, amber, green and violet, so a bar never reads as a mode.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Lights Rule",
+        "body": "Every colour has a day value on `.rl` and a night value on `.rl[data-light=night]`. The light follows OpenCode Desktop's background lightness (else the system setting); the colours stay Relay's own. The R badge is the only component that carries literal colours.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Figures Rule",
+        "body": "Every number, model id, time, field label and stamp is set in the monospace stack, and every number with tabular figures; prose and controls never are.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Load Rule",
+        "body": "Relay loads no web font and no icon font. Type is the host's UI font plus the system monospace stack.",
+        "section": "typography"
+      },
+      {
+        "name": "The Italic Guess Rule",
+        "body": "A figure Relay estimated rather than read (an index hint such as \"<54.7\" or \"≈47–61\") is italic in third ink; a borrowed price keeps its ink and carries a \"*\". A guess never looks like a reading.",
+        "section": "typography"
+      },
+      {
+        "name": "The Shared Template Rule",
+        "body": "A strip is a five-column grid: 24px slot block, flexible call sign, 66px price, 38px index, 36px context, 6px apart. The legend row above the bays uses the same template, so its heads stand over every bay's fields. Anything new that shows a model's figures joins this template.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Lift Rule",
+        "body": "Paper gets `--rl-lift` and nothing else. A strip never gets a shadow of its own, and a bay or drawer never gets one at all.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Pulled Strip Rule",
+        "body": "A strip whose model OpenCode no longer offers is pulled 10px out of its holder and stamped \"unavailable\" in alert red, with the reason under its bay. Position, not only colour, says it is out.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** put any new model row on a paper strip in the shared template (24px slot, flexible call sign, 66px, 38px, 36px; 6px apart) with 1px rule-coloured field rules.",
+      "**Do** colour a mode only through `data-mode` and `--code`, `--code-ink`, `--code-text`: the `-text` variant for text on paper, the `-ink` variant for text on a fill.",
+      "**Do** print every figure in the monospace stack with tabular figures, right-aligned; print estimates italic in third ink and mark borrowed prices with \"*\".",
+      "**Do** give every new colour a day value on `.rl` and a night value on `.rl[data-light=night]`, and look at it in both lights.",
+      "**Do** end each bay with an empty slot (dashed 1.5px, holder at 60%), and fill it solid only for the one step the person must take next.",
+      "**Do** keep one rule per selector in `panelCss` (`tests/gui-styles.test.ts`), with every selector scoped under `.rl`.",
+      "**Do** run entrance motion only under `prefers-reduced-motion: no-preference`, on `cubic-bezier(.16,1,.3,1)`, in 0.28s or less."
+    ],
+    "donts": [
+      "**Don't** wrap settings in rounded cards with grey hint paragraphs; explanation is one line, a bay blurb, or folded fine print.",
+      "**Don't** load a web font or an icon font, or use text glyphs as icons; draw icons as 16-unit SVG paths at 1.6 stroke.",
+      "**Don't** give a chart series or a decoration a holder hue (blue, amber, green, violet).",
+      "**Don't** take colours from OpenCode's theme; read only whether it is light or dark.",
+      "**Don't** put literal white on a holder fill; plan blue is light at night, and only the `-ink` token keeps text on it legible.",
+      "**Don't** round paper beyond 3px or controls beyond 4px, and don't give a strip a shadow of its own.",
+      "**Don't** change the name \"Relay\" or the R badge."
+    ]
+  }
+}
