@@ -21,6 +21,11 @@ export function ownChoiceProblem(execute: unknown, strong: string, cheap: string
 
 /** A request's tokens as OpenCode keeps them on an assistant entry of `session.context`. */
 export type Tokens = { input: number; output: number; reasoning: number; cache: { read: number; write: number } };
+/** Whether a request read its chat from the cache: 90% or more of its prompt (new, cached and written to cache) was a cache read. */
+export function cacheAlive(tokens: Tokens): boolean {
+  const prompt = tokens.input + tokens.cache.read + tokens.cache.write;
+  return prompt > 0 && tokens.cache.read * 10 >= prompt * 9;
+}
 type PriceSet = { inputPerMillion: string | null; outputPerMillion: string | null; cacheReadPerMillion: string | null; cacheWritePerMillion: string | null };
 /** A model's prices as Relay's `listModels` gives them: USD for a million tokens, and the prices for chats over a size. */
 export type Cost = PriceSet & { steps: (PriceSet & { above: number })[] };
