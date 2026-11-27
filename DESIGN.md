@@ -274,7 +274,7 @@ Each holder has a darker text variant for day (`plan-text`, `execute-text`, `rev
 - **Alert Red** (`alert` #c3372b, `alert-text` #a32a1f; night #ff6f61 for both): the remove x on hover, the "unavailable" stamp, error notes, and warning lines under a bay. Nothing else.
 
 ### Tertiary
-- **Ledger Series** (`series-1` to `series-5`: teal, rose, taupe, plum, olive; `series-other` slate grey): the usage chart's stacked bars and legend dots, one per most-spent model in order, grey for the rest. Usage tab only.
+- **Ledger Series** (`series-1` to `series-5`: teal, rose, taupe, plum, olive; `series-other` slate grey): the usage chart's stacked bars and legend dots, one per most-spent model in order, grey for the rest; on the switching plate, series-1 fills what was spent, series-other outlines the cost without switching, and the switch bars take the series in order. Usage tab only.
 - **Badge Gradient** (`badge-from` #4f7cff to `badge-to` #9b6bff, 135 degrees): the R badge, and nothing else.
 
 ### Neutral
@@ -327,7 +327,7 @@ Two fixed-width side panels: Relay at 380px and Relay usage at 420px. There are 
 
 Each panel is a column: a header (R badge and name, 12px 14px 8px), a scrolling body, and on Relay a footer (model count, version, Refresh) under a rail-coloured rule. The body is a single-column grid with 10px between sections and 12px side gutters, its rows sized to their content so a scroll box inside never collapses.
 
-Relay's first viewport, top to bottom: the one-line lede; the decider bay (controller strip, last choice, try box); the cost strip; a legend row of column heads; then the Plan, Execute and Review bays, each ending in an empty slot; drawers below. The usage tab: range segments, three summary tiles, the chart plate, By model, search, a Filters drawer, then the records.
+Relay's first viewport, top to bottom: the one-line lede; the decider bay (controller strip, last choice, try box); the cost strip; a legend row of column heads; then the Plan, Execute and Review bays, each ending in an empty slot; drawers below. The usage tab: range segments, three summary tiles, the chart plate, By model, search, a Filters drawer, then the switching plate.
 
 Spacing rhythm: 3px between strips in a rack (they stack nearly touching, like a rack), 6px inside a bay and between inline controls, 8px of bay padding, 10px between sections and as a field's side padding, 12px gutters. A strip has 6px vertical padding, and its slot block and figure fields stretch its full height so their edges and rules run top to bottom.
 

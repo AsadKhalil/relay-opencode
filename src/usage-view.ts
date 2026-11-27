@@ -1,4 +1,5 @@
 import { formatUsd, parseUsd } from './costs.js';
+import type { SwitchingView } from './switching.js';
 import type { UsageDay, UsageRecord, UsageTotal } from './usage-log.js';
 
 // The Relay usage tab's sums and texts (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). The panel bundles this file, so it
@@ -85,6 +86,34 @@ export function chartOf(days: readonly UsageDay[], metric: Metric, top = 5): { b
     return { day: day.day, total: parts.reduce((sum, part) => sum + part.value, 0), title: `${day.day}: ${shares.length ? shares.join(', ') : 'no use'}`, parts };
   });
   return { bars, legend: [...kept.map(model => ({ model, color: colorOf(model) })), ...(rest ? [{ model: 'other', color: OTHER }] : [])], max: bars.reduce((most, bar) => Math.max(most, bar.total), 0) };
+}
+
+// ---- The switching plate (docs/superpowers/specs/2026-11-26-relay-switch-savings-design.md, section 5) ----
+
+/** Saved: without switching less spent, as money, whether it cost more instead, and its whole percent of without switching (null with no switch or nothing to compare). */
+export function savedOf(view: SwitchingView): { amount: string; more: boolean; percent: number | null } {
+  const without = parseUsd(view.without), saved = without - parseUsd(view.spent), more = saved < 0n, size = more ? -saved : saved;
+  // Rounded half away from zero, in bigint.
+  const percent = without === 0n || !view.switches.length ? null : Number((saved * 200n + (more ? -without : without)) / (2n * without));
+  return { amount: money(formatUsd(size)), more, percent };
+}
+
+/** One pair of bars a day: an outline for without switching and the spent part inside it, in millionths of a dollar. `max` is the taller of the two on the tallest day. */
+export function savingsChart(view: SwitchingView): { bars: { day: string; spent: number; without: number; title: string }[]; max: number } {
+  const bars = view.days.map(day => {
+    const saved = parseUsd(day.without) - parseUsd(day.spent);
+    const end = saved < 0n ? `${money(formatUsd(-saved))} more` : `saved ${money(formatUsd(saved))}`;
+    return { day: day.day, spent: micro(day.spent), without: micro(day.without), title: `${day.day}: spent ${money(day.spent)}, without switching ${money(day.without)}, ${end}` };
+  });
+  return { bars, max: bars.reduce((most, bar) => Math.max(most, bar.spent, bar.without), 0) };
+}
+
+/** Switches to each model: most first, the `top` largest in the series colours and the rest as one "other" row; `share` is a bar's width against the largest row. */
+export function switchRows(view: SwitchingView, top = 5): { model: string; name: string; count: number; share: number; color: string }[] {
+  const kept = view.switches.slice(0, top).map((item, at) => ({ model: item.model, name: nameOf(item.model), count: item.count, color: COLORS[at % COLORS.length]! }));
+  const rest = view.switches.slice(top).reduce((sum, item) => sum + item.count, 0);
+  const rows = rest ? [...kept, { model: 'other', name: 'other', count: rest, color: OTHER }] : kept, largest = Math.max(1, ...rows.map(row => row.count));
+  return rows.map(row => ({ ...row, share: row.count / largest }));
 }
 
 /** One row of the records list: time, model and cost, then provider, kind and chat, mode, tokens, project and what Relay did. In counts what was read

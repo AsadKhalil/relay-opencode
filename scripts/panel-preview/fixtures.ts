@@ -91,7 +91,13 @@ const usage = {
   options: { providers: ['claude-agent', 'opencode-go'], efforts: ['default', 'high', 'low'], modes: ['build', 'execute', 'plan', 'review'], projects: ['C:/work/sample-app'] },
   before: { since: '2026-11-19T00:00:00.000Z', rows: [] }, credit: 'Prices and index: Artificial Analysis (artificialanalysis.ai)', removed: 0,
 };
-const emptyUsage = { ...usage, days: days.map(item => ({ day: item.day, models: [] })), totals: [], records: [], matching: 0, first: null, options: { providers: [], efforts: [], modes: [], projects: [] }, credit: null };
+// The switching plate: Relay moved chats to Flash and Kimi; without those moves the same replies would have cost about a third more.
+const switchingDays = (share: number) => daily.map((costs, at) => { const spent = costs.reduce((total, cost) => total + cost, 0); return { day: day(6 - at), spent: spent.toFixed(4), without: (spent * share).toFixed(4) }; });
+const sumOf = (list: { spent: string; without: string }[], pick: 'spent' | 'without') => list.reduce((total, item) => total + Number(item[pick]), 0).toFixed(4);
+const view = (model: string | null, share: number) => { const list = switchingDays(share); return { model, switches: [{ model: 'opencode-go/glm-5.3-flash', count: 9 }, { model: 'opencode-go/kimi-k3.1-pro#low', count: 5 }], spent: sumOf(list, 'spent'), without: sumOf(list, 'without'), days: list, chats: 9, notCompared: model === null ? 3 : 0, leftOut: 2, deciderUsd: '0.004' }; };
+(usage as Record<string, unknown>).switching = { default: view(null, 1.39), plan: view('claude-agent/sonnet#high', 2.6) };
+const still = (model: string | null) => ({ model, switches: [], spent: '0', without: '0', days: days.map(item => ({ day: item.day, spent: '0', without: '0' })), chats: 0, notCompared: 0, leftOut: 0, deciderUsd: '0' });
+const emptyUsage = { ...usage, days: days.map(item => ({ day: item.day, models: [] })), totals: [], records: [], matching: 0, first: null, options: { providers: [], efforts: [], modes: [], projects: [] }, credit: null, switching: { default: still(null), plan: null } };
 
 /** The RPC client a panel gets for `state`: every method answers after a short delay, as a real server would. `retired` adds a model that is not offered. */
 export function rpcFor(state: 'set' | 'empty' | 'retired', directory: string) {

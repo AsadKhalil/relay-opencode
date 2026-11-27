@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { UsageDay, UsageRecord, UsageTotal } from '../src/usage-log.js';
-import { appendNew, chartOf, dayLabels, money, rangeOf, recordCells, refreshLimit, scaleLabel, short, totalCells } from '../src/usage-view.js';
+import type { SwitchingView } from '../src/switching.js';
+import { appendNew, chartOf, dayLabels, money, rangeOf, recordCells, refreshLimit, savedOf, savingsChart, scaleLabel, short, switchRows, totalCells } from '../src/usage-view.js';
 
 // The Relay usage tab's sums and texts (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). The panel only draws these.
 const day = (date: string, models: [string, string | null, number, number][]): UsageDay => ({ day: date, models: models.map(([model, cost, tokens, requests]) => ({ model, cost, tokens, requests })) });
@@ -105,4 +106,36 @@ test('Show more adds only records not shown yet, so a new reply arriving meanwhi
   const one = record({ messageID: 'm1' }), two = record({ messageID: 'm2' }), three = record({ messageID: 'm3' });
   assert.deepEqual(appendNew([one, two], [two, three]).map(made => made.messageID), ['m1', 'm2', 'm3']);
   assert.deepEqual(appendNew([one], [record({ messageID: 'm1', sessionID: 'ses_other' })]).length, 2, 'the same message id in another chat is another record');
+});
+
+// The switching plate (docs/superpowers/specs/2026-11-26-relay-switch-savings-design.md, section 5).
+const switching = (extra: Partial<SwitchingView> = {}): SwitchingView => ({ model: null, switches: [{ model: 'p/cheap', count: 1 }], spent: '0', without: '0', days: [], chats: 1, notCompared: 0, leftOut: 0, deciderUsd: '0', ...extra });
+
+test('saved is without switching less spent, with its percent', () => {
+  assert.deepEqual(savedOf(switching({ spent: '2.104', without: '4.2002' })), { amount: '$2.10', more: false, percent: 50 });
+});
+
+test('a switching that cost more says so', () => {
+  assert.deepEqual(savedOf(switching({ spent: '1', without: '0.8' })), { amount: '$0.20', more: true, percent: -25 });
+});
+
+test('nothing moved, or nothing to compare, has no percent', () => {
+  assert.deepEqual(savedOf(switching({ switches: [], spent: '0.5', without: '0.5' })), { amount: '$0', more: false, percent: null });
+  assert.deepEqual(savedOf(switching({ spent: '0', without: '0' })), { amount: '$0', more: false, percent: null });
+});
+
+test("each day's bar has spent inside without, and says what was saved", () => {
+  const chart = savingsChart(switching({ days: [{ day: '2026-11-20', spent: '0.12', without: '0.18' }, { day: '2026-11-21', spent: '0.3', without: '0.25' }, { day: '2026-11-22', spent: '0', without: '0' }] }));
+  assert.deepEqual(chart.bars.map(bar => [bar.spent, bar.without]), [[120_000, 180_000], [300_000, 250_000], [0, 0]]);
+  assert.equal(chart.max, 300_000);
+  assert.equal(chart.bars[0]!.title, '2026-11-20: spent $0.12, without switching $0.18, saved $0.06');
+  assert.equal(chart.bars[1]!.title, '2026-11-21: spent $0.30, without switching $0.25, $0.05 more');
+});
+
+test('switch rows: most first, five colours, the rest as other', () => {
+  const switches = [9, 5, 4, 3, 2, 2, 1].map((count, at) => ({ model: `p/m${at}`, count }));
+  const rows = switchRows(switching({ switches }));
+  assert.equal(rows.length, 6);
+  assert.deepEqual(rows.map(row => [row.name, row.count, row.color]), [['m0', 9, 'var(--rl-s1)'], ['m1', 5, 'var(--rl-s2)'], ['m2', 4, 'var(--rl-s3)'], ['m3', 3, 'var(--rl-s4)'], ['m4', 2, 'var(--rl-s5)'], ['other', 3, 'var(--rl-s0)']]);
+  assert.deepEqual([rows[0]!.share, rows[1]!.share], [1, 5 / 9]);
 });
