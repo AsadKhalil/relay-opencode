@@ -237,6 +237,8 @@ RELAY_SMOKE_CLI=<2.3.0 opencode.exe> RELAY_EXAMPLES_SET=scripts/decider-followup
 
 ### Task 6: Two more runs of Relay off vs one model a mode (Go allowance)
 
+> **27 Nov 2026:** this task waits for the switching version (plan `2026-11-27-relay-switch-savings.md`), so one run serves both: the runner now keeps the usage tab's answer for the run as `usageTab` in `results.json`.
+
 **Files:**
 - Results outside the repo: `%USERPROFILE%\relay-bench-results\<date>-a\` and `<date>-b\`. They are kept, because the earlier runs' files were in scratch folders and are gone.
 

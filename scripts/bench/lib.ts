@@ -136,3 +136,8 @@ export function table(totals: Map<Side, SideTotal>, { limits = true }: { limits?
     row('Saved, against Off', saved),
   ].join('\n');
 }
+
+/** The usage tab's question for a run: its time range, its folder (as the host spells it), and Relay on or off; no other filter, days in UTC. */
+export function tabQuery(from: string, to: string, folder: string, relay: 'on' | 'off') {
+  return { from, to, tzOffsetMinutes: 0, timeZone: null, search: '', provider: null, effort: null, mode: null, relay, kind: 'any' as const, project: folder };
+}

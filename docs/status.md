@@ -39,6 +39,13 @@ Details are in the [compatibility findings](compatibility.md) and the [change lo
 
 ## Known limits
 
+- **Relay switching in the usage tab** is an estimate:
+  - It does not check whether a cache would have run out before a move.
+  - It does not count the decisions Relay makes for helpers.
+  - The Plan view uses your Plan model as it is set now, for the whole range.
+  - A chat from before this version can lack a default model, so the Default view leaves it out and counts it.
+  - Decisions made before this version have no cost on record.
+  - It has run on a real OpenCode 2.3.0 with mock models only (27 Nov 2026), not yet on Go or in Desktop.
 - Decision requests are not counted against any budget.
 - The cost check is arithmetic on listed prices and the guesses named in [When Relay saves money](saving-money.md). It has not been checked against a provider's bill. It counts a cache as lasting five minutes, unless OpenCode lists a cache time for the model (`cache.ttl` in the provider's or the model's `settings`); cache warming is not read.
 - A model with no listed price gets no cost check and shows no cost. Claude through OpenCode's Claude Agent provider with a subscription login is such a model: Relay follows your line every time. On that route a cache also lasted longer than the five minutes Relay counts with.

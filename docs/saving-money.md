@@ -29,4 +29,13 @@ The check uses OpenCode's listed prices and a few guesses: a cache that lasts fi
 - **Try one model at two efforts first.** Choose the same model for all three modes, with a higher effort for Plan and Review and a lower one for Execute. The model does not change, so the chat is not read again. Two cautions: a lower effort can do worse work, and on one provider's route an effort change itself was reported to lose the cache in OpenCode 2.3.0.
 - **For two levels inside one mode, use one model at two efforts.** For example, Sonnet at low for small work and Sonnet at high for big work, with no lines, so Relay chooses between them. In the 18 Nov test with Claude models, a change of effort kept the chat cached, while a change of model made the new model read it all again. Choose an effort on both rows: Relay can't rank "default effort" against the same model's named effort.
 
+## Reading Saved in the usage tab
+
+The **Relay switching** plate in the Relay usage tab puts a number on Relay's moves. It is an estimate: the same replies, priced at the model the chat would otherwise have stayed on. Nothing was run on that model.
+
+- **Saved** is the cost without switching less what was spent. Spent includes what Relay's decisions cost, so a free decider adds nothing and a paid one comes off the saving.
+- It counts cost only. Whether the other model would have answered as well is what the bench runs measure, not this plate.
+- On a move, the tokens the chat had already sent are priced as cache reads on the other side, since the model it stayed on would have kept its cache. Relay does not check whether that cache would have run out first, so after a long pause the saving looks smaller than it was.
+- Replies through a subscription login (the Claude login, Codex) list no price, so they are priced at public per-token prices: Artificial Analysis's with a saved key, else OpenRouter's. On a subscription that estimates what the plan was used for, not a bill.
+
 The limits of this check are in [known limits](status.md#known-limits).

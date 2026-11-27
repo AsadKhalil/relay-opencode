@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isProject, permissionAnswer, resetFolder, TEST_CONFIG } from '../scripts/bench/folder.js';
 import { formatUsd, parseUsd } from '../src/costs.js';
-import { cacheAlive, commonChats, DENIED_TOOLS, limitShare, monthShare, nextFits, ownChoiceProblem, requestCost, sideTotals, stopReason, table, type ChatResult, type Cost } from '../scripts/bench/lib.js';
+import { cacheAlive, commonChats, DENIED_TOOLS, limitShare, monthShare, nextFits, ownChoiceProblem, requestCost, sideTotals, stopReason, table, tabQuery, type ChatResult, type Cost } from '../scripts/bench/lib.js';
 import { restoreSettings } from '../scripts/bench/relay-settings.js';
 
 // The proof test's exercises (scripts/bench/tasks): Exercism's Python exercises, as Aider's polyglot benchmark chose them.
@@ -226,4 +226,9 @@ test('when the settings cannot be put back, it says so and where the old ones ar
 test('a request read its chat from the cache when 90% or more of its prompt was a cache read', () => {
   const t = (input: number, read: number, write = 0) => ({ input, output: 5, reasoning: 0, cache: { read, write } });
   assert.deepEqual([t(500, 24_000), t(2_400, 21_600), t(14_000, 10_000), t(0, 0), t(200, 9_000, 15_000)].map(cacheAlive), [true, true, false, false, false]);
+});
+
+test('the tab question for a bench run names its folder and the Relay side', () => {
+  const a = '2026-11-27T10:00:00.000Z', b = '2026-11-27T12:00:00.000Z';
+  assert.deepEqual(tabQuery(a, b, 'C:/x/relay-bench', 'on'), { from: a, to: b, tzOffsetMinutes: 0, timeZone: null, search: '', provider: null, effort: null, mode: null, relay: 'on', kind: 'any', project: 'C:/x/relay-bench' });
 });

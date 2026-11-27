@@ -14,7 +14,7 @@ import { parseArgs, promisify } from 'node:util';
 import { OpenCode } from '@opencode/client/promise';
 import { formatUsd, parseUsd, usdString } from '../../src/costs.js';
 import { isProject, permissionAnswer, resetFolder } from './folder.js';
-import { DENIED_TOOLS, MONTH, monthShare, nextFits, ownChoiceProblem, requestCost, shares, SIDES, stopReason, type Cost, type Side, type Tokens } from './lib.js';
+import { DENIED_TOOLS, MONTH, monthShare, nextFits, ownChoiceProblem, requestCost, shares, SIDES, stopReason, tabQuery, type Cost, type Side, type Tokens } from './lib.js';
 import { restoreSettings } from './relay-settings.js';
 
 const execFile = promisify(execFileCallback);
@@ -207,10 +207,21 @@ async function run(): Promise<void> {
   if (sides.includes('on-own') || sides.includes('on-size')) await rpc.listIntelligence({}, options);
   const prices = new Map<string, Cost>(listed.filter(model => [STRONG, CHEAP].some(wanted => model.providerID === wanted.providerID && model.id === wanted.id)).map(model => [`${model.providerID}/${model.id}`, model.cost]));
   const results = { startedAt: new Date().toISOString(), opencodeVersion, plan, ...(onGo ? { budgetPercentOfFiveHours: Number(budget) } : { capUsd: formatUsd(cap) }), folder, models: { strong: `${STRONG.providerID}/${STRONG.id}`, cheap: `${CHEAP.providerID}/${CHEAP.id}`, decider: `${DECIDER.providerID}/${DECIDER.id}` },
-    prices: Object.fromEntries(prices), settingsBefore: before.settings, stoppedBecause: null as string | null, chats: [] as Chat[] };
+    prices: Object.fromEntries(prices), settingsBefore: before.settings, stoppedBecause: null as string | null, chats: [] as Chat[], usageTab: null as unknown };
   const file = join(out, 'results.json'), save = () => writeFileSync(file, JSON.stringify(results, null, 2));
   save();   // settingsBefore is on disk before any change, so the settings can be put back by hand if everything else fails
-  const restore = async () => { const { message } = await restoreSettings(rpc, options, before.settings, file); save(); console.log(`${message} Results: ${file}${results.stoppedBecause ? `. Stopped: ${results.stoppedBecause}` : ''}`); };
+  /**
+   * The usage tab's answers for the run, Relay on and off, read before the owner's settings go back, so its Plan view names the run's Plan
+   * model. The folder is asked for as the host spells it in the records. Each read has 30 seconds; a failure is kept and never stops the restore.
+   */
+  const readTab = async () => {
+    const now = new Date().toISOString(), ask = (query: object) => Promise.race([rpc.getUsageLog(query, options), new Promise((_, fail) => setTimeout(() => fail(new Error('no answer in 30 seconds')), 30_000).unref())]);
+    const kept = async (relay: 'on' | 'off') => { try { const all = await ask({ ...tabQuery(results.startedAt, now, folder, relay), project: null }) as { options?: { projects?: string[] } };
+      const spelled = (all.options?.projects ?? []).find(project => isProject([{ directory: project }], folder)) ?? folder;
+      return await ask(tabQuery(results.startedAt, now, spelled, relay)); } catch (error) { return { error: error instanceof Error ? error.message : String(error) }; } };
+    results.usageTab = { on: await kept('on'), off: await kept('off') }; save();
+  };
+  const restore = async () => { await readTab().catch(() => undefined); const { message } = await restoreSettings(rpc, options, before.settings, file); save(); console.log(`${message} Results: ${file}${results.stoppedBecause ? `. Stopped: ${results.stoppedBecause}` : ''}`); };
   // Ctrl+C would skip the `finally` below; this puts the settings back first.
   process.once('SIGINT', () => { results.stoppedBecause = 'stopped by Ctrl+C'; void restore().finally(() => process.exit(130)); });
   const monthOf = (chat: Chat) => chat.entries.reduce((sum, entry) => sum + BigInt(entry.month), 0n);
