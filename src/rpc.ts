@@ -60,12 +60,17 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
       // Settings that cannot be read leave the Plan view out; the rest of the tab does not need them.
       const [kept, oldest, before, stored, models, settings] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore), readStored(relayStore), listed, getRelaySettings(relayStore).catch(() => null)]);
       // A record with no cost (no price when it was kept, such as a reply on a subscription login) is priced as it is read; nothing is written.
-      const records = priceFromList(kept, model => pricesOf(model, models, stored)), summary = summarize(records, query);
-      const credit = records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') || before.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null;
+      // Each model is looked up once a call: a range can hold thousands of such replies, and this runs on the service's own thread.
+      const facts = new Map<string, ReturnType<typeof pricesOf>>();
+      const priced = (model: string) => { let found = facts.get(model); if (!found) facts.set(model, found = pricesOf(model, models, stored)); return found; };
+      const records = priceFromList(kept, priced), summary = summarize(records, query);
       // Without the model list, the comparison models' prices are not known, so the switching part says so instead of guessing.
       const plan = settings?.modes.plan[0], switching = models === null ? null : switchingOf(records, filterRecords(records, query), {
-        plan: plan ? modelName(plan) : null, priceOf: model => pricesOf(model, models, stored).prices, dayOf: dayCounter(query), days: summary.days.map(day => day.day),
+        plan: plan ? modelName(plan) : null, priceOf: model => priced(model).prices, dayOf: dayCounter(query), days: summary.days.map(day => day.day),
       });
+      // Artificial Analysis's data is credited wherever it shows: a reply priced from its list, or a model the switching part was priced at.
+      const fromAa = records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') || [...facts.values()].some(found => found.pricesFrom === 'artificial-analysis');
+      const credit = fromAa || before.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null;
       return { directory: context.location.directory, ...summary, first: oldest ?? summary.first, before, credit, removed, switching };
     },
     getOwnChoice: async () => {

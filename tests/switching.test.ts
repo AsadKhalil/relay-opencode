@@ -136,3 +136,16 @@ test('30,000 records add up within two seconds', () => {
   assert.ok(performance.now() - began < 2_000, `took ${Math.round(performance.now() - began)} ms`);
   assert.equal(result.default.chats, 1_000);
 });
+
+test('a comparison model with no cache price leaves out the replies whose cache it would have to price', () => {
+  const noCache: Prices = { inputPerMillion: '10', outputPerMillion: '30', cacheReadPerMillion: null, cacheWritePerMillion: null };
+  const priced = (model: string) => model === 'p/nocache' ? noCache : priceOf(model);
+  const all = [
+    rec('2026-11-20T10:00:00.000Z', 'ses-1', 'p/cheap', { input: 1_000 }, { from: 'p/nocache', start: 'p/nocache' }),
+    rec('2026-11-20T11:00:00.000Z', 'ses-1', 'p/cheap', { input: 1_000, cacheRead: 100_000 }, { from: 'p/cheap', start: 'p/nocache' }),
+  ];
+  const view = switchingOf(all, all, { plan: null, priceOf: priced, dayOf, days }).default;
+  // r1 (input only) compares at $0.01; r2's cache reads have no price there, so it is left out instead of counting them as $0.
+  assert.equal(view.leftOut, 1);
+  assert.equal(view.without, formatUsd(parseUsd('0.01') + parseUsd(all[1]!.costByPrice!)));
+});

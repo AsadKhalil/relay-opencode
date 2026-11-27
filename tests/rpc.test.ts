@@ -382,3 +382,30 @@ test('the query refuses an offset or a limit', () => {
   assert.notDeepEqual(fits(RelayRpc.methods.getUsageLog.input, usageQuery({ offset: 0, limit: 50 }), 'input'), []);
   assert.deepEqual(fits(RelayRpc.methods.getUsageLog.input, usageQuery(), 'input'), []);
 });
+
+test('getUsageLog prices thousands of replies with no price once a model, so the tab answers within a second', async () => {
+  // A long public list, and replies on a login and on a model no list knows: each model is looked up once, not once a reply.
+  const rows = Array.from({ length: 4_000 }, (_, at) => [`vendor-model-${at}`, `vendor/model-${at}`, null, null, '1', '2', null, null]);
+  rows.push(['claude-sonnet-5-5', 'anthropic/claude-sonnet-5-5', null, null, '2', '10', '0.2', null]);
+  const data = new Map<string, unknown>([['relay/intelligence', { fetchedAt: '2026-11-24T00:00:00.000Z', v: 2, rows }]]);
+  const start = Date.parse('2026-11-23T00:00:00.000Z');
+  for (let at = 0; at < 3_000; at++) putRecord(data, usageRecord(new Date(start + at * 10_000).toISOString(), { model: at % 2 ? 'claude-agent/sonnet' : 'nobody/never-listed', costByPrice: null, openCodeUsd: '0', pricesFrom: null }));
+  const host = usageHost(data, undefined, { model: { list: async () => ({ data: [] }) } }), began = performance.now();
+  const answer = await host.getUsageLog(usageQuery());
+  const took = performance.now() - began;
+  assert.equal(answer.matching, 3_000);
+  assert.ok(took < 1_000, `took ${Math.round(took)} ms`);
+});
+
+test('the Artificial Analysis credit shows when its prices drive the switching numbers', async () => {
+  const aaPrices = { inputPerMillion: '2', outputPerMillion: '10', cacheReadPerMillion: '0.2', cacheWritePerMillion: '2.5' };
+  const data = new Map<string, unknown>([
+    ['relay/settings', planned([{ providerID: 'claude-agent', id: 'sonnet', variant: null, useFor: '' }])],
+    ['relay/aa-models', { fetchedAt: '2026-11-24T00:00:00.000Z', models: [{ slug: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', creator: 'Anthropic', released: '2026-09-28', index: null, coding: null, prices: aaPrices }] }],
+  ]);
+  movedChat(data);
+  const answer = await usageHost(data, undefined, { model: listing }).getUsageLog(usageQuery());
+  assert.equal(answer.switching.plan.model, 'claude-agent/sonnet');
+  assert.notEqual(answer.switching.plan.without, answer.switching.plan.spent, 'the Plan view is priced from the list');
+  assert.equal(answer.credit, AA_CREDIT);
+});

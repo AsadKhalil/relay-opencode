@@ -50,10 +50,16 @@ function factsOf(all: readonly UsageRecord[]): Map<string, Fact> {
   return facts;
 }
 
-/** A record's tokens at other prices, with `shift` of its cache writes, then its input, read from the cache instead. */
+/**
+ * A record's tokens at other prices, with `shift` of its cache writes, then its input, read from the cache instead. Null when a kind of
+ * token it has there has no price: counting those as $0 would make the other model look cheaper than it is.
+ */
 function costAt(record: UsageRecord, prices: Prices, shift: number): string | null {
   const fromWrite = Math.min(shift, record.cacheWrite), fromInput = Math.min(shift - fromWrite, record.input);
-  return priceTotal({ input: record.input - fromInput, output: record.output, reasoning: record.reasoning, cacheRead: record.cacheRead + fromWrite + fromInput, cacheWrite: record.cacheWrite - fromWrite }, prices);
+  const tokens = { input: record.input - fromInput, output: record.output, reasoning: record.reasoning, cacheRead: record.cacheRead + fromWrite + fromInput, cacheWrite: record.cacheWrite - fromWrite };
+  const unpriced = (count: number, price: string | null) => count > 0 && price === null;
+  if (unpriced(tokens.input, prices.inputPerMillion) || unpriced(tokens.output + tokens.reasoning, prices.outputPerMillion) || unpriced(tokens.cacheRead, prices.cacheReadPerMillion) || unpriced(tokens.cacheWrite, prices.cacheWritePerMillion)) return null;
+  return priceTotal(tokens, prices);
 }
 
 /**
