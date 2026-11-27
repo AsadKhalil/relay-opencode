@@ -41,7 +41,7 @@ export const logKey = (record: Pick<UsageRecord, 'at' | 'sessionID' | 'messageID
 const timeOfKey = (key: string) => key.slice(LOG_PREFIX.length).split('/', 1)[0] ?? '';
 
 /** Tokens times each kind's price (output with its reasoning), as Usage by model works them out; null when no kind has a price. */
-function priceTotal(total: Omit<Totals, 'costUsd'>, prices: Prices | null): string | null {
+export function priceTotal(total: Omit<Totals, 'costUsd'>, prices: Prices | null): string | null {
   const parts = [costOf(total.input, prices?.inputPerMillion ?? null), costOf(total.output + total.reasoning, prices?.outputPerMillion ?? null),
     costOf(total.cacheRead, prices?.cacheReadPerMillion ?? null), costOf(total.cacheWrite, prices?.cacheWritePerMillion ?? null)].filter((part): part is bigint => part !== null);
   return parts.length ? formatUsd(parts.reduce((sum, part) => sum + part, 0n)) : null;
