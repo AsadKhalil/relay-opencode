@@ -341,3 +341,39 @@ test("getUsageLog prices a login's reply from OpenRouter's stored list, and stil
   assert.deepEqual([sonnet.cost, sonnet.aaPriced], ['2', true]);
   assert.deepEqual(fits(RelayRpc.methods.getUsageLog.output, answer), []);
 });
+
+// The switching plate: a chat moved from p/big to p/cheap; the host lists both, and the Plan model is p/plan.
+const hostModel = (id: string, input: number, output: number) => ({ providerID: 'p', id, name: id, enabled: true, status: 'active', variants: [], capabilities: { input: ['text'], output: ['text'], tools: true }, limit: { context: 100_000, output: 1000 }, cost: [{ input, output, cache: { read: input / 10, write: input } }] });
+const listing = { list: async () => ({ data: [hostModel('big', 4, 20), hostModel('cheap', 2, 10), hostModel('plan', 10, 30)] }) };
+const planned = (plan: { providerID: string; id: string; variant: null; useFor: string }[]) => ({ revision: 1, modes: { plan, execute: [], review: [] }, decider: null });
+function movedChat(data: Map<string, unknown>) {
+  putRecord(data, usageRecord('2026-11-24T10:00:00.000Z', { model: 'p/big', input: 1000, output: 0, costByPrice: '0.004' }));
+  putRecord(data, usageRecord('2026-11-24T11:00:00.000Z', { model: 'p/cheap', input: 1000, output: 0, costByPrice: '0.002', relay: { mode: 'execute', note: null, from: 'p/big', start: 'p/big', deciderUsd: '0' } }));
+}
+
+test("getUsageLog answers how Relay's switching did, in both views, and fits the contract", async () => {
+  const data = new Map<string, unknown>([['relay/settings', planned([{ providerID: 'p', id: 'plan', variant: null, useFor: '' }])]]);
+  movedChat(data);
+  const answer = await usageHost(data, undefined, { model: listing }).getUsageLog(usageQuery());
+  assert.deepEqual(answer.switching.default.switches, [{ model: 'p/cheap', count: 1 }]);
+  assert.deepEqual([answer.switching.default.spent, answer.switching.default.without], ['0.006', '0.0044'], 'r2 at p/big is 1,000 tokens from its cache');
+  assert.equal(answer.switching.plan.model, 'p/plan');
+  assert.equal(answer.switching.default.days.length, answer.days.length);
+  assert.deepEqual(fits(RelayRpc.methods.getUsageLog.output, answer), []);
+});
+
+test('with the model list late, switching is null and the rest of the answer comes', async () => {
+  const data = new Map<string, unknown>();
+  movedChat(data);
+  const answer = await usageHost(data, undefined, { model: { list: () => new Promise(() => undefined) }, listMs: 50 }).getUsageLog(usageQuery());
+  assert.equal(answer.switching, null);
+  assert.equal(answer.totals.length, 2);
+  assert.deepEqual(fits(RelayRpc.methods.getUsageLog.output, answer), []);
+});
+
+test('with no Plan model set, the Plan view is null', async () => {
+  const data = new Map<string, unknown>([['relay/settings', planned([])]]);
+  movedChat(data);
+  const answer = await usageHost(data, undefined, { model: listing }).getUsageLog(usageQuery());
+  assert.deepEqual([answer.switching.plan, answer.switching.default.chats], [null, 1]);
+});

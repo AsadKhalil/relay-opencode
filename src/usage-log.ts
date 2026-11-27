@@ -181,15 +181,23 @@ const tokensOf = (record: UsageRecord) => record.input + record.output + record.
 const sum = (costs: readonly (string | null)[]) => { const known = costs.filter((cost): cost is string => cost !== null); return known.length ? formatUsd(known.reduce((total, cost) => total + parseUsd(cost), 0n)) : null; };
 const sorted = (values: Iterable<string>) => [...new Set(values)].sort();
 
-/** The days, totals, filter lists and one page of records for a range. The filter lists come from every record given, so a filter never hides its own choices. */
-export function summarize(records: readonly UsageRecord[], query: UsageQuery): UsageSummary {
+/** The panel's day (YYYY-MM-DD) of a time: in its time zone when it gave one, else at its offset from UTC. */
+export function dayCounter(query: Pick<UsageQuery, 'timeZone' | 'tzOffsetMinutes'>): (time: string | number) => string {
   const zoned = query.timeZone ? new Intl.DateTimeFormat('en-CA', { timeZone: query.timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }) : null;
-  const dayOf = (time: string | number) => { const ms = typeof time === 'number' ? time : Date.parse(time); return zoned ? zoned.format(ms) : new Date(ms + query.tzOffsetMinutes * 60_000).toISOString().slice(0, 10); };
+  return time => { const ms = typeof time === 'number' ? time : Date.parse(time); return zoned ? zoned.format(ms) : new Date(ms + query.tzOffsetMinutes * 60_000).toISOString().slice(0, 10); };
+}
+/** The records the tab's search and filters keep. */
+export function filterRecords(records: readonly UsageRecord[], query: UsageQuery): UsageRecord[] {
   const search = query.search.trim().toLowerCase();
-  const kept = records.filter(record => (!search || nameOf(record).toLowerCase().includes(search))
+  return records.filter(record => (!search || nameOf(record).toLowerCase().includes(search))
     && (query.provider === null || providerOf(record) === query.provider) && (query.effort === null || effortOf(record) === query.effort)
     && (query.mode === null || modeOf(record) === query.mode) && (query.relay === 'any' || (query.relay === 'on') === (record.relay !== null))
     && (query.kind === 'any' || record.kind === query.kind) && (query.project === null || record.project === query.project));
+}
+
+/** The days, totals, filter lists and one page of records for a range. The filter lists come from every record given, so a filter never hides its own choices. */
+export function summarize(records: readonly UsageRecord[], query: UsageQuery): UsageSummary {
+  const dayOf = dayCounter(query), kept = filterRecords(records, query);
   // Every day of the range, empty ones too, in the panel's own days.
   const days: UsageDay[] = [], last = dayOf(query.to);
   for (let day = dayOf(query.from); day <= last && days.length < KEEP_DAYS + 3; day = new Date(Date.parse(`${day}T00:00:00Z`) + DAY_MS).toISOString().slice(0, 10)) days.push({ day, models: [] });

@@ -9,7 +9,8 @@ import { factsOf, indexHint, pricesOf, readStored, standingsOf } from './standin
 import { decide, LATE, within } from './decider.js';
 import { INDEX_SOURCE, loadIndexTable } from './intelligence.js';
 import { AA_CREDIT, AA_SOURCE, getPriceKey, loadAaModels, setPriceKey } from './artificial-analysis.js';
-import { oldestRecord, priceFromList, pruneRecords, readRecords, summarize, usageQueryOf, type LogStore } from './usage-log.js';
+import { dayCounter, filterRecords, oldestRecord, priceFromList, pruneRecords, readRecords, summarize, usageQueryOf, type LogStore } from './usage-log.js';
+import { switchingOf } from './switching.js';
 
 const chatID = (input: unknown) => { const id = (input as { sessionID: string }).sessionID.trim(); if (!id) throw new Error('Name the chat'); return id; };
 
@@ -56,11 +57,16 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
       const query = usageQueryOf(input), log = context.storage as unknown as LogStore;
       const removed = await pruneRecords(log, (options.now ?? Date.now)());
       const listed = within(() => listProjectModels(context), options.listMs ?? 2000).then(found => found === LATE ? null : found, () => null);
-      const [kept, oldest, before, stored, models] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore), readStored(relayStore), listed]);
+      // Settings that cannot be read leave the Plan view out; the rest of the tab does not need them.
+      const [kept, oldest, before, stored, models, settings] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore), readStored(relayStore), listed, getRelaySettings(relayStore).catch(() => null)]);
       // A record with no cost (no price when it was kept, such as a reply on a subscription login) is priced as it is read; nothing is written.
       const records = priceFromList(kept, model => pricesOf(model, models, stored)), summary = summarize(records, query);
       const credit = records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') || before.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null;
-      return { directory: context.location.directory, ...summary, first: oldest ?? summary.first, before, credit, removed };
+      // Without the model list, the comparison models' prices are not known, so the switching part says so instead of guessing.
+      const plan = settings?.modes.plan[0], switching = models === null ? null : switchingOf(records, filterRecords(records, query), {
+        plan: plan ? modelName(plan) : null, priceOf: model => pricesOf(model, models, stored).prices, dayOf: dayCounter(query), days: summary.days.map(day => day.day),
+      });
+      return { directory: context.location.directory, ...summary, first: oldest ?? summary.first, before, credit, removed, switching };
     },
     getOwnChoice: async () => {
       const [settings, models, stored] = await Promise.all([getRelaySettings(relayStore), listProjectModels(context), readStored(relayStore)]);

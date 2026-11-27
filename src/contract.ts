@@ -69,13 +69,21 @@ const usageQuery = { type: 'object', properties: {
 }, required: ['from', 'to', 'tzOffsetMinutes', 'search', 'provider', 'effort', 'mode', 'relay', 'kind', 'project', 'offset', 'limit'], additionalProperties: false } as const;
 const strings = { type: 'array', items: { type: 'string' } } as const;
 const usageDay = { type: 'object', properties: { day: { type: 'string' }, models: { type: 'array', items: { type: 'object', properties: { model: { type: 'string' }, cost: nullableString, tokens: { type: 'number' }, requests: { type: 'number' } }, required: ['model', 'cost', 'tokens', 'requests'], additionalProperties: false } } }, required: ['day', 'models'], additionalProperties: false } as const;
+/** One view of the switching plate (src/switching.ts): the Default model's (`model` null) or the Plan model's. */
+const switchingView = { type: 'object', properties: {
+  model: nullableString, switches: { type: 'array', items: { type: 'object', properties: { model: { type: 'string' }, count: { type: 'number' } }, required: ['model', 'count'], additionalProperties: false } },
+  spent: { type: 'string' }, without: { type: 'string' },
+  days: { type: 'array', items: { type: 'object', properties: { day: { type: 'string' }, spent: { type: 'string' }, without: { type: 'string' } }, required: ['day', 'spent', 'without'], additionalProperties: false } },
+  chats: { type: 'number' }, notCompared: { type: 'number' }, leftOut: { type: 'number' }, deciderUsd: { type: 'string' },
+}, required: ['model', 'switches', 'spent', 'without', 'days', 'chats', 'notCompared', 'leftOut', 'deciderUsd'], additionalProperties: false } as const;
 const usageLog = { type: 'object', properties: {
   directory: { type: 'string' }, days: { type: 'array', items: usageDay }, totals: { type: 'array', items: usageTotal },
   options: { type: 'object', properties: { providers: strings, efforts: strings, modes: strings, projects: strings }, required: ['providers', 'efforts', 'modes', 'projects'], additionalProperties: false },
   records: { type: 'array', items: usageRecord }, matching: { type: 'number' }, first: nullableString,
   before: { type: 'object', properties: { since: nullableString, rows: { type: 'array', items: usageRow } }, required: ['since', 'rows'], additionalProperties: false },
   credit: nullableString, removed: { type: 'number' },
-}, required: ['directory', 'days', 'totals', 'options', 'records', 'matching', 'first', 'before', 'credit', 'removed'], additionalProperties: false } as const;
+  switching: { anyOf: [{ type: 'object', properties: { default: switchingView, plan: { anyOf: [switchingView, { type: 'null' }] } }, required: ['default', 'plan'], additionalProperties: false }, { type: 'null' }] },
+}, required: ['directory', 'days', 'totals', 'options', 'records', 'matching', 'first', 'before', 'credit', 'removed', 'switching'], additionalProperties: false } as const;
 /** Relay's own choice for one mode (src/ranking.ts): null when the mode is not Relay's to choose, else the models by name, or why it can't rank them. */
 const ownPart = { anyOf: [
   { type: 'null' },
