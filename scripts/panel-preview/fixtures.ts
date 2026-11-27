@@ -74,20 +74,15 @@ const settings = {
 };
 const emptySettings = { revision: 0, modes: { plan: [], execute: [], review: [] }, decider: null };
 
-// Usage: seven days of three models, then the records.
+// Usage: seven days of three models.
 const day = (offset: number) => new Date(now - offset * 86_400_000).toISOString().slice(0, 10);
 const daily = [[0.21, 0.05, 0.02], [0.34, 0.09, 0.03], [0.12, 0.02, 0], [0, 0, 0], [0.48, 0.11, 0.05], [0.29, 0.07, 0.01], [0.17, 0.04, 0.02]];
 const usageModels = ['opencode-go/kimi-k3.1-pro#low', 'claude-agent/sonnet#high', 'opencode-go/glm-5.3-flash'];
 const days = daily.map((costs, at) => ({ day: day(6 - at), models: costs.flatMap((amount, which) => amount ? [{ model: usageModels[which]!, cost: String(amount), tokens: Math.round(amount * 2_400_000), requests: Math.max(1, Math.round(amount * 40)) }] : []) }));
 const sum = (which: number) => daily.reduce((total, costs) => total + costs[which]!, 0);
 const total = (which: number, replies: number, aaPriced: boolean) => ({ model: usageModels[which]!, replies, requests: replies * 3, input: Math.round(sum(which) * 1_900_000), output: Math.round(sum(which) * 120_000), reasoning: 0, cacheRead: Math.round(sum(which) * 4_000_000), cacheWrite: 0, cost: sum(which).toFixed(2), aaPriced, unpriced: 0 });
-const record = (minutes: number, which: number, amount: string, mode: string | null, kind = 'chat') => ({
-  at: ago(minutes), sessionID: 'ses_sample1', messageID: `msg_${minutes}`, project: 'C:/work/sample-app', kind, agent: mode === 'execute' ? 'build' : 'plan', model: usageModels[which]!, requests: 3,
-  input: 18_000, output: 1_400, reasoning: 0, cacheRead: 41_000, cacheWrite: 0, costByPrice: amount, openCodeUsd: amount, pricesFrom: which === 1 ? 'artificial-analysis' : 'opencode', relay: mode ? { mode, note: null, from: null, start: null, deciderUsd: null } : null,
-});
-const records = [record(4, 2, '0.0049', 'execute'), record(19, 1, '0.0412', 'plan'), record(47, 1, '0.0188', 'review', 'helper'), record(95, 0, '0.2108', 'execute'), record(140, 2, '0.0031', null), record(300, 0, '0.0954', 'execute'), record(420, 1, '0.0377', 'plan'), record(610, 2, '0.0022', 'execute')];
 const usage = {
-  days, totals: [total(0, 14, false), total(1, 9, true), total(2, 31, false)], records, matching: 54, first: ago(60 * 24 * 9),
+  days, totals: [total(0, 14, false), total(1, 9, true), total(2, 31, false)], matching: 54, first: ago(60 * 24 * 9),
   options: { providers: ['claude-agent', 'opencode-go'], efforts: ['default', 'high', 'low'], modes: ['build', 'execute', 'plan', 'review'], projects: ['C:/work/sample-app'] },
   before: { since: '2026-11-19T00:00:00.000Z', rows: [] }, credit: 'Prices and index: Artificial Analysis (artificialanalysis.ai)', removed: 0,
 };
@@ -97,7 +92,7 @@ const sumOf = (list: { spent: string; without: string }[], pick: 'spent' | 'with
 const view = (model: string | null, share: number) => { const list = switchingDays(share); return { model, switches: [{ model: 'opencode-go/glm-5.3-flash', count: 9 }, { model: 'opencode-go/kimi-k3.1-pro#low', count: 5 }], spent: sumOf(list, 'spent'), without: sumOf(list, 'without'), days: list, chats: 9, notCompared: model === null ? 3 : 0, leftOut: 2, deciderUsd: '0.004' }; };
 (usage as Record<string, unknown>).switching = { default: view(null, 1.39), plan: view('claude-agent/sonnet#high', 2.6) };
 const still = (model: string | null) => ({ model, switches: [], spent: '0', without: '0', days: days.map(item => ({ day: item.day, spent: '0', without: '0' })), chats: 0, notCompared: 0, leftOut: 0, deciderUsd: '0' });
-const emptyUsage = { ...usage, days: days.map(item => ({ day: item.day, models: [] })), totals: [], records: [], matching: 0, first: null, options: { providers: [], efforts: [], modes: [], projects: [] }, credit: null, switching: { default: still(null), plan: null } };
+const emptyUsage = { ...usage, days: days.map(item => ({ day: item.day, models: [] })), totals: [], matching: 0, first: null, options: { providers: [], efforts: [], modes: [], projects: [] }, credit: null, switching: { default: still(null), plan: null } };
 
 /** The RPC client a panel gets for `state`: every method answers after a short delay, as a real server would. `retired` adds a model that is not offered. */
 export function rpcFor(state: 'set' | 'empty' | 'retired', directory: string) {

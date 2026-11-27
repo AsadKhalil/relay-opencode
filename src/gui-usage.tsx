@@ -6,7 +6,7 @@ import type { UsageRow } from './relay-store.js';
 import { describeError } from './router.js';
 import type { Switching } from './switching.js';
 import type { UsageKind, UsageSummary, UsageTotal } from './usage-log.js';
-import { chartOf, dayLabels, METRICS, money, PAGE, RANGES, rangeOf, savedOf, savingsChart, scaleLabel, short, switchRows, totalCells, type Metric, type Range } from './usage-view.js';
+import { chartOf, dayLabels, METRICS, money, RANGES, rangeOf, savedOf, savingsChart, scaleLabel, short, switchRows, totalCells, type Metric, type Range } from './usage-view.js';
 import { usageCells } from './relay-view.js';
 import { Icon, boardLight } from './gui-parts.js';
 
@@ -43,8 +43,8 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   const [error, setError] = createSignal(''), [loading, setLoading] = createSignal(false);
   const view = createMemo(() => log()?.session === props.session ? log() : undefined);
 
-  const ask = async (session: MountedSession, offset: number, limit = PAGE) => {
-    const query = { ...rangeOf(range(), new Date()), search: search(), provider: provider(), effort: effort(), mode: mode(), relay: relay(), kind: kind(), project: project(), offset, limit };
+  const ask = async (session: MountedSession) => {
+    const query = { ...rangeOf(range(), new Date()), search: search(), provider: provider(), effort: effort(), mode: mode(), relay: relay(), kind: kind(), project: project() };
     const value = await session.server.client.rpc(RelayRpc).getUsageLog(query, { location: { directory: session.directory } }) as Log;
     if (value.directory !== session.directory) throw new Error('The usage came from a different project.');
     return value;
@@ -54,7 +54,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
   const load = async () => {
     const session = props.session, mine = ++asked;
     setLoading(true);
-    try { const value = await ask(session, 0); if (mine === asked) { setLog({ session, value }); setError(''); } }
+    try { const value = await ask(session); if (mine === asked) { setLog({ session, value }); setError(''); } }
     catch (failure) { if (mine === asked) setError(describeError(failure, 'Could not load the usage.')); }
     finally { if (mine === asked) setLoading(false); }
   };

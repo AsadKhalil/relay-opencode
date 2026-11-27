@@ -160,18 +160,18 @@ export async function readRecords(store: Pick<LogStore, 'scan'>, from: string, t
 
 // ---- Adding up for the tab ----
 
-/** What the tab asks for: a time range (ISO), the panel's offset from UTC in minutes (local = UTC + offset), the filters, and a page of records. */
+/** What the tab asks for: a time range (ISO), the panel's offset from UTC in minutes (local = UTC + offset), and the filters. */
 export type UsageQuery = {
   from: string; to: string; tzOffsetMinutes: number; search: string; provider: string | null; effort: string | null; mode: string | null;
-  relay: 'any' | 'on' | 'off'; kind: 'any' | UsageKind; project: string | null; offset: number; limit: number;
+  relay: 'any' | 'on' | 'off'; kind: 'any' | UsageKind; project: string | null;
   /** The panel's IANA time zone: days follow its clock changes. Without it, every day uses `tzOffsetMinutes`. */
   timeZone: string | null;
 };
 /** One local day, with each model's cost (null when none of it has a price), tokens of every kind, and requests. */
 export type UsageDay = { day: string; models: { model: string; cost: string | null; tokens: number; requests: number }[] };
 export type UsageTotal = { model: string; replies: number; requests: number; input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number; cost: string | null; aaPriced: boolean; unpriced: number };
-/** `first` is the oldest record given. `matching` counts every record the filters keep; `records` is one page of them, newest first. */
-export type UsageSummary = { days: UsageDay[]; totals: UsageTotal[]; options: { providers: string[]; efforts: string[]; modes: string[]; projects: string[] }; records: UsageRecord[]; matching: number; first: string | null };
+/** `first` is the oldest record given. `matching` counts every record the filters keep. */
+export type UsageSummary = { days: UsageDay[]; totals: UsageTotal[]; options: { providers: string[]; efforts: string[]; modes: string[]; projects: string[] }; matching: number; first: string | null };
 
 const nameOf = (record: UsageRecord) => record.model ?? 'unknown model';
 const providerOf = (record: UsageRecord) => record.model?.split('/', 1)[0] ?? 'unknown';
@@ -195,7 +195,7 @@ export function filterRecords(records: readonly UsageRecord[], query: UsageQuery
     && (query.kind === 'any' || record.kind === query.kind) && (query.project === null || record.project === query.project));
 }
 
-/** The days, totals, filter lists and one page of records for a range. The filter lists come from every record given, so a filter never hides its own choices. */
+/** The days, totals and filter lists for a range. The filter lists come from every record given, so a filter never hides its own choices. */
 export function summarize(records: readonly UsageRecord[], query: UsageQuery): UsageSummary {
   const dayOf = dayCounter(query), kept = filterRecords(records, query);
   // Every day of the range, empty ones too, in the panel's own days.
@@ -217,9 +217,8 @@ export function summarize(records: readonly UsageRecord[], query: UsageQuery): U
   }));
   const costKey = (total: UsageTotal) => total.cost === null ? -1n : parseUsd(total.cost), tokens = (total: UsageTotal) => total.input + total.output + total.reasoning + total.cacheRead + total.cacheWrite;
   totals.sort((a, b) => costKey(b) > costKey(a) ? 1 : costKey(b) < costKey(a) ? -1 : tokens(b) - tokens(a));
-  const newest = [...kept].sort((a, b) => a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
   return {
-    days, totals, records: newest.slice(query.offset, query.offset + query.limit), matching: kept.length, first: records.reduce<string | null>((oldest, record) => oldest === null || record.at < oldest ? record.at : oldest, null),
+    days, totals, matching: kept.length, first: records.reduce<string | null>((oldest, record) => oldest === null || record.at < oldest ? record.at : oldest, null),
     options: { providers: sorted(records.map(providerOf)), efforts: sorted(records.map(effortOf)), modes: sorted(records.map(modeOf)), projects: sorted(records.map(record => record.project)) },
   };
 }
@@ -230,7 +229,7 @@ export async function oldestRecord(store: Pick<LogStore, 'scan'>): Promise<strin
   return key ? timeOfKey(key) : null;
 }
 
-const RANGE_DAYS = 92, LIMIT = 200;
+const RANGE_DAYS = 92;
 /** The tab's question, checked and with its times in the keys' own form. A question that is not one gets a plain sentence. */
 export function usageQueryOf(input: unknown): UsageQuery {
   const item = (input ?? {}) as Record<string, unknown>;
@@ -248,6 +247,6 @@ export function usageQueryOf(input: unknown): UsageQuery {
   return {
     from: new Date(from).toISOString(), to: new Date(to).toISOString(), tzOffsetMinutes: whole(item.tzOffsetMinutes, -840, 840, 'The time zone offset'), search: item.search,
     provider: choice(item.provider, 'provider'), effort: choice(item.effort, 'effort'), mode: choice(item.mode, 'mode'), relay: item.relay, kind: item.kind as UsageQuery['kind'],
-    project: choice(item.project, 'project'), offset: whole(item.offset, 0, 1_000_000, 'The offset'), limit: whole(item.limit, 1, LIMIT, 'The page size'), timeZone: timeZone as string | null,
+    project: choice(item.project, 'project'), timeZone: timeZone as string | null,
   };
 }

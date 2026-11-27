@@ -122,7 +122,7 @@ test('the Relay records of one chat are listed for the idle hook', async () => {
 });
 
 // Adding up for the tab: what the panel shows for a range and its filters.
-const query = (extra: Partial<UsageQuery> = {}): UsageQuery => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, timeZone: null, ...extra });
+const query = (extra: Partial<UsageQuery> = {}): UsageQuery => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, timeZone: null, ...extra });
 const at = (time: string, extra: Partial<UsageRecord> = {}) => record(Date.parse(time), extra);
 const kimi = at('2026-11-23T15:00:00Z', { model: 'opencode-go/kimi-k3.1-pro', costByPrice: '0.1', relay: { mode: 'plan', note: null, from: null, start: null, deciderUsd: null } });
 const flash = at('2026-11-23T16:00:00Z', { model: 'opencode-go/glm-5.3-flash#high', costByPrice: '0.2', agent: 'build', kind: 'helper', project: 'C:/work/other' });
@@ -143,7 +143,7 @@ test("days are counted in the panel's time zone", () => {
 });
 
 test('search matches part of the model, provider or id in any case', () => {
-  assert.deepEqual(summarize([kimi, flash, claude], query({ search: 'KIMI' })).records.map(item => item.model), ['opencode-go/kimi-k3.1-pro']);
+  assert.deepEqual(summarize([kimi, flash, claude], query({ search: 'KIMI' })).totals.map(item => item.model), ['opencode-go/kimi-k3.1-pro']);
   assert.equal(summarize([kimi, flash, claude], query({ search: 'opencode-go' })).matching, 2);
 });
 
@@ -172,12 +172,6 @@ test('a record with no model, or with no effort, is counted and searchable', () 
   assert.deepEqual(summed.totals.map(total => total.model).sort(), ['opencode-go/kimi-k3.1-pro', 'unknown model']);
   assert.equal(summarize([nameless, kimi], query({ search: 'unknown' })).matching, 1);
   assert.deepEqual(summed.options.efforts, ['default']);
-});
-
-test('records come newest first, 50 at a time, with how many match', () => {
-  const many = Array.from({ length: 120 }, (_, n) => record(Date.parse('2026-11-23T00:00:00Z') + n * 60_000));
-  const page = summarize(many, query()), next = summarize(many, query({ offset: 50 }));
-  assert.deepEqual([page.records.length, page.matching, page.records[0].at, next.records[0].at], [50, 120, many[119].at, many[69].at]);
 });
 
 test('totals add USD exactly, and are ordered by cost', () => {
@@ -236,7 +230,7 @@ test('with a time zone, days follow its clock changes: 90 days across the end of
 });
 
 test('the query takes an optional time zone, and refuses one that is not', () => {
-  const base = { from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50 };
+  const base = { from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null };
   assert.equal(usageQueryOf(base).timeZone, null);
   assert.equal(usageQueryOf({ ...base, timeZone: 'America/New_York' }).timeZone, 'America/New_York');
   assert.throws(() => usageQueryOf({ ...base, timeZone: 'Not/AZone' }), /The time zone is not one\./);

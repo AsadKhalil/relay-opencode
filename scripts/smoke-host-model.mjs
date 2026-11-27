@@ -5,7 +5,8 @@
 // one record, and what the reply took); turns that chat's switch on with `/relay on`, keeps it across a server restart, and checks what the
 // `prompt` hook records; then turns it off with `/relay off`. Then, with a MOCK decision model as the decider and mock models that list prices:
 // a real switch of agent and model, what each reply took as OpenCode kept it (the model that answered, every request added up, and that
-// model's listed prices), the whole chat fitting the model, and the stay-or-go check.
+// model's listed prices), the whole chat fitting the model, and the stay-or-go check. Last, the usage tab's answer: its ranges and Relay filter,
+// and the switching it reports for the long chat (one move to each model, the start model kept, and the Plan view named).
 // It does NOT exercise a real model or a real decider, a real cache, a helper, or the Desktop panel.
 import assert from 'node:assert/strict';
 import { execFile as execFileCallback, spawn } from 'node:child_process';
@@ -228,6 +229,7 @@ try {
   // A new chat has nothing to lose, so the line is followed: Execute puts the chat on the `build` agent and on the cheaper model.
   const down = await turn('new chat, the line of the cheaper model', { mode: 'execute', line: '2' }, { prompt: 20_000, cached: 15_000 }, () => relay('Rename the variable.'));
   assert.deepEqual([down.mode, down.model, down.note, requests.at(-1).model], ['execute', 'smoke/model-cheap', null, 'model-cheap']);
+  assert.deepEqual([down.from, down.start], ['smoke/model-big', 'smoke/model-big'], 'the first move keeps where the chat was, and that it started there');
   assert.deepEqual(asked.at(-1).execute_line, ['1', '2', '3', 'none'], 'a new chat fits all three Execute models');
   const moved = await server.client.session.get({ sessionID: long.id });
   assert.deepEqual([moved.agent, moved.model?.id], ['build', 'model-cheap']);
@@ -280,20 +282,25 @@ try {
   });
   assert.ok((totals.rows.find(row => row.model === 'smoke/model-big')?.requests ?? 0) >= 5, 'the dearer model answered at least five requests');
   // Usage records (the Relay usage tab): every reply of every chat, written when the chat goes idle and read back through the host's own
-  // storage scan. In the first chat, the /relay message carries Relay's part ("no decider chosen"); the plain message sent with the switch off has none.
-  const until = new Date(), log = await rpc().getUsageLog({ from: new Date(until.getTime() - 3_600_000).toISOString(), to: until.toISOString(), tzOffsetMinutes: 0, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 200 }, options);
-  const firstChat = log.records.filter(record => record.sessionID === chat.id);
-  note('usage records', { matching: log.matching, removed: log.removed, firstChat: firstChat.map(record => [record.kind, record.model, record.requests, record.relay]), totals: log.totals.map(total => [total.model, total.replies, total.requests, total.cost]) });
-  assert.ok(firstChat.some(record => record.relay?.note === 'no decider chosen'), 'the /relay message keeps its Relay part');
-  assert.ok(firstChat.some(record => record.relay === null), 'the plain message sent with the switch off has no Relay part');
-  assert.ok(log.records.every(record => !JSON.stringify(record).includes('Say hello')), 'no text is kept');
+  // storage scan. In the first chat, the /relay message carries Relay's part; the plain message sent with the switch off has none.
+  const ask = (from, to, relay = 'any') => rpc().getUsageLog({ from, to, tzOffsetMinutes: 0, search: '', provider: null, effort: null, mode: null, relay, kind: 'any', project: null }, options);
+  const until = new Date(), hourAgo = new Date(until.getTime() - 3_600_000).toISOString(), log = await ask(hourAgo, until.toISOString());
+  const [placed, plainOnly] = [await ask(hourAgo, betweenChats, 'on'), await ask(hourAgo, betweenChats, 'off')];
+  note('usage records', { matching: log.matching, removed: log.removed, firstChatOn: placed.matching, firstChatOff: plainOnly.matching, totals: log.totals.map(total => [total.model, total.replies, total.requests, total.cost]) });
+  assert.ok(placed.matching >= 1, 'the first chat has a message with a Relay part');
+  assert.ok(plainOnly.matching >= 1, 'the first chat has a plain message with no Relay part');
+  assert.ok(!JSON.stringify(log).includes('Say hello'), 'no text is kept');
   assert.ok(log.matching >= 8 && log.days.length >= 1, `every reply of every chat is counted: ${log.matching}`);
   // A range is read through the host's own scan: one that starts between the two chats holds only the second chat's records, and one
-  // that starts after every record holds none.
-  const rangeFrom = async from => rpc().getUsageLog({ from, to: new Date(Math.max(Date.parse(from), Date.now())).toISOString(), tzOffsetMinutes: 0, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 200 }, options);
+  // that starts after every record holds none. The second chat started on model-big; Relay moved it to model-cheap and back.
+  const rangeFrom = from => ask(from, new Date(Math.max(Date.parse(from), Date.now())).toISOString());
   const later = await rangeFrom(betweenChats), none = await rangeFrom(new Date(Date.now() + 60_000).toISOString());
-  note('usage ranges', { fromBetweenChats: later.matching, firstChatThere: later.records.filter(record => record.sessionID === chat.id).length, fromAfterAll: none.matching });
-  assert.ok(later.matching > 0 && later.records.every(record => record.sessionID === long.id), 'a range that starts between the chats holds only the second chat');
+  note('usage ranges', { fromBetweenChats: later.matching, models: later.totals.map(total => total.model), fromAfterAll: none.matching, switching: later.switching && { switches: later.switching.default.switches, chats: later.switching.default.chats, spent: later.switching.default.spent, without: later.switching.default.without, plan: later.switching.plan?.model } });
+  assert.ok(later.matching > 0 && later.totals.every(total => total.model !== 'smoke/model-chat'), 'a range that starts between the chats holds only the second chat');
+  assert.ok(later.switching, 'the model list was read, so the switching part is there');
+  assert.deepEqual(later.switching.default.switches, [{ model: 'smoke/model-big', count: 1 }, { model: 'smoke/model-cheap', count: 1 }], 'one move down and one back up');
+  assert.equal(later.switching.default.chats, 1, 'the long chat is compared with the model it started on');
+  assert.equal(later.switching.plan?.model, 'smoke/model-big', 'the Plan view names the Plan model');
   assert.equal(none.matching, 0, 'a range after every record holds none');
   // The terminal part: the host lists Relay with it, so /relay-stats is there in the terminal app.
   const listed = (await server.client.plugin.list({ location: options.location })).data.find(item => JSON.stringify(item).includes('relay-opencode'));
@@ -301,7 +308,7 @@ try {
   assert.equal(listed?.features?.tui, true, `the host does not list Relay's terminal part: ${JSON.stringify(listed)}`);
 
   const version = (await execFile(cli, ['--version'], { timeout: 20_000, env: isolated })).stdout.trim();
-  console.log(`PASS: on stock ${version} (${process.platform}) the packed plugin loaded from node_modules; /relay with no decider sent one message to the chat's own mock model and recorded it and what its reply took; /relay on kept the switch across a restart and placed each plain message once; /relay off stopped it; with a mock decider, /relay switched the agent and the model, a chat too long for a model was not offered it, a step down that did not pay left the chat on its model, and each record says what the reply took: the model that answered, every request added up, and that model's listed prices; usage by model added up every reply, and the host lists Relay's terminal part`);
+  console.log(`PASS: on stock ${version} (${process.platform}) the packed plugin loaded from node_modules; /relay with no decider sent one message to the chat's own mock model and recorded it and what its reply took; /relay on kept the switch across a restart and placed each plain message once; /relay off stopped it; with a mock decider, /relay switched the agent and the model, a chat too long for a model was not offered it, a step down that did not pay left the chat on its model, and each record says what the reply took: the model that answered, every request added up, and that model's listed prices; usage by model added up every reply, the usage tab counted one switch to each model of the long chat, and the host lists Relay's terminal part`);
   for (const line of observed) console.log(`OBSERVED ${line}`);
   console.log('LIMIT: mock models and a mock decider only, so the tokens, prices and cache reads are what the mock reported, not what a provider charged; no real cache, no helper, and no Desktop panel was exercised');
 } catch (error) {

@@ -1,15 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { UsageDay, UsageRecord, UsageTotal } from '../src/usage-log.js';
+import type { UsageDay, UsageTotal } from '../src/usage-log.js';
 import type { SwitchingView } from '../src/switching.js';
-import { appendNew, chartOf, dayLabels, money, rangeOf, recordCells, refreshLimit, savedOf, savingsChart, scaleLabel, short, switchRows, totalCells } from '../src/usage-view.js';
+import { chartOf, dayLabels, money, rangeOf, savedOf, savingsChart, scaleLabel, short, switchRows, totalCells } from '../src/usage-view.js';
 
 // The Relay usage tab's sums and texts (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md). The panel only draws these.
 const day = (date: string, models: [string, string | null, number, number][]): UsageDay => ({ day: date, models: models.map(([model, cost, tokens, requests]) => ({ model, cost, tokens, requests })) });
-const record = (extra: Partial<UsageRecord> = {}): UsageRecord => ({
-  at: '2026-11-24T15:30:00.000Z', sessionID: 'ses_0123456789abcdef', messageID: 'm1', project: 'C:\\Users\\someone\\work\\app', kind: 'chat', agent: 'build', model: 'opencode-go/kimi-k3.1-pro',
-  requests: 3, input: 1000, output: 200, reasoning: 50, cacheRead: 4000, cacheWrite: 0, costByPrice: '0.12', openCodeUsd: '0', pricesFrom: 'opencode', relay: null, ...extra,
-});
 const total = (model: string, cost: string | null, extra: Partial<UsageTotal> = {}): UsageTotal => ({ model, replies: 1, requests: 1, input: 1, output: 1, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost, aaPriced: false, unpriced: 0, ...extra });
 
 test('today runs from local midnight to now; 7 days starts six midnights earlier', () => {
@@ -42,22 +38,6 @@ test('an empty range gives empty bars, not an error', () => {
   assert.deepEqual(chartOf([], 'cost'), { bars: [], legend: [], max: 0 });
   const { bars, max } = chartOf([day('2026-11-23', []), day('2026-11-24', [])], 'tokens');
   assert.deepEqual([bars.map(bar => [bar.day, bar.total, bar.parts.length, bar.title]), max], [[['2026-11-23', 0, 0, '2026-11-23: no use'], ['2026-11-24', 0, 0, '2026-11-24: no use']], 0]);
-});
-
-test('a record shows the folder name, a short chat id, its Relay part or off, and its cost with * at Artificial Analysis prices', () => {
-  const plain = recordCells(record());
-  assert.deepEqual([plain.model, plain.cost], ['opencode-go/kimi-k3.1-pro', '$0.12']);
-  assert.match(plain.detail, / · 5K in · 250 out · /, 'in counts what was read new and from a cache; out counts reasoning too');
-  assert.equal(plain.name, 'kimi-k3.1-pro', 'the row shows the name; the provider is in the model');
-  const placed = recordCells(record({ relay: { mode: 'execute', note: 'small work, so the cheapest', from: null, start: null, deciderUsd: null }, costByPrice: '0.5', pricesFrom: 'artificial-analysis', project: '/home/someone/site' }));
-  assert.equal(placed.cost, '$0.50*');
-  assert.match(placed.detail, / · execute · .* · site · Relay: small work, so the cheapest$/);
-  assert.equal(recordCells(record({ costByPrice: null, openCodeUsd: '0' })).cost, 'no price');
-  assert.equal(recordCells(record({ model: null, agent: null })).model, 'unknown model');
-});
-
-test('a refresh asks for as many rows as are shown, up to 200, so Show more is kept', () => {
-  assert.deepEqual([refreshLimit(0), refreshLimit(30), refreshLimit(150), refreshLimit(260)], [50, 50, 150, 200]);
 });
 
 // The fix of 24 Nov (docs/superpowers/specs/2026-11-24-relay-usage-tab-fix-design.md): numbers a person can read at a glance.
@@ -93,19 +73,6 @@ test("a model's row: its name and cost, then provider, replies and all its token
   assert.equal(totalCells(total('p/none', null, { replies: 3, unpriced: 3 })).detail, 'p · 3 replies · 2 tokens', 'no price at all is said by the cost');
   assert.equal(totalCells(total('p/aa', '0.2', { aaPriced: true })).cost, '$0.20*');
   assert.deepEqual(totalCells(total('bare', '0.1')), { name: 'bare', provider: '', cost: '$0.10', tokens: '2', detail: '1 reply · 2 tokens' });
-});
-
-test("a record's second line names its provider and chat, leaves out a missing mode, and says what Relay did", () => {
-  assert.equal(recordCells(record()).detail, 'opencode-go · chat abcdef · build · 5K in · 250 out · app · Relay off');
-  assert.equal(recordCells(record({ agent: null, relay: { mode: 'execute', note: 'small work, so the cheapest', from: null, start: null, deciderUsd: null } })).detail, 'opencode-go · chat abcdef · execute · 5K in · 250 out · app · Relay: small work, so the cheapest');
-  assert.equal(recordCells(record({ agent: null, relay: null, kind: 'helper' })).detail, 'opencode-go · helper abcdef · 5K in · 250 out · app · Relay off', 'no mode and no agent: no "-"');
-  assert.equal(recordCells(record({ relay: { mode: 'plan', note: null, from: null, start: null, deciderUsd: null } })).detail, 'opencode-go · chat abcdef · plan · 5K in · 250 out · app · Relay on');
-});
-
-test('Show more adds only records not shown yet, so a new reply arriving meanwhile repeats none', () => {
-  const one = record({ messageID: 'm1' }), two = record({ messageID: 'm2' }), three = record({ messageID: 'm3' });
-  assert.deepEqual(appendNew([one, two], [two, three]).map(made => made.messageID), ['m1', 'm2', 'm3']);
-  assert.deepEqual(appendNew([one], [record({ messageID: 'm1', sessionID: 'ses_other' })]).length, 2, 'the same message id in another chat is another record');
 });
 
 // The switching plate (docs/superpowers/specs/2026-11-26-relay-switch-savings-design.md, section 5).

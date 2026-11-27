@@ -1612,3 +1612,14 @@ The plan's Task 5 (owner: "go with your picks", which named this step: made-up f
 - Both pass, at the bar itself. The misses are the barest follow-ups after a plan. With one model a mode, "yes" and "continue" were sure of Plan, so with the switch on such a message goes to the Plan model on the `plan` agent, which cannot build. With the reply, "yes" was unsure instead (the chat stays as it is) and "continue" was still Plan.
 - Every case where the person asked to build after a review ("fix those", "fix the first one only" …) was right in both setups, and so were both "check it" cases after a build.
 - One run of each, one decision model (not the owner's own decider), made-up cases.
+
+## 2026-11-27 — Relay switching in the usage tab, on the real-host smoke (Windows 11; OpenCode 2.3.0 CLI from npm, isolated)
+
+The real-host smoke (`npm run smoke:host:model`) on the stock OpenCode 2.3.0 CLI, with scratch folders, a throwaway password, mock models and a mock decider, $0. It now also reads the usage tab's answer the way the panel asks for it (no page of records), and the switching part for the long chat.
+
+- **Passed.** The long chat started on `smoke/model-big`. Relay moved it to `smoke/model-cheap` and back. The tab counted one switch to each model, 1 chat compared, and named `smoke/model-big` as the Plan model.
+- The first move's record kept where the chat was and where it started: `from` and `start` were both `smoke/model-big`.
+- For that range the tab said spent $0.106712, and $0.110662 without switching. Those are the mock's tokens at the mock's prices; the mock decider costs $0.
+- The Relay filter still splits the first chat: 3 replies with a Relay part, 1 without.
+- The model list answered within the two seconds the tab allows, so the switching part was there.
+- Not tested: real models, a real cache, a real decider's cost, the panel in Desktop, and OpenCode 2.4.x.

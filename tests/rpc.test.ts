@@ -287,7 +287,7 @@ test('testDecider shows Relay’s own choice', async () => {
 });
 
 // The Relay usage tab's call (docs/superpowers/specs/2026-11-24-relay-usage-tab-design.md): storage only, added up on the server.
-const usageQuery = (extra: Record<string, unknown> = {}) => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, ...extra });
+const usageQuery = (extra: Record<string, unknown> = {}) => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, ...extra });
 const usageRecord = (at: string, extra: Record<string, unknown> = {}) => ({ at, sessionID: 'ses-1', messageID: `m-${at}`, project: '/repo', kind: 'chat', agent: 'build', model: 'p/big', requests: 1, input: 10, output: 5, reasoning: 0, cacheRead: 0, cacheWrite: 0, costByPrice: '0.01', openCodeUsd: null, pricesFrom: 'opencode', relay: null, ...extra });
 const putRecord = (data: Map<string, unknown>, record: ReturnType<typeof usageRecord>) => data.set(`relay/usage-log/${record.at}/${record.sessionID}/${record.messageID}`, record);
 function usageHost(data: Map<string, unknown>, now = Date.parse('2026-11-24T16:00:00Z'), host: { model?: unknown; listMs?: number } = {}) {
@@ -319,10 +319,9 @@ test('getUsageLog removes records past 90 days, at most 1,000', async () => {
   assert.deepEqual([answer.removed, data.size], [3, 1]);
 });
 
-test('getUsageLog refuses a range longer than 92 days or a limit over 200', async () => {
+test('getUsageLog refuses a range longer than 92 days, or one that ends before it starts', async () => {
   const host = usageHost(new Map());
   await assert.rejects(host.getUsageLog(usageQuery({ from: '2026-08-01T00:00:00.000Z' })), { type: 'rejected', message: /92 days/ });
-  await assert.rejects(host.getUsageLog(usageQuery({ limit: 500 })), { type: 'rejected' });
   await assert.rejects(host.getUsageLog(usageQuery({ from: '2026-11-25T00:00:00.000Z' })), { type: 'rejected' });
   await assert.rejects(host.getUsageLog(usageQuery({ relay: 'maybe' })), { type: 'rejected' });
 });
@@ -376,4 +375,10 @@ test('with no Plan model set, the Plan view is null', async () => {
   movedChat(data);
   const answer = await usageHost(data, undefined, { model: listing }).getUsageLog(usageQuery());
   assert.deepEqual([answer.switching.plan, answer.switching.default.chats], [null, 1]);
+});
+
+test('the query refuses an offset or a limit', () => {
+  // The answer sends no page of records any more: an old panel that still asks for one gets a plain refusal from the host.
+  assert.notDeepEqual(fits(RelayRpc.methods.getUsageLog.input, usageQuery({ offset: 0, limit: 50 }), 'input'), []);
+  assert.deepEqual(fits(RelayRpc.methods.getUsageLog.input, usageQuery(), 'input'), []);
 });

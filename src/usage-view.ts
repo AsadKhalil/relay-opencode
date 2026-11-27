@@ -14,10 +14,6 @@ export function rangeOf(range: Range, now: Date): { from: string; to: string; tz
   return { from: start.toISOString(), to: now.toISOString(), tzOffsetMinutes: -now.getTimezoneOffset(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
 }
 
-/** The records one page holds, and how many a refresh asks for: as many as are shown (up to the server's 200), so a refresh keeps Show more. */
-export const PAGE = 50, PAGE_MAX = 200;
-export const refreshLimit = (shown: number) => Math.min(PAGE_MAX, Math.max(PAGE, shown));
-
 /** The cost the tab shows: by price when the model has one, else OpenCode's own when it is more than $0, else none. */
 export function shownCost(record: Pick<UsageRecord, 'costByPrice' | 'openCodeUsd'>): string | null {
   if (record.costByPrice !== null) return record.costByPrice;
@@ -114,24 +110,4 @@ export function switchRows(view: SwitchingView, top = 5): { model: string; name:
   const rest = view.switches.slice(top).reduce((sum, item) => sum + item.count, 0);
   const rows = rest ? [...kept, { model: 'other', name: 'other', count: rest, color: OTHER }] : kept, largest = Math.max(1, ...rows.map(row => row.count));
   return rows.map(row => ({ ...row, share: row.count / largest }));
-}
-
-/** One row of the records list: time, model and cost, then provider, kind and chat, mode, tokens, project and what Relay did. In counts what was read
- *  new, from a cache and into a cache; out counts reasoning too. */
-export function recordCells(record: UsageRecord) {
-  const cost = shownCost(record), folder = record.project.split(/[\\/]/).filter(Boolean).at(-1) ?? record.project, model = record.model ?? 'unknown model';
-  const provider = model.includes('/') ? model.slice(0, model.indexOf('/')) : '', mode = record.relay?.mode ?? record.agent ?? '';
-  const relay = record.relay ? (record.relay.note ? `Relay: ${record.relay.note}` : 'Relay on') : 'Relay off';
-  const tokens = `${short(record.input + record.cacheRead + record.cacheWrite)} in · ${short(record.output + record.reasoning)} out`;
-  return {
-    time: new Date(record.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), model, name: record.model ? nameOf(record.model) : model,
-    cost: cost === null ? 'no price' : `${money(cost)}${record.costByPrice !== null && record.pricesFrom === 'artificial-analysis' ? '*' : ''}`,
-    detail: [provider, `${record.kind} ${record.sessionID.slice(-6)}`, mode, tokens, folder, relay].filter(Boolean).join(' · '),
-  };
-}
-
-/** Show more's rows: the next page without those already shown, since a reply that arrives meanwhile moves every offset by one. */
-export function appendNew(shown: readonly UsageRecord[], next: readonly UsageRecord[]): UsageRecord[] {
-  const key = (record: UsageRecord) => `${record.sessionID}/${record.messageID}`, seen = new Set(shown.map(key));
-  return [...shown, ...next.filter(record => !seen.has(key(record)))];
 }
