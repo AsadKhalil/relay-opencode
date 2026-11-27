@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { AaModel } from '../src/artificial-analysis.js';
 import type { ListedModel } from '../src/inventory.js';
 import type { UsageRow } from '../src/relay-store.js';
-import { factsOf, indexHint, readStored, standingsOf } from '../src/standings.js';
+import { factsOf, indexHint, pricesOf, readStored, standingsOf } from '../src/standings.js';
 import { indexTable, type IndexTable } from '../src/intelligence.js';
 
 const pick = (providerID: string, id: string, variant: string | null = null) => ({ providerID, id, variant });
@@ -145,4 +145,32 @@ test('else the reason there is none: a free model, a decision model, or no price
   assert.deepEqual(hintOf(offered('opencode', 'seaglass-alpha-free', 'Seaglass Alpha Free', cost('0', '0'), 1000000)), { kind: 'none', ...none, reason: 'free' });
   assert.deepEqual(hintOf(offered('opencode', 'jev-1.14', 'Jev 1.14', cost('0.042', '0'), 64000), true), { kind: 'none', ...none, reason: 'decision' });
   assert.deepEqual(hintOf(offered('opencode', 'big-pickle', 'Big Pickle', cost('0', '0'), 200000)), { kind: 'none', ...none, reason: 'no-price' });
+});
+
+const usd4 = (input: string, output: string) => ({ inputPerMillion: input, outputPerMillion: output, cacheReadPerMillion: null, cacheWritePerMillion: null });
+const publicList: IndexTable = new Map([
+  ['claude-sonnet-4-5', { id: 'anthropic/claude-sonnet-4-5', index: null, context: null, prices: usd4('3', '15') }],
+  ['claude-sonnet-5-5', { id: 'anthropic/claude-sonnet-5-5', index: null, context: null, prices: usd4('2', '10') }],
+  ['gpt-5-3-codex', { id: 'openai/gpt-5.3-codex', index: null, context: null, prices: usd4('1.75', '14') }],
+]);
+const priceOf = (facts: { prices: { inputPerMillion: string | null; outputPerMillion: string | null } | null; pricesFrom: string | null }) => [facts.prices?.inputPerMillion ?? null, facts.prices?.outputPerMillion ?? null, facts.pricesFrom];
+
+test("a Claude login family borrows OpenRouter's newest version of it", () => {
+  const facts = factsOf(offered('claude-agent', 'sonnet', 'Sonnet', cost(null, null), 1000000), null, { aa: [], table: publicList });
+  assert.deepEqual(priceOf(facts), ['2', '10', 'openrouter']);
+});
+
+test('a Codex login model that lists no price is priced from the public list by its id', () => {
+  const codex = offered('openai', 'gpt-5.3-codex', 'GPT-5.3 Codex', cost(null, null), 400000) as unknown as ListedModel;
+  assert.deepEqual(priceOf(pricesOf('openai/gpt-5.3-codex', [codex], { aa: [], table: publicList })), ['1.75', '14', 'openrouter']);
+});
+
+test('a model listed at $0 stays $0, and a free copy is free', () => {
+  const local = offered('p', 'local', 'Local', cost('0', '0'), 8000) as unknown as ListedModel;
+  assert.deepEqual(priceOf(pricesOf('p/local', [local], { aa: [], table: publicList })), ['0', '0', 'opencode']);
+  assert.equal(pricesOf('opencode/x-free', null, { aa: [], table: publicList }).pricesFrom, 'free');
+});
+
+test('a name with a slash in its id and an effort is split at the first slash and the last #', () => {
+  assert.deepEqual(priceOf(pricesOf('openrouter/anthropic/claude-sonnet-5-5#high', null, { aa: [], table: publicList })), ['2', '10', 'openrouter']);
 });

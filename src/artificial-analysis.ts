@@ -90,7 +90,7 @@ export async function loadAaModels(store: Pick<Store, 'get' | 'set'>, key: strin
 }
 
 // The subscription login's models are named by family only; Claude Code picks the version, so the newest in the list stands for it.
-const FAMILIES = new Set(['sonnet', 'haiku', 'opus', 'fable']);
+export const FAMILIES: ReadonlySet<string> = new Set(['sonnet', 'haiku', 'opus', 'fable']);
 type Asked = { providerID: string; id: string; name: string; variant: string | null };
 type Useful = (listed: AaModel) => boolean;
 // One key table a list, kept while the list is: a list is read once and asked about for every model and effort.

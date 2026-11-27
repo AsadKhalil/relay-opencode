@@ -1,6 +1,6 @@
-import { aaEffortFor, aaFor, aaPricesFor, isFreeCopy, storedAaModels, type AaModel } from './artificial-analysis.js';
+import { aaEffortFor, aaFor, aaPricesFor, FAMILIES, isFreeCopy, storedAaModels, type AaModel } from './artificial-analysis.js';
 import { parseUsd, pricesAt } from './costs.js';
-import { familyOf, modelKey, openRouterFor, storedIndexTable, type IndexTable } from './intelligence.js';
+import { familyOf, modelKey, newestFamilyKey, openRouterFor, storedIndexTable, type IndexTable } from './intelligence.js';
 import type { ListedModel, ModelCostView } from './inventory.js';
 import { OWN_REPLIES, type Standing, type Standings } from './ranking.js';
 import { getUsage, modelName, type Prices, type RelayStore, type UsageRow } from './relay-store.js';
@@ -48,7 +48,9 @@ export function factsOf(model: { providerID: string; id: string; name: string; c
   const own = model.cost ? pricesAt(model.cost, 0) : null;
   const free = isFreeCopy(model) && (!hasPrice(own) || (own.inputPerMillion === '0' && own.outputPerMillion === '0'));
   const aaPrices = free || hasPrice(own) ? null : aaPricesFor(asked, lists.aa);
-  const orPrices = free || hasPrice(own) || aaPrices ? null : openRouterFor(model, lists.table, listed => hasPrice(listed.prices))?.prices ?? null;
+  // A Claude login family ("sonnet") stands for its newest version, on OpenRouter's list as on Artificial Analysis's.
+  const family = model.providerID === 'claude-agent' && FAMILIES.has(model.id), newest = family ? lists.table.get(newestFamilyKey(lists.table, model.id) ?? '') : undefined;
+  const orPrices = free || hasPrice(own) || aaPrices ? null : family ? (hasPrice(newest?.prices) ? newest!.prices : null) : openRouterFor(model, lists.table, listed => hasPrice(listed.prices))?.prices ?? null;
   const [prices, pricesFrom]: [Prices | null, Facts['pricesFrom']] = free ? [FREE, 'free'] : hasPrice(own) ? [own, 'opencode'] : aaPrices ? [aaPrices, 'artificial-analysis'] : orPrices ? [orPrices, 'openrouter'] : [own, null];
   const routed = (model.limit?.context ?? 0) > 0 ? null : openRouterFor(model, lists.table, listed => listed.context !== null);
   const effort = aaEffortFor(asked, lists.aa, hasIndex), plain = effort ?? aaFor({ ...asked, variant: null }, lists.aa, hasIndex);
@@ -59,6 +61,18 @@ export function factsOf(model: { providerID: string; id: string; name: string; c
     index: plain?.index ?? other?.index ?? null, coding: aaFor(asked, lists.aa, listed => listed.coding !== null)?.coding ?? null,
     indexFrom: plain ? 'artificial-analysis' : other ? 'openrouter' : null, matched: plain?.slug ?? other?.id ?? null, ownEffort: !!effort || (!!plain && variant === 'max'),
   };
+}
+
+/**
+ * The prices of a model named as a record names it (`provider/id#effort`, split at the first / and the last #), by `factsOf`: with OpenCode's
+ * listing when `models` has it, else by its id alone, so a reply on a login that lists no price still gets the public lists' prices.
+ */
+export function pricesOf(model: string, models: readonly ListedModel[] | null, lists: Pick<Stored, 'aa' | 'table'>): Pick<Facts, 'prices' | 'pricesFrom'> {
+  const slash = model.indexOf('/'), hash = model.lastIndexOf('#'), cut = hash > slash ? hash : -1;
+  const providerID = slash < 0 ? '' : model.slice(0, slash), id = model.slice(slash + 1, cut < 0 ? undefined : cut), variant = cut < 0 ? null : model.slice(cut + 1);
+  const listed = models?.find(item => item.providerID === providerID && item.id === id) ?? { providerID, id, name: id };
+  const { prices, pricesFrom } = factsOf(listed, variant, lists);
+  return { prices, pricesFrom };
 }
 
 /**

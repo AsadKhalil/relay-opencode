@@ -109,6 +109,23 @@ export function indexTable(reply: unknown): IndexTable {
   return table;
 }
 
+/** The key of the newest Claude version of a login family ("sonnet") in the table, its version compared number by number; null when it lists none. */
+export function newestFamilyKey(table: IndexTable, family: string): string | null {
+  const base = new RegExp(`^claude-${family}-(\\d+(?:-\\d+)*)$`);
+  let best: { key: string; version: number[] } | null = null;
+  for (const key of table.keys()) {
+    const found = base.exec(key);
+    if (!found) continue;
+    const version = found[1]!.split('-').map(Number);
+    if (!best || newerVersion(version, best.version)) best = { key, version };
+  }
+  return best?.key ?? null;
+}
+const newerVersion = (a: readonly number[], b: readonly number[]): boolean => {
+  for (let at = 0; at < Math.max(a.length, b.length); at++) if ((a[at] ?? -1) !== (b[at] ?? -1)) return (a[at] ?? -1) > (b[at] ?? -1);
+  return false;
+};
+
 /** The listed model `model` is, by its id or its name; `useful` passes over one without what the caller needs. */
 export const openRouterFor = (model: { id: string; name: string }, table: IndexTable, useful?: (found: ListedFacts) => boolean) => findModel(table, [model.id, model.name], found => found.id, useful);
 /** A model's index, from the listed model with one that `openRouterFor` finds. Null when none fits clearly. */

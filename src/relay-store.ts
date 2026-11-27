@@ -27,8 +27,8 @@ export type Totals = { input: number; output: number; reasoning: number; cacheRe
  */
 export type Reply = { requests: number; fresh: number; cached: number; costUsd: string | null; seconds: number | null; model: string | null; total: Totals | null; prices: Prices | null; pricesFrom: PriceSource | null };
 /** Where a reply's prices came from: OpenCode's own list (what is paid), or Artificial Analysis's when OpenCode lists none. */
-export type PriceSource = 'opencode' | 'artificial-analysis';
-const sources: readonly PriceSource[] = ['opencode', 'artificial-analysis'];
+export type PriceSource = 'opencode' | 'artificial-analysis' | 'openrouter';
+const sources: readonly PriceSource[] = ['opencode', 'artificial-analysis', 'openrouter'];
 type Kinds<T> = { input: T; output: T; cacheRead: T; cacheWrite: T };
 /**
  * The totals of one model and effort over every reply Relay counted. `byPrice` is tokens times each reply's own price, by kind (output with

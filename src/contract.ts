@@ -25,7 +25,7 @@ const modeChoiceInput = { type: 'object', properties: { ...choice.properties, us
 const modeLists = { type: 'object', properties: { plan: { type: 'array', items: modeChoice }, execute: { type: 'array', items: modeChoice }, review: { type: 'array', items: modeChoice } }, required: ['plan', 'execute', 'review'], additionalProperties: false } as const;
 const modeListsInput = { type: 'object', properties: { plan: { type: 'array', items: modeChoiceInput }, execute: { type: 'array', items: modeChoiceInput }, review: { type: 'array', items: modeChoiceInput } }, required: ['plan', 'execute', 'review'], additionalProperties: false } as const;
 /** Where a reply's prices came from: OpenCode's own list, or Artificial Analysis's when OpenCode lists none. */
-const priceSource = { anyOf: [{ type: 'string', enum: ['opencode', 'artificial-analysis'] }, { type: 'null' }] } as const;
+const priceSource = { anyOf: [{ type: 'string', enum: ['opencode', 'artificial-analysis', 'openrouter'] }, { type: 'null' }] } as const;
 const priceList = { type: 'object', properties: prices, required: [...priceNames], additionalProperties: false } as const;
 const totals = { type: 'object', properties: { input: { type: 'number' }, output: { type: 'number' }, reasoning: { type: 'number' }, cacheRead: { type: 'number' }, cacheWrite: { type: 'number' }, costUsd: nullableString }, required: ['input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'costUsd'], additionalProperties: false } as const;
 /** What the reply to a placed message took; null until the chat has answered it. `total` and `prices` are null in a reply kept before 19 Nov 2026. */

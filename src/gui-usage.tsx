@@ -164,7 +164,7 @@ export function UsagePanel(props: { session: MountedSession; css: string }): JSX
         </Show>
         <p class="rl-small">
           Every reply of every chat, Relay on or off. {shown().value.first ? `History since ${new Date(shown().value.first!).toLocaleDateString()}; records older than 90 days are removed. ` : ''}
-          {sums().aa || shown().value.records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') ? '* at Artificial Analysis prices, all or in part. ' : ''}
+          {sums().aa || shown().value.records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') ? '* at public prices (Artificial Analysis or OpenRouter), all or in part; on a subscription this estimates what the plan was used for, not a bill. ' : ''}
           In counts tokens read new, from a cache and into a cache; out counts reasoning too. Go is billed by allowance, so its cost is its list price.
         </p>
         <Show when={shown().value.credit}>{credit => <p class="rl-small">{credit()}</p>}</Show>

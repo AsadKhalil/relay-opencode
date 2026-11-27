@@ -1,7 +1,8 @@
-import { aaPricesFor, type AaModel } from './artificial-analysis.js';
+import type { AaModel } from './artificial-analysis.js';
 import { agentOf, newestAnchors, replyOf } from './chat-facts.js';
 import { costOf, formatUsd, parseUsd, storedUsd } from './costs.js';
 import type { ListedModel } from './inventory.js';
+import type { Facts } from './standings.js';
 import { modes, type Decision, type Mode, type PriceSource, type Prices, type Totals } from './relay-store.js';
 import { shownCost } from './usage-view.js';
 
@@ -20,7 +21,7 @@ export type LogStore = {
 };
 export type UsageKind = 'chat' | 'helper' | 'summary';
 const kinds: readonly UsageKind[] = ['chat', 'helper', 'summary'];
-const sources: readonly PriceSource[] = ['opencode', 'artificial-analysis'];
+const sources: readonly PriceSource[] = ['opencode', 'artificial-analysis', 'openrouter'];
 /**
  * One message and what its reply took. `at` is the message's own time. `kind` is `summary` for a finished compaction (its own request and the
  * rest of the reply it cut), `helper` in a chat that has a parent chat, else `chat`. `relay` is from the Relay record that names the message,
@@ -62,16 +63,17 @@ export function buildRecords(messages: unknown, chat: { sessionID: string; proje
 }
 
 /**
- * The records as the tab shows them: one with no cost at all (no price when it was kept, and nothing charged by OpenCode) is priced with
- * Artificial Analysis's stored list, as a new record would be. Nothing is written: a record kept before the key was saved stays as it was.
+ * The records as the tab shows them: one with no cost at all (no price when it was kept, and nothing charged by OpenCode, such as a reply on a
+ * subscription login) is priced by `price` (`pricesOf`: OpenCode's listing, else Artificial Analysis's list, else OpenRouter's), and a free
+ * copy is $0. Nothing is written.
  */
-export function priceFromList(records: readonly UsageRecord[], borrowed: readonly AaModel[]): UsageRecord[] {
+export function priceFromList(records: readonly UsageRecord[], price: (model: string) => Pick<Facts, 'prices' | 'pricesFrom'>): UsageRecord[] {
   return records.map(record => {
-    if (!borrowed.length || record.model === null || shownCost(record) !== null) return record;
-    const slash = record.model.indexOf('/'), hash = record.model.lastIndexOf('#'), id = record.model.slice(slash + 1, hash < 0 ? undefined : hash);
-    const prices = slash > 0 ? aaPricesFor({ providerID: record.model.slice(0, slash), id, name: id, variant: hash < 0 ? null : record.model.slice(hash + 1) }, borrowed) : null;
-    const costByPrice = priceTotal(record, prices);
-    return costByPrice === null ? record : { ...record, costByPrice, pricesFrom: 'artificial-analysis' };
+    if (record.model === null || shownCost(record) !== null) return record;
+    const { prices, pricesFrom } = price(record.model);
+    if (pricesFrom === 'free') return { ...record, costByPrice: '0', pricesFrom: null };
+    const costByPrice = pricesFrom === null ? null : priceTotal(record, prices);
+    return costByPrice === null || pricesFrom === null ? record : { ...record, costByPrice, pricesFrom };
   });
 }
 
@@ -203,7 +205,7 @@ export function summarize(records: readonly UsageRecord[], query: UsageQuery): U
   const totals = [...byModel].map(([model, mine]): UsageTotal => ({
     model, replies: mine.length, requests: add(mine, record => record.requests), input: add(mine, record => record.input), output: add(mine, record => record.output),
     reasoning: add(mine, record => record.reasoning), cacheRead: add(mine, record => record.cacheRead), cacheWrite: add(mine, record => record.cacheWrite), cost: sum(mine.map(shownCost)),
-    aaPriced: mine.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis'), unpriced: mine.filter(record => shownCost(record) === null).length,
+    aaPriced: mine.some(record => record.costByPrice !== null && (record.pricesFrom === 'artificial-analysis' || record.pricesFrom === 'openrouter')), unpriced: mine.filter(record => shownCost(record) === null).length,
   }));
   const costKey = (total: UsageTotal) => total.cost === null ? -1n : parseUsd(total.cost), tokens = (total: UsageTotal) => total.input + total.output + total.reasoning + total.cacheRead + total.cacheWrite;
   totals.sort((a, b) => costKey(b) > costKey(a) ? 1 : costKey(b) < costKey(a) ? -1 : tokens(b) - tokens(a));

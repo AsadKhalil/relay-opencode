@@ -290,7 +290,7 @@ test('testDecider shows Relay’s own choice', async () => {
 const usageQuery = (extra: Record<string, unknown> = {}) => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, ...extra });
 const usageRecord = (at: string, extra: Record<string, unknown> = {}) => ({ at, sessionID: 'ses-1', messageID: `m-${at}`, project: '/repo', kind: 'chat', agent: 'build', model: 'p/big', requests: 1, input: 10, output: 5, reasoning: 0, cacheRead: 0, cacheWrite: 0, costByPrice: '0.01', openCodeUsd: null, pricesFrom: 'opencode', relay: null, ...extra });
 const putRecord = (data: Map<string, unknown>, record: ReturnType<typeof usageRecord>) => data.set(`relay/usage-log/${record.at}/${record.sessionID}/${record.messageID}`, record);
-function usageHost(data: Map<string, unknown>, now = Date.parse('2026-11-24T16:00:00Z')) {
+function usageHost(data: Map<string, unknown>, now = Date.parse('2026-11-24T16:00:00Z'), host: { model?: unknown; listMs?: number } = {}) {
   let handlers: any;
   const storage = {
     async get(key: string) { return structuredClone(data.get(key)); }, async set(key: string, value: unknown) { data.set(key, structuredClone(value)); }, async remove(key: string) { data.delete(key); },
@@ -299,7 +299,7 @@ function usageHost(data: Map<string, unknown>, now = Date.parse('2026-11-24T16:0
       return { entries: page.map(key => ({ key, value: structuredClone(data.get(key)) })), ...(keys.length > page.length ? { next: page.at(-1) } : {}) };
     },
   };
-  registerRpc({ location: { directory: '/repo' }, storage, model: {}, rpc: { async register(_definition: unknown, h: unknown) { handlers = asClient(h); return { async dispose() {} }; } } } as never, { now: () => now });
+  registerRpc({ location: { directory: '/repo' }, storage, model: host.model ?? {}, rpc: { async register(_definition: unknown, h: unknown) { handlers = asClient(h); return { async dispose() {} }; } } } as never, { now: () => now, listMs: host.listMs });
   return handlers;
 }
 
@@ -331,4 +331,13 @@ test('the old totals come along as before', async () => {
   const host = usageHost(new Map());
   const [answer, old] = await Promise.all([host.getUsageLog(usageQuery()), host.getRelayUsage({})]);
   assert.deepEqual([answer.before.since, answer.before.rows], [old.since, old.rows]);
+});
+
+test("getUsageLog prices a login's reply from OpenRouter's stored list, and still answers when the model list is late", async () => {
+  const data = new Map<string, unknown>([['relay/intelligence', { fetchedAt: '2026-11-24T00:00:00.000Z', v: 2, rows: [['claude-sonnet-5-5', 'anthropic/claude-sonnet-5-5', null, null, '2', '10', '0.2', null]] }]]);
+  putRecord(data, usageRecord('2026-11-24T10:00:00.000Z', { model: 'claude-agent/sonnet', input: 1_000_000, output: 0, costByPrice: null, openCodeUsd: '0', pricesFrom: null }));
+  const answer = await usageHost(data, undefined, { model: { list: () => new Promise(() => undefined) }, listMs: 50 }).getUsageLog(usageQuery());
+  const sonnet = answer.totals.find((total: { model: string }) => total.model === 'claude-agent/sonnet');
+  assert.deepEqual([sonnet.cost, sonnet.aaPriced], ['2', true]);
+  assert.deepEqual(fits(RelayRpc.methods.getUsageLog.output, answer), []);
 });

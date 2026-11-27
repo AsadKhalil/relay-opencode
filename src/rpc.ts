@@ -5,16 +5,16 @@ import { listProjectModels } from './inventory.js';
 import { getRelaySettings, saveRelaySettings, recentDecisions, modelName, modes, chatSwitch, setChatSwitch, getUsage, type Mode, type RelaySettings, type RelayStore } from './relay-store.js';
 import { candidates, checksStatus, describeError, linesFor, route, sizesFor } from './router.js';
 import { rank } from './ranking.js';
-import { factsOf, indexHint, readStored, standingsOf } from './standings.js';
-import { decide } from './decider.js';
+import { factsOf, indexHint, pricesOf, readStored, standingsOf } from './standings.js';
+import { decide, LATE, within } from './decider.js';
 import { INDEX_SOURCE, loadIndexTable } from './intelligence.js';
-import { AA_CREDIT, AA_SOURCE, getPriceKey, loadAaModels, setPriceKey, storedAaModels } from './artificial-analysis.js';
+import { AA_CREDIT, AA_SOURCE, getPriceKey, loadAaModels, setPriceKey } from './artificial-analysis.js';
 import { oldestRecord, priceFromList, pruneRecords, readRecords, summarize, usageQueryOf, type LogStore } from './usage-log.js';
 
 const chatID = (input: unknown) => { const id = (input as { sessionID: string }).sessionID.trim(); if (!id) throw new Error('Name the chat'); return id; };
 
 /** The panel's and the pill's calls. Relay's settings are one set for every project; only the model lists come from this project's host. */
-export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | 'model' | 'storage' | 'experimental'>, options: { fetcher?: typeof fetch; now?: () => number } = {}) {
+export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | 'model' | 'storage' | 'experimental'>, options: { fetcher?: typeof fetch; now?: () => number; listMs?: number } = {}) {
   const relayStore = context.storage as unknown as RelayStore;
   // One fetch of the index at a time, shared by the calls that arrive while it runs.
   let indexLoad: ReturnType<typeof loadIndexTable> | undefined;
@@ -50,14 +50,16 @@ export function registerRpc(context: Pick<Plugin.Context, 'rpc' | 'location' | '
     },
     // Which model of each mode gets big work and small work by itself. Worked out here, not in the panel: the panel has neither each
     // effort's own score nor the Coding index. Storage only, with the same rule as /relay (src/ranking.ts).
-    // The usage tab: one range of usage records, added up and filtered here. Old records go first, 1,000 at most a call. Storage only.
+    // The usage tab: one range of usage records, added up and filtered here. Old records go first, 1,000 at most a call. Storage, and the
+    // model list within two seconds (a late or failed list is none: the stored public lists still price what they can).
     getUsageLog: async input => {
       const query = usageQueryOf(input), log = context.storage as unknown as LogStore;
       const removed = await pruneRecords(log, (options.now ?? Date.now)());
-      const [kept, oldest, before, borrowed] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore), storedAaModels(relayStore)]);
-      // A record kept with no price, before a key was saved, is priced as it is read; nothing is written.
-      const records = priceFromList(kept, borrowed), summary = summarize(records, query);
-      const credit = summary.totals.some(total => total.aaPriced) || before.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null;
+      const listed = within(() => listProjectModels(context), options.listMs ?? 2000).then(found => found === LATE ? null : found, () => null);
+      const [kept, oldest, before, stored, models] = await Promise.all([readRecords(log, query.from, query.to), oldestRecord(log), getUsage(relayStore), readStored(relayStore), listed]);
+      // A record with no cost (no price when it was kept, such as a reply on a subscription login) is priced as it is read; nothing is written.
+      const records = priceFromList(kept, model => pricesOf(model, models, stored)), summary = summarize(records, query);
+      const credit = records.some(record => record.costByPrice !== null && record.pricesFrom === 'artificial-analysis') || before.rows.some(row => row.pricesFrom === 'artificial-analysis') ? AA_CREDIT : null;
       return { directory: context.location.directory, ...summary, first: oldest ?? summary.first, before, credit, removed };
     },
     getOwnChoice: async () => {
