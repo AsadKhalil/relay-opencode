@@ -55,7 +55,7 @@ const usageRecord = { type: 'object', properties: {
   at: { type: 'string' }, sessionID: { type: 'string' }, messageID: { type: 'string' }, project: { type: 'string' }, kind: { type: 'string', enum: ['chat', 'helper', 'summary'] },
   agent: nullableString, model: nullableString, requests: { type: 'number' }, input: { type: 'number' }, output: { type: 'number' }, reasoning: { type: 'number' }, cacheRead: { type: 'number' }, cacheWrite: { type: 'number' },
   costByPrice: nullableString, openCodeUsd: nullableString, pricesFrom: priceSource,
-  relay: { anyOf: [{ type: 'object', properties: { mode: nullableMode, note: nullableString }, required: ['mode', 'note'], additionalProperties: false }, { type: 'null' }] },
+  relay: { anyOf: [{ type: 'object', properties: { mode: nullableMode, note: nullableString, from: nullableString, start: nullableString, deciderUsd: nullableString }, required: ['mode', 'note', 'from', 'start', 'deciderUsd'], additionalProperties: false }, { type: 'null' }] },
 }, required: ['at', 'sessionID', 'messageID', 'project', 'kind', 'agent', 'model', 'requests', 'input', 'output', 'reasoning', 'cacheRead', 'cacheWrite', 'costByPrice', 'openCodeUsd', 'pricesFrom', 'relay'], additionalProperties: false } as const;
 const usageTotal = { type: 'object', properties: {
   model: { type: 'string' }, replies: { type: 'number' }, requests: { type: 'number' }, input: { type: 'number' }, output: { type: 'number' }, reasoning: { type: 'number' }, cacheRead: { type: 'number' }, cacheWrite: { type: 'number' },

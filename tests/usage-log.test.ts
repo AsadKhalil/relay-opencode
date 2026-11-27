@@ -51,8 +51,8 @@ test('a reply with a price has its cost by price; output is priced with its reas
 
 test('a Relay record names the message: its mode and note go with it', () => {
   const messages = [user('m1', 1000), answer('a1', 1100, { input: 10 }), user('m2', 2000), answer('a2', 2100, { input: 20 })];
-  const [first, second] = buildRecords(messages, chat, noPrices, [decision('m1')]);
-  assert.deepEqual(first.relay, { mode: 'execute', note: 'small work, so the cheapest' });
+  const [first, second] = buildRecords(messages, chat, noPrices, [decision('m1', { from: 'p/usual', start: 'p/usual', costUsd: '0.0001' })]);
+  assert.deepEqual(first.relay, { mode: 'execute', note: 'small work, so the cheapest', from: 'p/usual', start: 'p/usual', deciderUsd: '0.0001' });
   assert.equal(second.relay, null, 'a message Relay did not place has no Relay part');
 });
 
@@ -76,7 +76,7 @@ test('the key sorts by time', () => {
 });
 
 test('a record grows when the reply has more requests or a Relay part appears, and never shrinks', () => {
-  const base = record(1000), relay = { mode: 'plan' as const, note: null };
+  const base = record(1000), relay = { mode: 'plan' as const, note: null, from: null, start: null, deciderUsd: null };
   assert.deepEqual(grown(null, base), base);
   assert.equal(grown(base, base), null, 'nothing new');
   assert.deepEqual(grown({ ...base, relay }, { ...base, requests: 3, input: 200 }), { ...base, requests: 3, input: 200, relay }, 'more requests, and the old Relay part stays');
@@ -122,7 +122,7 @@ test('the Relay records of one chat are listed for the idle hook', async () => {
 // Adding up for the tab: what the panel shows for a range and its filters.
 const query = (extra: Partial<UsageQuery> = {}): UsageQuery => ({ from: '2026-11-20T05:00:00.000Z', to: '2026-11-24T16:00:00.000Z', tzOffsetMinutes: -300, search: '', provider: null, effort: null, mode: null, relay: 'any', kind: 'any', project: null, offset: 0, limit: 50, timeZone: null, ...extra });
 const at = (time: string, extra: Partial<UsageRecord> = {}) => record(Date.parse(time), extra);
-const kimi = at('2026-11-23T15:00:00Z', { model: 'opencode-go/kimi-k3.1-pro', costByPrice: '0.1', relay: { mode: 'plan', note: null } });
+const kimi = at('2026-11-23T15:00:00Z', { model: 'opencode-go/kimi-k3.1-pro', costByPrice: '0.1', relay: { mode: 'plan', note: null, from: null, start: null, deciderUsd: null } });
 const flash = at('2026-11-23T16:00:00Z', { model: 'opencode-go/glm-5.3-flash#high', costByPrice: '0.2', agent: 'build', kind: 'helper', project: 'C:/work/other' });
 const claude = at('2026-11-24T04:59:00Z', { model: 'claude-agent/sonnet', costByPrice: null, openCodeUsd: '0', pricesFrom: null });
 
@@ -261,4 +261,16 @@ test('a record kept with no price is priced from Artificial Analysis’s list wh
   assert.deepEqual([priced.costByPrice, priced.pricesFrom], ['3.2', 'artificial-analysis'], '1M in at $2, 0.1M out with reasoning at $10, 1M from cache at $0.20');
   assert.deepEqual(rest, [free, charged, kimi]);
   assert.deepEqual(priceFromList([sonnet], []), [sonnet], 'no list, no price');
+});
+
+test("a record kept before this version reads from, start and the decider's cost as null", async () => {
+  const { data, store } = memoryStore(), old = { ...record(1000), relay: { mode: 'plan', note: null } };
+  data.set(logKey(old), old);
+  const [read] = await readRecords(store, iso(0), iso(2000));
+  assert.deepEqual(read.relay, { mode: 'plan', note: null, from: null, start: null, deciderUsd: null });
+});
+
+test('a Relay part that arrives late brings its new fields', () => {
+  const part = { mode: 'execute' as const, note: null, from: 'p/big', start: 'p/big', deciderUsd: '0.0002' };
+  assert.deepEqual(grown(record(1000), record(1000, { relay: part }))?.relay, part);
 });

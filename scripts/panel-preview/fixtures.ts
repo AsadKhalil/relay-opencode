@@ -83,7 +83,7 @@ const sum = (which: number) => daily.reduce((total, costs) => total + costs[whic
 const total = (which: number, replies: number, aaPriced: boolean) => ({ model: usageModels[which]!, replies, requests: replies * 3, input: Math.round(sum(which) * 1_900_000), output: Math.round(sum(which) * 120_000), reasoning: 0, cacheRead: Math.round(sum(which) * 4_000_000), cacheWrite: 0, cost: sum(which).toFixed(2), aaPriced, unpriced: 0 });
 const record = (minutes: number, which: number, amount: string, mode: string | null, kind = 'chat') => ({
   at: ago(minutes), sessionID: 'ses_sample1', messageID: `msg_${minutes}`, project: 'C:/work/sample-app', kind, agent: mode === 'execute' ? 'build' : 'plan', model: usageModels[which]!, requests: 3,
-  input: 18_000, output: 1_400, reasoning: 0, cacheRead: 41_000, cacheWrite: 0, costByPrice: amount, openCodeUsd: amount, pricesFrom: which === 1 ? 'artificial-analysis' : 'opencode', relay: mode ? { mode, note: null } : null,
+  input: 18_000, output: 1_400, reasoning: 0, cacheRead: 41_000, cacheWrite: 0, costByPrice: amount, openCodeUsd: amount, pricesFrom: which === 1 ? 'artificial-analysis' : 'opencode', relay: mode ? { mode, note: null, from: null, start: null, deciderUsd: null } : null,
 });
 const records = [record(4, 2, '0.0049', 'execute'), record(19, 1, '0.0412', 'plan'), record(47, 1, '0.0188', 'review', 'helper'), record(95, 0, '0.2108', 'execute'), record(140, 2, '0.0031', null), record(300, 0, '0.0954', 'execute'), record(420, 1, '0.0377', 'plan'), record(610, 2, '0.0022', 'execute')];
 const usage = {

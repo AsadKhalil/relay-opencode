@@ -23,13 +23,15 @@ const kinds: readonly UsageKind[] = ['chat', 'helper', 'summary'];
 const sources: readonly PriceSource[] = ['opencode', 'artificial-analysis'];
 /**
  * One message and what its reply took. `at` is the message's own time. `kind` is `summary` for a finished compaction (its own request and the
- * rest of the reply it cut), `helper` in a chat that has a parent chat, else `chat`. `relay` is the mode and note of the Relay record that
- * names the message, when Relay placed it or decided to leave it alone.
+ * rest of the reply it cut), `helper` in a chat that has a parent chat, else `chat`. `relay` is from the Relay record that names the message,
+ * when Relay placed it or decided to leave it alone: its mode and note, the chat's model before it (`from`), the chat's start model, and what
+ * the decider cost.
  */
+export type RelayPart = { mode: Mode | null; note: string | null; from: string | null; start: string | null; deciderUsd: string | null };
 export type UsageRecord = {
   at: string; sessionID: string; messageID: string; project: string; kind: UsageKind; agent: string | null; model: string | null;
   requests: number; input: number; output: number; reasoning: number; cacheRead: number; cacheWrite: number;
-  costByPrice: string | null; openCodeUsd: string | null; pricesFrom: PriceSource | null; relay: { mode: Mode | null; note: string | null } | null;
+  costByPrice: string | null; openCodeUsd: string | null; pricesFrom: PriceSource | null; relay: RelayPart | null;
 };
 export const LOG_PREFIX = 'relay/usage-log/', KEEP_DAYS = 90;
 const DAY_MS = 86_400_000, NEWEST = 3, PAGE = 200;
@@ -54,7 +56,7 @@ export function buildRecords(messages: unknown, chat: { sessionID: string; proje
       at: new Date(anchor.created).toISOString(), sessionID: chat.sessionID, messageID: anchor.id, project: chat.project, kind: anchor.summary ? 'summary' : chat.helper ? 'helper' : 'chat',
       agent: agentOf(messages, anchor.id), model: reply.model, requests: reply.requests, input: total.input, output: total.output, reasoning: total.reasoning,
       cacheRead: total.cacheRead, cacheWrite: total.cacheWrite, costByPrice: priceTotal(total, reply.prices), openCodeUsd: total.costUsd, pricesFrom: reply.pricesFrom,
-      relay: placed ? { mode: placed.mode, note: placed.note } : null,
+      relay: placed ? { mode: placed.mode, note: placed.note, from: placed.from, start: placed.start, deciderUsd: placed.costUsd } : null,
     } satisfies UsageRecord];
   });
 }
@@ -99,12 +101,12 @@ function readable(value: unknown): UsageRecord | null {
   const counts = [item.requests, item.input, item.output, item.reasoning, item.cacheRead, item.cacheWrite].map(amount);
   // A date near the end of JavaScript's time range would make every day count of its range throw.
   if (!at || !(Math.abs(Date.parse(at)) < LAST_TIME) || !sessionID || !messageID || project === null || !kinds.includes(item.kind as UsageKind) || counts.some(count => count === null)) return null;
-  const relay = item.relay as { mode?: unknown; note?: unknown } | null | undefined;
+  const relay = item.relay as Partial<Record<keyof RelayPart, unknown>> | null | undefined;
   const [requests, input, output, reasoning, cacheRead, cacheWrite] = counts as number[];
   return {
     at, sessionID, messageID, project, kind: item.kind as UsageKind, agent: text(item.agent), model: text(item.model), requests, input, output, reasoning, cacheRead, cacheWrite,
     costByPrice: storedUsd(item.costByPrice), openCodeUsd: storedUsd(item.openCodeUsd), pricesFrom: sources.includes(item.pricesFrom as PriceSource) ? item.pricesFrom as PriceSource : null,
-    relay: relay && typeof relay === 'object' ? { mode: modes.includes(relay.mode as Mode) ? relay.mode as Mode : null, note: text(relay.note) } : null,
+    relay: relay && typeof relay === 'object' ? { mode: modes.includes(relay.mode as Mode) ? relay.mode as Mode : null, note: text(relay.note), from: text(relay.from), start: text(relay.start), deciderUsd: storedUsd(relay.deciderUsd) } : null,
   };
 }
 

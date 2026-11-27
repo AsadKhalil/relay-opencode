@@ -48,7 +48,7 @@ test('a record shows the folder name, a short chat id, its Relay part or off, an
   assert.deepEqual([plain.model, plain.cost], ['opencode-go/kimi-k3.1-pro', '$0.12']);
   assert.match(plain.detail, / · 5K in · 250 out · /, 'in counts what was read new and from a cache; out counts reasoning too');
   assert.equal(plain.name, 'kimi-k3.1-pro', 'the row shows the name; the provider is in the model');
-  const placed = recordCells(record({ relay: { mode: 'execute', note: 'small work, so the cheapest' }, costByPrice: '0.5', pricesFrom: 'artificial-analysis', project: '/home/someone/site' }));
+  const placed = recordCells(record({ relay: { mode: 'execute', note: 'small work, so the cheapest', from: null, start: null, deciderUsd: null }, costByPrice: '0.5', pricesFrom: 'artificial-analysis', project: '/home/someone/site' }));
   assert.equal(placed.cost, '$0.50*');
   assert.match(placed.detail, / · execute · .* · site · Relay: small work, so the cheapest$/);
   assert.equal(recordCells(record({ costByPrice: null, openCodeUsd: '0' })).cost, 'no price');
@@ -96,9 +96,9 @@ test("a model's row: its name and cost, then provider, replies and all its token
 
 test("a record's second line names its provider and chat, leaves out a missing mode, and says what Relay did", () => {
   assert.equal(recordCells(record()).detail, 'opencode-go · chat abcdef · build · 5K in · 250 out · app · Relay off');
-  assert.equal(recordCells(record({ agent: null, relay: { mode: 'execute', note: 'small work, so the cheapest' } })).detail, 'opencode-go · chat abcdef · execute · 5K in · 250 out · app · Relay: small work, so the cheapest');
+  assert.equal(recordCells(record({ agent: null, relay: { mode: 'execute', note: 'small work, so the cheapest', from: null, start: null, deciderUsd: null } })).detail, 'opencode-go · chat abcdef · execute · 5K in · 250 out · app · Relay: small work, so the cheapest');
   assert.equal(recordCells(record({ agent: null, relay: null, kind: 'helper' })).detail, 'opencode-go · helper abcdef · 5K in · 250 out · app · Relay off', 'no mode and no agent: no "-"');
-  assert.equal(recordCells(record({ relay: { mode: 'plan', note: null } })).detail, 'opencode-go · chat abcdef · plan · 5K in · 250 out · app · Relay on');
+  assert.equal(recordCells(record({ relay: { mode: 'plan', note: null, from: null, start: null, deciderUsd: null } })).detail, 'opencode-go · chat abcdef · plan · 5K in · 250 out · app · Relay on');
 });
 
 test('Show more adds only records not shown yet, so a new reply arriving meanwhile repeats none', () => {
