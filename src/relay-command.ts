@@ -7,7 +7,7 @@ import type { Session } from '@opencode/schema/session';
 import { firstRequest, LATE, lastReply, within, type DecideInput } from './decider.js';
 import type { ListedModel } from './inventory.js';
 import { chatFacts } from './chat-facts.js';
-import { getRelaySettings, hostVariant, modelName, modes, recentDecisions, recordDecision, setChatSwitch, type Decision, type RelayStore } from './relay-store.js';
+import { chatStart, getRelaySettings, hostVariant, modelName, modes, recentDecisions, recordDecision, setChatStart, setChatSwitch, type Decision, type RelayStore } from './relay-store.js';
 import { brief, linesFor, REVIEW_RULES_KEY, reviewRules, route, sizesFor, type DeciderAnswer } from './router.js';
 import { readStored, standingsOf } from './standings.js';
 import type { ModelChoice } from './settings.js';
@@ -63,7 +63,7 @@ export async function fileSize(uri: string): Promise<number | null> {
 }
 
 export type Timing = { readonly waitMs: number; readonly sizeMs: number; readonly readMs: number };
-export type Placed = { outcome: Pick<Decision, 'mode' | 'confidence' | 'fit' | 'model' | 'ms' | 'costUsd'>; notes: string[] };
+export type Placed = { outcome: Pick<Decision, 'mode' | 'confidence' | 'fit' | 'model' | 'ms' | 'costUsd' | 'from' | 'start'>; notes: string[] };
 export const timingOf = (deps: Pick<RelayDeps, 'waitMs' | 'sizeMs' | 'readMs'>): Timing => ({ waitMs: deps.waitMs ?? 120_000, sizeMs: deps.sizeMs ?? 1000, readMs: deps.readMs ?? 5000 });
 
 /**
@@ -72,7 +72,7 @@ export const timingOf = (deps: Pick<RelayDeps, 'waitMs' | 'sizeMs' | 'readMs'>):
  */
 export async function placeMessage(deps: RelayDeps, timing: Timing, input: { readonly sessionID: Session.ID; readonly prompt: PromptInput.Prompt; readonly unsure: 'plan' | 'stay'; readonly uploads?: readonly Upload[] }): Promise<Placed> {
   const { sessionID, prompt } = input, { waitMs, sizeMs, readMs } = timing;
-  const outcome: Placed['outcome'] = { mode: null, confidence: null, fit: null, model: null, ms: 0, costUsd: null };
+  const outcome: Placed['outcome'] = { mode: null, confidence: null, fit: null, model: null, ms: 0, costUsd: null, from: null, start: null };
   const notes: string[] = [];
   const attempt = async (what: string, work: () => Promise<unknown>): Promise<boolean> => {
     try { await work(); return true; } catch (error) { notes.push(`${what}: ${brief(error)}`); return false; }
@@ -96,9 +96,11 @@ export async function placeMessage(deps: RelayDeps, timing: Timing, input: { rea
     const read = await within(() => Promise.all([
       reading('the settings', () => getRelaySettings(deps.store)), reading('the chat', () => deps.session.get({ sessionID })), reading('the model list', deps.chatModels),
       spare(() => deps.session.context({ sessionID })), spare(() => recentDecisions(deps.store)), spare(() => readStored(deps.store)),
+      // Wrapped, so a read that answered "none yet" is told apart from one that failed or was late (null): only the first may write the start.
+      spare(async () => ({ value: await chatStart(deps.store, sessionID) })),
     ]), readMs);
     if (read === LATE) { notes.push(`Relay's settings, the chat or the model list did not answer within ${readMs / 1000} seconds`); return; }
-    const [settings, chat, models, messages, past, stored] = read;
+    const [settings, chat, models, messages, past, stored, start] = read;
     const files: readonly AttachedFile[] = prompt.files ?? [], uploads = input.uploads ?? [];
     const pictures = files.filter(isPicture).length + uploads.filter(isImage).length;
     const facts = await Promise.all([
@@ -108,6 +110,7 @@ export async function placeMessage(deps: RelayDeps, timing: Timing, input: { rea
     // shortcut: four bytes to a token. Dense text takes more, so a file close to a model's size can still be too big for it.
     const attachment = { needsImage: pictures > 0, tokens: Math.ceil(facts.reduce((sum, file) => sum + (file.bytes ?? 0), 0) / 4), chat: messages === null ? null : chatFacts(messages, Date.now()), past: past ?? [] };
     const current = chat.model ? { providerID: chat.model.providerID, id: chat.model.id, variant: hostVariant(chat.model.variant) } : null;
+    Object.assign(outcome, { from: current && modelName(current), start: start?.value ?? null });
     // The end of the last reply lets the decider place a short follow-up ("Implement it.") by the plan or review before it; the home folder is hidden.
     const reply = messages === null ? null : lastReply(messages, homedir());
     // The chat's first message tells the size question how hard the task is, when a short follow-up does not (25 Nov).
@@ -130,6 +133,11 @@ export async function placeMessage(deps: RelayDeps, timing: Timing, input: { rea
     if (agentChanges) await attempt('agent not switched', () => deps.session.switchAgent({ sessionID, agent: result.agent }));
     const on = !modelChanges || await attempt('model not switched', () => deps.session.switchModel({ sessionID, model: { providerID, id, ...(variant === null ? {} : { variant }) } }));
     if (on) Object.assign(outcome, { model: modelName(result.model), fit: result.fit });
+    // The chat's first real move keeps where it started. The message does not wait for the write, and a failed one is not reported.
+    if (on && modelChanges && start !== null && start.value === null && outcome.from !== null) {
+      outcome.start = outcome.from;
+      void setChatStart(deps.store, sessionID, outcome.from).catch(() => {});
+    }
     if (result.mode === 'review') await attempt('review rules not set', () => deps.session.instructions.entry.put({ sessionID, key: REVIEW_RULES_KEY, value: reviewRules }));
     // shortcut: a failed remove is not reported. Rules that stay only say how to review, and there may be none to remove.
     else try { await deps.session.instructions.entry.remove({ sessionID, key: REVIEW_RULES_KEY }); } catch { /* see the shortcut above */ }

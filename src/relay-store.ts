@@ -42,8 +42,8 @@ export type Usage = { since: string | null; rows: UsageRow[] };
  * One routing decision. It never holds the message text or a file name. `fit` is how sure the decider was about the "use it for" line.
  * `messageID` names the message the decision was made for, so that `reply` can be read once the chat has answered it.
  */
-export type Decision = { at: string; sessionID: string; kind: 'chat' | 'helper'; mode: Mode | null; confidence: number | null; fit: number | null; model: string | null; ms: number; costUsd: string | null; note: string | null; messageID: string | null; reply: Reply | null };
-export type RelayStore = { get(key: string): Promise<unknown>; set(key: string, value: RelaySettings | Decision[] | Usage | boolean): Promise<void>; compareAndSet?(key: string, expected: unknown, value: RelaySettings | Decision[]): Promise<boolean> };
+export type Decision = { at: string; sessionID: string; kind: 'chat' | 'helper'; mode: Mode | null; confidence: number | null; fit: number | null; model: string | null; ms: number; costUsd: string | null; note: string | null; messageID: string | null; reply: Reply | null; from: string | null; start: string | null };
+export type RelayStore = { get(key: string): Promise<unknown>; set(key: string, value: RelaySettings | Decision[] | Usage | boolean | string): Promise<void>; compareAndSet?(key: string, expected: unknown, value: RelaySettings | Decision[]): Promise<boolean> };
 
 const SETTINGS = 'relay/settings', DECISIONS = 'relay/decisions', USAGE = 'relay/usage', KEEP = 20, WAITING_KEEP = 30;
 const same = (a: ModelChoice, b: ModelChoice) => a.providerID === b.providerID && a.id === b.id && a.variant === b.variant;
@@ -116,18 +116,18 @@ function readable(value: unknown): Decision | null {
   const [input, output, reasoning, cacheRead, cacheWrite] = [sum.input, sum.output, sum.reasoning, sum.cacheRead, sum.cacheWrite].map(number);
   const total = input === null || output === null || reasoning === null || cacheRead === null || cacheWrite === null ? null : { input, output, reasoning, cacheRead, cacheWrite, costUsd: text(sum.costUsd) };
   const reply = requests === null || fresh === null || cached === null ? null : { requests, fresh, cached, costUsd: text(took.costUsd), seconds: number(took.seconds), model: text(took.model), total, prices: pricesOf(took.prices), pricesFrom: sourceOf(took.pricesFrom) };
-  return { at: item.at, sessionID: item.sessionID, kind: item.kind, mode: modes.find(mode => mode === item.mode) ?? null, confidence: number(item.confidence), fit: number(item.fit), model: text(item.model), ms: item.ms, costUsd: text(item.costUsd), note: text(item.note), messageID: text(item.messageID), reply };
+  return { at: item.at, sessionID: item.sessionID, kind: item.kind, mode: modes.find(mode => mode === item.mode) ?? null, confidence: number(item.confidence), fit: number(item.fit), model: text(item.model), ms: item.ms, costUsd: text(item.costUsd), note: text(item.note), messageID: text(item.messageID), reply, from: text(item.from), start: text(item.start) };
 }
 const stored = async (store: Pick<RelayStore, 'get'>): Promise<Decision[]> => {
   const value = await store.get(DECISIONS);
   return Array.isArray(value) ? value.map(readable).filter(item => item !== null) : [];
 };
 
-/** A new record has no reply yet; one made for a message of a chat names that message. */
-export function recordDecision(store: RelayStore, decision: Omit<Decision, 'messageID' | 'reply'> & { messageID?: string | null }): Promise<void> {
+/** A new record has no reply yet; one made for a message of a chat names that message, and the models the chat was on and started on, when known. */
+export function recordDecision(store: RelayStore, decision: Omit<Decision, 'messageID' | 'reply' | 'from' | 'start'> & Partial<Pick<Decision, 'messageID' | 'from' | 'start'>>): Promise<void> {
   // shortcut: one stored list. Two project folders deciding in the same instant can lose one record; give each record its own key if that ever matters.
   return serial(async () => {
-    const all = [...await stored(store), { messageID: null, ...decision, reply: null }];
+    const all = [...await stored(store), { messageID: null, from: null, start: null, ...decision, reply: null }];
     // A record still waiting for its reply stays behind the newest twenty (thirty such at most), so a long reply is still counted.
     const waiting = all.slice(0, -KEEP).filter(item => item.messageID !== null && item.reply === null).slice(-WAITING_KEEP);
     await store.set(DECISIONS, [...waiting, ...all.slice(-KEEP)]);
@@ -210,3 +210,8 @@ const switchKey = (sessionID: string) => `relay/on/${encodeURIComponent(sessionI
 /** Only a stored `true` counts as on. */
 export async function chatSwitch(store: Pick<RelayStore, 'get'>, sessionID: string): Promise<boolean> { return (await store.get(switchKey(sessionID))) === true; }
 export function setChatSwitch(store: Pick<RelayStore, 'set'>, sessionID: string, on: boolean): Promise<void> { return store.set(switchKey(sessionID), on); }
+
+/** The model a chat was on just before Relay first moved it. Written once, at that move, and never changed. */
+const startKey = (sessionID: string) => `relay/start/${encodeURIComponent(sessionID)}`;
+export async function chatStart(store: Pick<RelayStore, 'get'>, sessionID: string): Promise<string | null> { const value = await store.get(startKey(sessionID)); return typeof value === 'string' ? value : null; }
+export function setChatStart(store: Pick<RelayStore, 'set'>, sessionID: string, model: string): Promise<void> { return store.set(startKey(sessionID), model); }

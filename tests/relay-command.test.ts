@@ -189,7 +189,7 @@ test("the decider gets the text, whether the chat's agent can change files, and 
   assert.equal(/file:\/\/|\/repo|@a\.txt|\busual\b|\bexec\b|#high/.test(request), false, 'no address, no folder, no model name');
   assert.deepEqual(input(f, 'decisions').questions.map((question: { name: string }) => question.name), ['mode'], 'one model in each mode: nothing to choose');
   const record = await last(f);
-  assert.deepEqual(Object.keys(record).sort(), ['at', 'confidence', 'costUsd', 'fit', 'kind', 'messageID', 'mode', 'model', 'ms', 'note', 'reply', 'sessionID']);
+  assert.deepEqual(Object.keys(record).sort(), ['at', 'confidence', 'costUsd', 'fit', 'from', 'kind', 'messageID', 'mode', 'model', 'ms', 'note', 'reply', 'sessionID', 'start']);
   assert.deepEqual([record.messageID, record.reply], ['msg-sent', null], 'the id of the message that was sent, so that what its reply took can be read later');
   assert.deepEqual([record.kind, record.sessionID, record.mode, record.model, record.confidence, record.fit, record.costUsd, record.note], ['chat', 'ses-1', 'execute', 'p/exec#high', 0.98, null, '0', null]);
   assert.equal(/login|a\.txt/.test(JSON.stringify(record)), false);
@@ -334,4 +334,41 @@ test('late stored copies leave the message to the first model, with the note', a
   assert.match(record.note ?? '', /the index and prices could not be read in time, so the first model is picked/);
   assert.equal(record.model, 'p/flash#high');
   assert.equal(names(f).filter(name => name === 'prompt').length, 1);
+});
+
+const startSets = (f: Fake) => f.calls.filter(call => call.name === 'storageSet' && call.input === 'relay/start/ses-1').length;
+
+test("a move keeps the model the chat was on, and the chat's start model is written once", async () => {
+  let asks = 0;
+  const f = fakeRelay({ decision: () => (asks++ === 0 ? { choice: 'execute', confidence: 0.98 } : { choice: 'plan', confidence: 0.98 }) });
+  await run(f);
+  const first = await last(f);
+  assert.deepEqual([first.from, first.model, first.start], ['p/usual', 'p/exec#high', 'p/usual']);
+  assert.equal(f.data.get('relay/start/ses-1'), 'p/usual');
+  await run(f);
+  const second = await last(f);
+  assert.deepEqual([second.from, second.model, second.start], ['p/exec#high', 'p/plan', 'p/usual']);
+  assert.equal(startSets(f), 1);
+});
+
+test('a message that keeps the model records where the chat was and writes no start', async () => {
+  const f = fakeRelay({ chat: { agent: 'build', model: { providerID: 'p', id: 'exec', variant: 'high' } } });
+  await run(f);
+  const record = await last(f);
+  assert.deepEqual([record.from, record.start], ['p/exec#high', null]);
+  assert.equal(startSets(f), 0);
+});
+
+test('a start read that hangs leaves the start unknown and writes nothing; the message is sent once', async () => {
+  const f = fakeRelay({ stored: { 'relay/start/ses-1': 'never' }, readMs: 200 });
+  await run(f);
+  assert.deepEqual(prompts(f), sent);
+  assert.equal((await last(f)).start, null);
+  assert.equal(startSets(f), 0);
+});
+
+test('a failing storage write still sends the message once', async () => {
+  const f = fakeRelay({ fail: { storageSet: new Error('disk full') } });
+  await run(f);
+  assert.deepEqual(prompts(f), sent);
 });

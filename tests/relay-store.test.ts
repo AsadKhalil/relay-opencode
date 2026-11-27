@@ -72,7 +72,7 @@ test('stored settings that cannot be read are an error, not an empty set', async
 });
 
 test('the last 20 decisions are kept, newest first, and what cannot be read is left out', async () => {
-  const db = store(), base = { sessionID: 'ses-1', kind: 'chat', mode: 'plan', confidence: 0.9, fit: 0.8, model: 'p/m', ms: 150, costUsd: '0', note: null } as const;
+  const db = store(), base = { sessionID: 'ses-1', kind: 'chat', mode: 'plan', confidence: 0.9, fit: 0.8, model: 'p/m', ms: 150, costUsd: '0', note: null, from: null, start: null } as const;
   for (let i = 0; i < 23; i++) await recordDecision(db, { ...base, at: `2026-11-14T00:00:${String(i).padStart(2, '0')}.000Z` });
   const recent = await recentDecisions(db);
   assert.deepEqual([recent.length, recent[0].at, recent[19].at], [20, '2026-11-14T00:00:22.000Z', '2026-11-14T00:00:03.000Z']);
@@ -84,7 +84,7 @@ test('the last 20 decisions are kept, newest first, and what cannot be read is l
 });
 
 test("a record keeps its message's id until what the reply took is read; other chats and records already filled are left alone", async () => {
-  const db = store(), base = { sessionID: 'ses-1', kind: 'chat', mode: 'plan', confidence: 0.9, fit: null, model: 'p/m', ms: 150, costUsd: '0', note: null } as const;
+  const db = store(), base = { sessionID: 'ses-1', kind: 'chat', mode: 'plan', confidence: 0.9, fit: null, model: 'p/m', ms: 150, costUsd: '0', note: null, from: null, start: null } as const;
   const took = {
     requests: 3, fresh: 5972, cached: 5672, costUsd: '0.011961', seconds: 0.6, model: 'p/m#high', total: { input: 5762, output: 15, reasoning: 0, cacheRead: 28572, cacheWrite: 300, costUsd: '0.057313' },
     prices: { inputPerMillion: '3', outputPerMillion: '15', cacheReadPerMillion: '0.3', cacheWritePerMillion: '3.75' }, pricesFrom: 'opencode' as const,
@@ -180,4 +180,10 @@ test('a reply still waiting is kept, and counted, when twenty newer records come
   assert.deepEqual((await getUsage(db)).rows.map(row => [row.model, row.messages]), [['p/m#high', 1]]);
   for (let i = 0; i < 60; i++) await recordDecision(db, placed(`wait-${i}`, `msg-${i}`));
   assert.equal((await waitingReplies(db, 'ses-1')).length, 50, 'at most thirty older waiting records stay behind the twenty newest');
+});
+
+test('a record kept before this version reads from and start as null', async () => {
+  const old = { at: '2026-11-20T00:00:00.000Z', sessionID: 'ses-1', kind: 'chat', mode: 'plan', confidence: 0.9, fit: null, model: 'p/m', ms: 150, costUsd: '0', note: null, messageID: null, reply: null };
+  const [read] = await recentDecisions({ async get() { return [old]; } });
+  assert.deepEqual([read.from, read.start], [null, null]);
 });

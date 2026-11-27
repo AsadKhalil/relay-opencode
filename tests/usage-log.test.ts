@@ -12,7 +12,7 @@ const answer = (id: string, created: number, tokens: { input: number; output?: n
 });
 const summary = (id: string, created: number) => ({ id, type: 'compaction', status: 'completed', reason: 'auto', time: { created }, model: { id: 'big', providerID: 'p', variant: 'default' }, cost: 0.008, tokens: { input: 495, output: 5, reasoning: 0, cache: { read: 0, write: 0 } } });
 const chat = { sessionID: 'ses-1', project: 'C:/work/app', helper: false }, noPrices = { models: null, borrowed: null };
-const decision = (messageID: string, extra: Partial<Decision> = {}): Decision => ({ at: '2026-11-24T00:00:00.000Z', sessionID: 'ses-1', kind: 'chat', mode: 'execute', confidence: 0.9, fit: null, model: 'p/big', ms: 10, costUsd: null, note: 'small work, so the cheapest', messageID, reply: null, ...extra });
+const decision = (messageID: string, extra: Partial<Decision> = {}): Decision => ({ at: '2026-11-24T00:00:00.000Z', sessionID: 'ses-1', kind: 'chat', mode: 'execute', confidence: 0.9, fit: null, model: 'p/big', ms: 10, costUsd: null, note: 'small work, so the cheapest', messageID, reply: null, from: null, start: null, ...extra });
 const iso = (ms: number) => new Date(ms).toISOString();
 
 /** Plugin storage in memory: keys in order, `limit` a page, and `next` to go on from. */
